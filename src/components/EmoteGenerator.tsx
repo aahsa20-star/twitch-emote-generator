@@ -93,39 +93,37 @@ export default function EmoteGenerator() {
         />
 
         {/* Subscriber auth */}
-        <div className="bg-gray-800/60 rounded-lg p-3 space-y-2">
-          {isSubscriber ? (
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs text-purple-300 font-medium">AKI限定コンテンツ解放済み</span>
+        {isSubscriber ? (
+          <div className="flex items-center gap-2">
+            <span className="text-[11px] text-emerald-400/80">✨ AKI限定 解放済み</span>
+            <button
+              onClick={handleLogout}
+              className="text-[11px] text-gray-500 hover:text-gray-300 transition-colors"
+            >
+              解除
+            </button>
+          </div>
+        ) : (
+          <div className="bg-gray-800/60 rounded-lg p-3 space-y-2">
+            <label className="text-xs text-gray-400 block">合言葉を入力して限定機能を解放</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={passphrase}
+                onChange={(e) => setPassphrase(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleAuth()}
+                placeholder="合言葉..."
+                className="flex-1 px-2 py-1.5 rounded bg-gray-700 text-gray-100 text-sm placeholder-gray-500 border border-gray-600 focus:border-purple-500 focus:outline-none"
+              />
               <button
-                onClick={handleLogout}
-                className="text-[11px] px-2 py-1 rounded bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-gray-200 transition-colors"
+                onClick={handleAuth}
+                className="px-3 py-1.5 rounded bg-purple-600 text-white text-sm hover:bg-purple-500 transition-colors"
               >
-                リセット
+                解除
               </button>
             </div>
-          ) : (
-            <>
-              <label className="text-xs text-gray-400 block">合言葉を入力して限定機能を解放</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={passphrase}
-                  onChange={(e) => setPassphrase(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleAuth()}
-                  placeholder="合言葉..."
-                  className="flex-1 px-2 py-1.5 rounded bg-gray-700 text-gray-100 text-sm placeholder-gray-500 border border-gray-600 focus:border-purple-500 focus:outline-none"
-                />
-                <button
-                  onClick={handleAuth}
-                  className="px-3 py-1.5 rounded bg-purple-600 text-white text-sm hover:bg-purple-500 transition-colors"
-                >
-                  解除
-                </button>
-              </div>
-            </>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Auth toast */}
         {authToast && (
