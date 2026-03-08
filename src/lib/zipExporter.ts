@@ -21,7 +21,8 @@ function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
 }
 
 export async function exportAsZip(
-  variants: EmoteVariant[]
+  variants: EmoteVariant[],
+  zipFilename: string = "emotes.zip"
 ): Promise<void> {
   const zip = new JSZip();
 
@@ -44,7 +45,7 @@ export async function exportAsZip(
   const url = URL.createObjectURL(zipBlob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = "emotes.zip";
+  a.download = zipFilename;
   document.body.appendChild(a);
   a.click();
   // Delay cleanup to ensure download starts

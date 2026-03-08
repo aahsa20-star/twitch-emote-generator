@@ -1,4 +1,4 @@
-import { AnimationType, EmoteSize } from "@/types/emote";
+import { AnimationType } from "@/types/emote";
 import GIF from "gif.js";
 
 type FrameGenerator = (
@@ -397,7 +397,7 @@ const generators: Record<string, FrameGenerator> = {
 export async function generateGif(
   baseCanvas: HTMLCanvasElement,
   animationType: AnimationType,
-  size: EmoteSize
+  size: number
 ): Promise<Blob> {
   const generator = generators[animationType];
   if (!generator) {

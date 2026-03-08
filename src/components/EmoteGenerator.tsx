@@ -8,7 +8,7 @@ import PreviewArea from "./PreviewArea";
 import DownloadButton from "./DownloadButton";
 import RecommendedPatterns from "./RecommendedPatterns";
 import ShareButton from "./ShareButton";
-import { EmoteConfig } from "@/types/emote";
+import { EmoteConfig, ExportMode } from "@/types/emote";
 
 const SUBSCRIBER_KEY = "emote-subscriber";
 const PASSPHRASE = "saratouin";
@@ -23,6 +23,8 @@ function SpinnerIcon() {
 }
 
 export default function EmoteGenerator() {
+  const [exportMode, setExportMode] = useState<ExportMode>("twitch");
+
   const {
     sourceFile,
     setSourceFile,
@@ -38,7 +40,7 @@ export default function EmoteGenerator() {
     cancelBgRemoval,
     retryBgRemoval,
     useOriginalImage,
-  } = useEmoteProcessor();
+  } = useEmoteProcessor(exportMode);
 
   const [showRetryMenu, setShowRetryMenu] = useState(false);
   const [isSubscriber, setIsSubscriber] = useState(false);
@@ -194,6 +196,26 @@ export default function EmoteGenerator() {
 
       {/* Preview (mobile: order-1, desktop: right column, sticky) */}
       <div className="bg-gray-900 rounded-lg p-4 md:p-6 flex flex-col items-center min-h-[300px] md:min-h-[400px] overflow-y-auto order-1 md:order-none self-start md:sticky md:top-4 md:max-h-screen">
+        {/* Export mode tabs */}
+        <div className="flex w-full mb-4 bg-gray-800 rounded-lg p-0.5">
+          {([
+            { mode: "twitch" as ExportMode, label: "Twitch", sizes: "28 / 56 / 112px" },
+            { mode: "discord" as ExportMode, label: "Discord", sizes: "32 / 64 / 128px" },
+          ]).map(({ mode, label, sizes }) => (
+            <button
+              key={mode}
+              onClick={() => setExportMode(mode)}
+              className={`flex-1 py-1.5 px-3 rounded-md text-xs font-medium transition-colors ${
+                exportMode === mode
+                  ? "bg-purple-600 text-white"
+                  : "text-gray-400 hover:text-gray-200"
+              }`}
+            >
+              {label} <span className="text-[10px] opacity-70">({sizes})</span>
+            </button>
+          ))}
+        </div>
+
         {/* Retry / skip button above preview */}
         {bgRemovedCanvas && stage === "ready" && (
           <div className="relative mb-3">
@@ -239,6 +261,7 @@ export default function EmoteGenerator() {
           stage={stage}
           hasText={!!(config.text.customText.trim() || config.textPreset)}
           textPosition={config.text.position}
+          exportMode={exportMode}
         />
       </div>
 
@@ -256,8 +279,8 @@ export default function EmoteGenerator() {
         {/* DL + Share inside sticky container (desktop only) */}
         {sourceFile && (
           <div className="hidden md:flex flex-col gap-3">
-            <DownloadButton stage={stage} onExport={handleExport} variants={variants} />
-            <ShareButton imageDataUrl={variants.find(v => v.size === 112)?.staticDataUrl ?? null} />
+            <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} />
+            <ShareButton imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
           </div>
         )}
       </div>
@@ -275,8 +298,8 @@ export default function EmoteGenerator() {
       {/* DL + Share (mobile only: order-2) */}
       {sourceFile && (
         <div className="space-y-3 order-2 md:hidden self-start">
-          <DownloadButton stage={stage} onExport={handleExport} variants={variants} />
-          <ShareButton imageDataUrl={variants.find(v => v.size === 112)?.staticDataUrl ?? null} />
+          <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} />
+          <ShareButton imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
         </div>
       )}
     </div>

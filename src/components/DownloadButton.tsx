@@ -1,53 +1,57 @@
 import { useCallback } from "react";
-import { EmoteVariant, ProcessingStage } from "@/types/emote";
+import { EmoteVariant, ExportMode, ProcessingStage } from "@/types/emote";
 
 interface DownloadButtonProps {
   stage: ProcessingStage;
   onExport: () => void;
   variants: EmoteVariant[];
+  exportMode?: ExportMode;
 }
 
 export default function DownloadButton({
   stage,
   onExport,
   variants,
+  exportMode = "twitch",
 }: DownloadButtonProps) {
   const isReady = stage === "ready";
   const isExporting = stage === "exporting";
 
-  const handle112Download = useCallback(() => {
-    const v112 = variants.find((v) => v.size === 112);
-    if (!v112) return;
+  const largestSize = exportMode === "discord" ? 128 : 112;
+
+  const handleLargestDownload = useCallback(() => {
+    const vLargest = variants.find((v) => v.size === largestSize);
+    if (!vLargest) return;
 
     let url: string;
     let needsRevoke = false;
 
-    if (v112.animatedBlob) {
-      url = URL.createObjectURL(v112.animatedBlob);
+    if (vLargest.animatedBlob) {
+      url = URL.createObjectURL(vLargest.animatedBlob);
       needsRevoke = true;
     } else {
-      url = v112.staticDataUrl;
+      url = vLargest.staticDataUrl;
     }
 
     const a = document.createElement("a");
     a.href = url;
-    a.download = v112.filename;
+    a.download = vLargest.filename;
     document.body.appendChild(a);
     a.click();
     setTimeout(() => {
       document.body.removeChild(a);
       if (needsRevoke) URL.revokeObjectURL(url);
     }, 1000);
-  }, [variants]);
+  }, [variants, largestSize]);
 
-  const v112 = variants.find((v) => v.size === 112);
-  const format112 = v112?.animatedBlob ? "GIF" : "PNG";
+  const vLargest = variants.find((v) => v.size === largestSize);
+  const formatLargest = vLargest?.animatedBlob ? "GIF" : "PNG";
 
   return (
     <div className="flex flex-col gap-2">
-      {/* 112px quick download */}
+      {/* Largest size quick download */}
       <button
-        onClick={handle112Download}
+        onClick={handleLargestDownload}
         disabled={!isReady}
         className={`w-full py-2.5 px-4 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${
           isReady
@@ -58,7 +62,7 @@ export default function DownloadButton({
         <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
         </svg>
-        112px {format112} をダウンロード
+        {largestSize}px {formatLargest} をダウンロード
       </button>
 
       {/* ZIP bulk download */}

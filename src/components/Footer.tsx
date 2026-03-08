@@ -13,7 +13,7 @@ export default function Footer() {
         <p className="text-xs text-gray-500 mt-1">改善のために、率直な意見をお聞かせください</p>
       </div>
       <p className="text-center text-gray-500">
-        本サービスはTwitch Interactive, Inc.とは一切関係がありません。「Twitch」はTwitch Interactive, Inc.の登録商標です。
+        本サービスはTwitch Interactive, Inc.およびDiscord Inc.とは一切関係がありません。「Twitch」はTwitch Interactive, Inc.の、「Discord」はDiscord Inc.の登録商標です。
       </p>
       <p className="text-center text-gray-400">
         アップロードした画像はサーバーに送信されません。すべての処理はお使いのブラウザ内で完結します。

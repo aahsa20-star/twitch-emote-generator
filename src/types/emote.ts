@@ -1,6 +1,11 @@
 export const EMOTE_SIZES = [28, 56, 112] as const;
 export type EmoteSize = (typeof EMOTE_SIZES)[number];
 
+export const DISCORD_SIZES = [32, 64, 128] as const;
+export type DiscordSize = (typeof DISCORD_SIZES)[number];
+
+export type ExportMode = "twitch" | "discord";
+
 export type BorderStyle = "none" | "white" | "black" | "shadow" | "custom";
 
 export type AnimationType = "none" | "sway" | "shake" | "blink" | "bounce" | "zoomin" | "spin" | "hearts"
@@ -64,7 +69,7 @@ export type ProcessingStage =
   | "exporting";
 
 export interface EmoteVariant {
-  size: EmoteSize;
+  size: number;
   staticDataUrl: string;
   animatedBlob: Blob | null;
   filename: string;

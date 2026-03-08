@@ -25,21 +25,22 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
     }
   }, [variant.animatedBlob]);
 
-  // Visibility check for 28px only
+  // Visibility check for smallest size only (28px or 32px)
   useEffect(() => {
-    if (variant.size !== 28) {
+    if (variant.size > 32) {
       setVisibilityResult(null);
       return;
     }
 
+    const checkSize = variant.size;
     const img = new Image();
     img.onload = () => {
       const canvas = document.createElement("canvas");
-      canvas.width = 28;
-      canvas.height = 28;
+      canvas.width = checkSize;
+      canvas.height = checkSize;
       const ctx = canvas.getContext("2d");
       if (!ctx) return;
-      ctx.drawImage(img, 0, 0, 28, 28);
+      ctx.drawImage(img, 0, 0, checkSize, checkSize);
       setVisibilityResult(checkVisibility(canvas, hasText, textPosition));
     };
     img.src = variant.staticDataUrl;

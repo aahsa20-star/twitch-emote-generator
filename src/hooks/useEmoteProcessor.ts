@@ -5,7 +5,9 @@ import {
   EmoteConfig,
   EmoteVariant,
   ProcessingStage,
+  ExportMode,
   EMOTE_SIZES,
+  DISCORD_SIZES,
   TEXT_PRESETS,
 } from "@/types/emote";
 import { removeBackground } from "@/lib/backgroundRemoval";
@@ -13,7 +15,7 @@ import { processEmote } from "@/lib/canvasPipeline";
 import { generateGif } from "@/lib/gifEncoder";
 import { exportAsZip } from "@/lib/zipExporter";
 
-export function useEmoteProcessor() {
+export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [bgRemovedCanvas, setBgRemovedCanvas] = useState<HTMLCanvasElement | null>(null);
   const [skipBgRemoval, setSkipBgRemoval] = useState(false);
@@ -138,7 +140,8 @@ export function useEmoteProcessor() {
           // Ensure fonts are loaded before Canvas text rendering
           await document.fonts.ready;
 
-          for (const size of EMOTE_SIZES) {
+          const sizes = exportMode === "discord" ? DISCORD_SIZES : EMOTE_SIZES;
+          for (const size of sizes) {
             const canvas = processEmote(bgRemovedCanvas!, size, config);
             const staticDataUrl = canvas.toDataURL("image/png");
 
@@ -182,7 +185,7 @@ export function useEmoteProcessor() {
         clearTimeout(renderTimeoutRef.current);
       }
     };
-  }, [bgRemovedCanvas, config, sourceFile]);
+  }, [bgRemovedCanvas, config, sourceFile, exportMode]);
 
   // Cancel ongoing background removal
   const cancelBgRemoval = useCallback(async () => {
@@ -224,12 +227,13 @@ export function useEmoteProcessor() {
     if (variants.length === 0) return;
     setStage("exporting");
     try {
-      await exportAsZip(variants);
+      const zipName = exportMode === "discord" ? "discord_emotes.zip" : "emotes.zip";
+      await exportAsZip(variants, zipName);
     } catch (err) {
       console.error("Export failed:", err);
     }
     setStage("ready");
-  }, [variants, sourceFile]);
+  }, [variants, sourceFile, exportMode]);
 
   const updateConfig = useCallback((partial: Partial<EmoteConfig>) => {
     setConfig((prev) => ({ ...prev, ...partial }));

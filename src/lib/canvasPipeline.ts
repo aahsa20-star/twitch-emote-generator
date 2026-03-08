@@ -1,4 +1,4 @@
-import { BorderStyle, EmoteConfig, EmoteSize, TextConfig, TextPosition, TEXT_PRESETS } from "@/types/emote";
+import { BorderStyle, EmoteConfig, TextConfig, TextPosition, TEXT_PRESETS } from "@/types/emote";
 
 interface Bounds {
   top: number;
@@ -284,7 +284,7 @@ const HI_RES = 224;
 
 export function processEmote(
   source: HTMLCanvasElement | HTMLImageElement,
-  size: EmoteSize,
+  size: number,
   config: EmoteConfig
 ): HTMLCanvasElement {
   // 1. Center and resize at high resolution
@@ -293,9 +293,9 @@ export function processEmote(
   // 2. Apply border at high resolution
   canvas = applyBorder(canvas, config.border, config.borderWidth, config.borderColor);
 
-  // 3. Apply text overlay at high resolution (skip for 28px — text is unreadable)
+  // 3. Apply text overlay at high resolution (skip for ≤32px — text is unreadable)
   const textToRender = resolveTextToRender(config);
-  if (textToRender && size > 28) {
+  if (textToRender && size > 32) {
     canvas = applyTextOverlay(canvas, {
       text: textToRender,
       font: config.text.font,

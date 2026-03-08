@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { EmoteVariant, ProcessingStage, TextPosition } from "@/types/emote";
+import { EmoteVariant, ExportMode, ProcessingStage, TextPosition } from "@/types/emote";
 import { applyBorder, applyTextOverlay, centerAndResize } from "@/lib/canvasPipeline";
 import PreviewCard from "./PreviewCard";
 
@@ -12,6 +12,7 @@ interface PreviewAreaProps {
   stage: ProcessingStage;
   hasText?: boolean;
   textPosition?: TextPosition;
+  exportMode?: ExportMode;
 }
 
 const FEATURES = [
@@ -187,9 +188,11 @@ function SampleShowcase() {
   );
 }
 
-const SKELETON_SIZES = [112, 56, 28];
+const SKELETON_SIZES_TWITCH = [112, 56, 28];
+const SKELETON_SIZES_DISCORD = [128, 64, 32];
 
-function SkeletonPreview({ stage }: { stage: ProcessingStage }) {
+function SkeletonPreview({ stage, exportMode = "twitch" }: { stage: ProcessingStage; exportMode?: ExportMode }) {
+  const SKELETON_SIZES = exportMode === "discord" ? SKELETON_SIZES_DISCORD : SKELETON_SIZES_TWITCH;
   const stageLabel =
     stage === "removing-background"
       ? "背景を透過しています..."
@@ -224,13 +227,13 @@ const BG_OPTIONS: { mode: BgMode; label: string; className: string }[] = [
   { mode: "light", label: "ライト", className: "bg-white" },
 ];
 
-export default function PreviewArea({ variants, stage, hasText = false, textPosition = "bottom" }: PreviewAreaProps) {
+export default function PreviewArea({ variants, stage, hasText = false, textPosition = "bottom", exportMode = "twitch" }: PreviewAreaProps) {
   const [bgMode, setBgMode] = useState<BgMode>("checker");
 
   const isProcessing = stage === "removing-background" || stage === "processing" || stage === "generating-preview";
 
   if (variants.length === 0 && isProcessing) {
-    return <SkeletonPreview stage={stage} />;
+    return <SkeletonPreview stage={stage} exportMode={exportMode} />;
   }
 
   if (variants.length === 0) {
