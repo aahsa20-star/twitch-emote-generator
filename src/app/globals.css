@@ -4,7 +4,7 @@
 
 body {
   @apply bg-gray-950 text-gray-100;
-  font-family: var(--font-noto-sans-jp), "Hiragino Kaku Gothic ProN", sans-serif;
+  font-family: var(--font-inter), var(--font-noto-sans-jp), "Hiragino Kaku Gothic ProN", sans-serif;
 }
 
 .checkerboard {

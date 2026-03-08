@@ -111,7 +111,7 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
       </button>
       {visibilityResult && !visibilityResult.ok && (
         <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-900/50 text-yellow-400">
-          {"\u26a0\ufe0f"} {visibilityResult.message}
+          {visibilityResult.message}
         </span>
       )}
     </div>

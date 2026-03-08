@@ -85,7 +85,7 @@ export default function SettingsPanel({
                 }`}
                 title={locked ? "合言葉を入力すると解放されます" : undefined}
               >
-                {locked ? `\u{1F512} ${opt.label}` : opt.label}
+                {opt.label}
               </button>
             );
           })}
@@ -145,7 +145,7 @@ export default function SettingsPanel({
         {/* Presets (subscriber-only) */}
         {TEXT_PRESETS.some((p) => p.subscriberOnly) && (
           <>
-            <p className="text-xs text-gray-500 mt-2 mb-1">{"\u{1F512}"} AKI限定</p>
+            <p className="text-xs text-gray-500 mt-2 mb-1">AKI限定</p>
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
               {TEXT_PRESETS.filter((p) => p.subscriberOnly).map((preset) => {
                 const locked = !isSubscriber;
@@ -168,7 +168,7 @@ export default function SettingsPanel({
                     }`}
                     title={locked ? "合言葉を入力すると解放されます" : undefined}
                   >
-                    {locked ? `\u{1F512} ${preset.label}` : preset.label}
+                    {preset.label}
                   </button>
                 );
               })}
@@ -323,7 +323,7 @@ export default function SettingsPanel({
         {/* Subscriber-only animations */}
         {ANIMATION_OPTIONS.some((o) => o.subscriberOnly) && (
           <>
-            <p className="text-xs text-gray-500 mt-3 mb-1">{"\u{1F512}"} 限定</p>
+            <p className="text-xs text-gray-500 mt-3 mb-1">限定</p>
             <div className="grid grid-cols-2 gap-2">
               {ANIMATION_OPTIONS.filter((o) => o.subscriberOnly).map((opt) => {
                 const locked = !isSubscriber;
@@ -340,7 +340,7 @@ export default function SettingsPanel({
                     }`}
                     title={locked ? "合言葉を入力すると解放されます" : undefined}
                   >
-                    {locked ? `\u{1F512} ${opt.label}` : opt.label}
+                    {opt.label}
                   </button>
                 );
               })}

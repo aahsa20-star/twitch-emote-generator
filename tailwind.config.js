@@ -5,6 +5,9 @@ module.exports = {
   ],
   darkMode: "class",
   theme: {
+    fontFamily: {
+      sans: ['var(--font-inter)', 'var(--font-noto-sans-jp)', '"Hiragino Kaku Gothic ProN"', 'sans-serif'],
+    },
     extend: {
       animation: {
         "fade-in": "fadeIn 0.2s ease-out",

@@ -95,7 +95,7 @@ export default function EmoteGenerator() {
         {/* Subscriber auth */}
         {isSubscriber ? (
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-emerald-400/80">✨ AKI限定 解放済み</span>
+            <span className="text-[11px] text-emerald-400/80">AKI限定 解放済み</span>
             <button
               onClick={handleLogout}
               className="text-[11px] text-gray-500 hover:text-gray-300 transition-colors"

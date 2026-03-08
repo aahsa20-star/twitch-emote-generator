@@ -15,12 +15,12 @@ interface PreviewAreaProps {
 }
 
 const FEATURES = [
-  { icon: "✂️", label: "背景自動透過" },
-  { icon: "🖼️", label: "3サイズ同時出力" },
-  { icon: "🔤", label: "テキスト入れ" },
-  { icon: "🎨", label: "フチ取り" },
-  { icon: "🎬", label: "アニメーション" },
-  { icon: "📦", label: "ZIP一括DL" },
+  "背景自動透過",
+  "3サイズ同時出力",
+  "テキスト入れ",
+  "フチ取り",
+  "アニメーション",
+  "ZIP一括DL",
 ];
 
 interface SamplePattern {
@@ -144,12 +144,12 @@ function SampleShowcase() {
 
       {/* Feature badges */}
       <div className="flex flex-wrap justify-center gap-2">
-        {FEATURES.map((f) => (
+        {FEATURES.map((label) => (
           <span
-            key={f.label}
+            key={label}
             className="text-xs px-2.5 py-1 rounded-full bg-gray-800 text-gray-300 border border-gray-700"
           >
-            {f.icon} {f.label}
+            {label}
           </span>
         ))}
       </div>
@@ -157,9 +157,11 @@ function SampleShowcase() {
       {/* Sample previews */}
       {samples.length > 0 && (
         <div className="w-full space-y-3">
-          <p className="text-xs text-gray-500 text-center tracking-widest">
-            ── サンプル ──
-          </p>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 border-t border-gray-700" />
+            <span className="text-[10px] text-gray-500 uppercase tracking-widest">Sample</span>
+            <div className="flex-1 border-t border-gray-700" />
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
             {samples.map((sample) => (
               <div key={sample.label} className="flex flex-col items-center gap-1">
@@ -216,10 +218,10 @@ function SkeletonPreview({ stage }: { stage: ProcessingStage }) {
   );
 }
 
-const BG_OPTIONS: { mode: BgMode; emoji: string }[] = [
-  { mode: "checker", emoji: "🔲" },
-  { mode: "dark", emoji: "◼️" },
-  { mode: "light", emoji: "⬜" },
+const BG_OPTIONS: { mode: BgMode; label: string; className: string }[] = [
+  { mode: "checker", label: "チェッカー", className: "checkerboard" },
+  { mode: "dark", label: "ダーク", className: "bg-gray-900" },
+  { mode: "light", label: "ライト", className: "bg-white" },
 ];
 
 export default function PreviewArea({ variants, stage, hasText = false, textPosition = "bottom" }: PreviewAreaProps) {
@@ -243,14 +245,14 @@ export default function PreviewArea({ variants, stage, hasText = false, textPosi
           <button
             key={opt.mode}
             onClick={() => setBgMode(opt.mode)}
-            className={`w-7 h-7 flex items-center justify-center rounded text-sm transition-colors ${
+            className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
               bgMode === opt.mode
-                ? "bg-gray-600 ring-1 ring-purple-500"
-                : "bg-gray-800 hover:bg-gray-700"
+                ? "ring-1 ring-purple-500 ring-offset-1 ring-offset-gray-900"
+                : "hover:ring-1 hover:ring-gray-500"
             }`}
-            title={opt.mode}
+            title={opt.label}
           >
-            {opt.emoji}
+            <span className={`block w-4 h-4 rounded-sm ${opt.className} border border-gray-600`} />
           </button>
         ))}
       </div>
