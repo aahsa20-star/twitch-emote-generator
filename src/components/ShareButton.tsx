@@ -32,7 +32,7 @@ export default function ShareButton({ imageDataUrl }: ShareButtonProps) {
             new ClipboardItem({ "image/png": pngBlob }),
           ]);
           setToast(true);
-          setTimeout(() => setToast(false), 3000);
+          setTimeout(() => setToast(false), 5000);
         } catch {
           // Clipboard API not supported or permission denied
         }
@@ -52,10 +52,10 @@ export default function ShareButton({ imageDataUrl }: ShareButtonProps) {
         Xでシェア
       </button>
       {toast && (
-        <div className="absolute -top-12 left-0 right-0 text-center">
-          <span className="inline-block text-xs bg-gray-700 text-gray-200 px-3 py-1.5 rounded-lg shadow-lg animate-fade-in">
-            エモート画像をコピーしました！Xで貼り付けてください
-          </span>
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
+          <div className="bg-purple-600/90 text-white text-sm px-4 py-2.5 rounded-lg shadow-lg animate-fade-in backdrop-blur-sm">
+            エモート画像をコピーしました。Xの投稿画面で貼り付け（Ctrl+V）できます
+          </div>
         </div>
       )}
     </div>

@@ -77,6 +77,19 @@ export const metadata: Metadata = {
   title: "Twitch Emote Generator",
   description:
     "画像をアップロードするだけでTwitchエモートの複数バリエーションを即座に生成。ブラウザ完結型。",
+  metadataBase: new URL("https://twitch-emote-generator.vercel.app"),
+  openGraph: {
+    title: "Twitch Emote Generator",
+    description:
+      "背景透過 → フチ取り → 3サイズ出力まで、ブラウザだけで完結",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Twitch Emote Generator",
+    description:
+      "背景透過 → フチ取り → 3サイズ出力まで、ブラウザだけで完結",
+  },
 };
 
 const fontVars = [
