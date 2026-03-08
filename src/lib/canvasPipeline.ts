@@ -105,34 +105,44 @@ export function applyBorder(
     return result;
   }
 
-  // White or black border: draw image offset in 8 directions, then draw original on top
+  // Shadow-based smooth border: draw colored silhouette with shadowBlur for anti-aliased edges
   const borderColor = style === "white" ? "#ffffff" : "#000000";
-  const borderWidth = Math.max(1, Math.round(size * 0.027)); // ~3px at 112px
+  const borderWidth = Math.max(1, Math.round(size * 0.027));
 
-  // Create a solid-color version of the image
-  const colorCanvas = document.createElement("canvas");
-  colorCanvas.width = size;
-  colorCanvas.height = size;
-  const colorCtx = colorCanvas.getContext("2d")!;
-  colorCtx.drawImage(canvas, 0, 0);
-  colorCtx.globalCompositeOperation = "source-in";
-  colorCtx.fillStyle = borderColor;
-  colorCtx.fillRect(0, 0, size, size);
+  // Create a solid-color silhouette
+  const silhouette = document.createElement("canvas");
+  silhouette.width = size;
+  silhouette.height = size;
+  const silCtx = silhouette.getContext("2d")!;
+  silCtx.drawImage(canvas, 0, 0);
+  silCtx.globalCompositeOperation = "source-in";
+  silCtx.fillStyle = borderColor;
+  silCtx.fillRect(0, 0, size, size);
 
-  // Draw the colored version offset in all directions
-  const offsets = [
-    [-1, -1], [0, -1], [1, -1],
-    [-1, 0],           [1, 0],
-    [-1, 1],  [0, 1],  [1, 1],
-  ];
+  // Use shadow to create smooth anti-aliased border
+  // Draw on an oversized canvas so shadow doesn't clip
+  const pad = borderWidth * 2 + 4;
+  const bigSize = size + pad * 2;
+  const big = document.createElement("canvas");
+  big.width = bigSize;
+  big.height = bigSize;
+  const bigCtx = big.getContext("2d")!;
 
-  for (let b = 1; b <= borderWidth; b++) {
-    for (const [dx, dy] of offsets) {
-      ctx.drawImage(colorCanvas, dx * b, dy * b);
-    }
+  bigCtx.shadowColor = borderColor;
+  bigCtx.shadowBlur = borderWidth;
+  // Draw multiple passes for opacity buildup (shadow alone is semi-transparent)
+  for (let i = 0; i < 3; i++) {
+    bigCtx.shadowOffsetX = 0;
+    bigCtx.shadowOffsetY = 0;
+    bigCtx.drawImage(silhouette, pad, pad);
   }
+  // Clear the silhouette center so only the shadow border remains
+  bigCtx.shadowColor = "transparent";
+  bigCtx.globalCompositeOperation = "destination-out";
+  bigCtx.drawImage(silhouette, pad, pad);
 
-  // Draw original on top
+  // Composite: border shadow + original
+  ctx.drawImage(big, -pad, -pad);
   ctx.drawImage(canvas, 0, 0);
   return result;
 }
@@ -188,14 +198,21 @@ export function applyTextOverlay(
       break;
   }
 
-  // Text stroke (outline for visibility)
-  const strokeWidth = Math.max(1, canvasSize * 0.025);
-  ctx.lineWidth = strokeWidth;
-  ctx.strokeStyle = strokeColor;
-  ctx.lineJoin = "round";
-  ctx.strokeText(text, x, y);
+  // Shadow-based text outline for smooth anti-aliased edges
+  const outlineWidth = Math.max(1, canvasSize * 0.025);
+  ctx.save();
+  ctx.shadowColor = strokeColor;
+  ctx.shadowBlur = outlineWidth;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  ctx.fillStyle = strokeColor;
+  // Multiple passes for full opacity buildup
+  for (let i = 0; i < 4; i++) {
+    ctx.fillText(text, x, y);
+  }
+  ctx.restore();
 
-  // Text fill
+  // Text fill on top
   ctx.fillStyle = fillColor;
   ctx.fillText(text, x, y);
 
@@ -258,9 +275,9 @@ export function processEmote(
   // 2. Apply border at high resolution
   canvas = applyBorder(canvas, config.border);
 
-  // 3. Apply text overlay at high resolution
+  // 3. Apply text overlay at high resolution (skip for 28px — text is unreadable)
   const textToRender = resolveTextToRender(config);
-  if (textToRender) {
+  if (textToRender && size > 28) {
     canvas = applyTextOverlay(canvas, {
       text: textToRender,
       font: config.text.font,
