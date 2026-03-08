@@ -11,7 +11,7 @@ export default function Home() {
           Twitch Emote Generator
         </h1>
         <p className="text-sm text-gray-400 mt-1">
-          画像をアップロードするだけでエモートを自動生成
+          エモート制作の面倒を全部省く
         </p>
       </header>
 

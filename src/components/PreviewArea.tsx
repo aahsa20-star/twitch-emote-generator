@@ -131,10 +131,10 @@ function SampleShowcase() {
       {/* Catchcopy */}
       <div className="text-center space-y-2">
         <p className="text-base font-semibold text-gray-200">
-          1枚の画像から、Twitch向けエモートを即生成
+          背景透過 → フチ取り → 3サイズ出力まで、ブラウザだけで完結
         </p>
         <p className="text-xs text-gray-400">
-          透過・縁取り・文字入れ・アニメ・28/56/112px書き出しまで対応
+          Twitch仕様準拠済み。そのままアップロードできる品質で書き出せる
         </p>
       </div>
 
