@@ -5,6 +5,8 @@ import { EmoteVariant, TextPosition } from "@/types/emote";
 import { applyBorder, applyTextOverlay, centerAndResize } from "@/lib/canvasPipeline";
 import PreviewCard from "./PreviewCard";
 
+type BgMode = "checker" | "dark" | "light";
+
 interface PreviewAreaProps {
   variants: EmoteVariant[];
   hasText?: boolean;
@@ -129,9 +131,10 @@ function SampleShowcase() {
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-lg mx-auto py-4 relative">
       {/* Catchcopy */}
-      <div className="text-center space-y-2">
-        <p className="text-base font-semibold text-gray-200">
-          背景透過 → フチ取り → 3サイズ出力まで、ブラウザだけで完結
+      <div className="text-center space-y-2 w-full px-2">
+        <p className="text-sm md:text-base font-semibold text-gray-200 leading-relaxed">
+          背景透過 → フチ取り →<br className="sm:hidden" />
+          3サイズ出力まで、ブラウザだけで完結
         </p>
         <p className="text-xs text-gray-400">
           Twitch仕様準拠済み。そのままアップロードできる品質で書き出せる
@@ -156,18 +159,18 @@ function SampleShowcase() {
           <p className="text-xs text-gray-500 text-center tracking-widest">
             ── サンプル ──
           </p>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
             {samples.map((sample) => (
-              <div key={sample.label} className="flex flex-col items-center gap-1.5">
+              <div key={sample.label} className="flex flex-col items-center gap-1">
                 {sample.dataUrls.length === 1 ? (
-                  <div className="checkerboard rounded p-1.5 flex items-center justify-center" style={{ width: 80, height: 80 }}>
-                    <img src={sample.dataUrls[0]} alt={sample.label} width={72} height={72} />
+                  <div className="checkerboard rounded p-1 aspect-square w-full flex items-center justify-center">
+                    <img src={sample.dataUrls[0]} alt={sample.label} className="w-[85%] h-[85%] object-contain" />
                   </div>
                 ) : (
-                  <div className="checkerboard rounded p-1.5 flex items-end justify-center gap-1" style={{ width: 80, height: 80 }}>
+                  <div className="checkerboard rounded p-1 aspect-square w-full flex items-end justify-center gap-0.5">
                     {sample.dataUrls.map((url, i) => {
-                      const sizes = [40, 24, 14];
-                      return <img key={i} src={url} alt="" width={sizes[i]} height={sizes[i]} />;
+                      const pcts = ["55%", "35%", "20%"];
+                      return <img key={i} src={url} alt="" style={{ width: pcts[i], height: pcts[i], objectFit: "contain" }} />;
                     })}
                   </div>
                 )}
@@ -181,15 +184,42 @@ function SampleShowcase() {
   );
 }
 
+const BG_OPTIONS: { mode: BgMode; emoji: string }[] = [
+  { mode: "checker", emoji: "🔲" },
+  { mode: "dark", emoji: "◼️" },
+  { mode: "light", emoji: "⬜" },
+];
+
 export default function PreviewArea({ variants, hasText = false, textPosition = "bottom" }: PreviewAreaProps) {
+  const [bgMode, setBgMode] = useState<BgMode>("checker");
+
   if (variants.length === 0) {
     return <SampleShowcase />;
   }
 
   return (
-    <div className="flex flex-col items-center gap-4">
+    <div className="flex flex-col items-center gap-4 relative">
+      {/* Background mode toggle */}
+      <div className="absolute top-0 right-0 flex gap-1">
+        {BG_OPTIONS.map((opt) => (
+          <button
+            key={opt.mode}
+            onClick={() => setBgMode(opt.mode)}
+            className={`w-7 h-7 flex items-center justify-center rounded text-sm transition-colors ${
+              bgMode === opt.mode
+                ? "bg-gray-600 ring-1 ring-purple-500"
+                : "bg-gray-800 hover:bg-gray-700"
+            }`}
+            title={opt.mode}
+          >
+            {opt.emoji}
+          </button>
+        ))}
+      </div>
+
+      <div className="pt-2" />
       {[...variants].reverse().map((variant) => (
-        <PreviewCard key={variant.size} variant={variant} hasText={hasText} textPosition={textPosition} />
+        <PreviewCard key={variant.size} variant={variant} hasText={hasText} textPosition={textPosition} bgMode={bgMode} />
       ))}
     </div>
   );

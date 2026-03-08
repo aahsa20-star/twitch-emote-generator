@@ -152,7 +152,7 @@ export default function RecommendedPatterns({ bgRemovedCanvas, onApply }: Recomm
           </span>
         )}
       </div>
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
         {AUTO_PATTERNS.map((pattern, i) => {
           const preview = previews[i];
           const src = preview?.animatedUrl ?? preview?.staticDataUrl;
@@ -160,25 +160,17 @@ export default function RecommendedPatterns({ bgRemovedCanvas, onApply }: Recomm
           return (
             <div
               key={pattern.label}
-              className="flex flex-col items-center gap-1 bg-gray-800/50 rounded-lg p-1.5"
+              className="flex flex-col items-center gap-1 bg-gray-800/50 rounded-lg p-1.5 min-w-0"
             >
-              <div
-                className="checkerboard rounded"
-                style={{ width: 72, height: 72 }}
-              >
+              <div className="checkerboard rounded aspect-square w-full">
                 {src ? (
                   <img
                     src={src}
                     alt={pattern.label}
-                    width={72}
-                    height={72}
-                    className="block"
+                    className="block w-full h-full object-contain"
                   />
                 ) : (
-                  <div
-                    className="flex items-center justify-center"
-                    style={{ width: 72, height: 72 }}
-                  >
+                  <div className="flex items-center justify-center w-full h-full">
                     <svg
                       className="animate-spin h-4 w-4 text-gray-500"
                       viewBox="0 0 24 24"
@@ -190,11 +182,11 @@ export default function RecommendedPatterns({ bgRemovedCanvas, onApply }: Recomm
                   </div>
                 )}
               </div>
-              <span className="text-[10px] text-gray-400 leading-tight">{pattern.label}</span>
-              <div className="flex gap-1 w-full">
+              <span className="text-[10px] text-gray-400 leading-tight text-center truncate w-full">{pattern.label}</span>
+              <div className="flex gap-0.5 w-full min-w-0">
                 <button
                   onClick={() => onApply(pattern.config)}
-                  className="flex-1 text-[10px] px-1 py-0.5 rounded bg-purple-600/80 text-white hover:bg-purple-500 transition-colors"
+                  className="flex-1 min-w-0 text-[10px] px-0.5 py-0.5 rounded bg-purple-600/80 text-white hover:bg-purple-500 transition-colors truncate"
                   title="この設定を使う"
                 >
                   適用
@@ -202,7 +194,7 @@ export default function RecommendedPatterns({ bgRemovedCanvas, onApply }: Recomm
                 <button
                   onClick={() => handleDownload(i)}
                   disabled={!preview}
-                  className="text-[10px] px-1.5 py-0.5 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="text-[10px] px-0.5 py-0.5 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {pattern.config.animation !== "none" ? "GIF" : "PNG"}
                 </button>

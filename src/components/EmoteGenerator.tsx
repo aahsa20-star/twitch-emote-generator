@@ -44,9 +44,9 @@ export default function EmoteGenerator() {
   };
 
   return (
-    <div className="flex-1 flex gap-6 p-6 max-w-6xl mx-auto w-full">
-      {/* Left: Upload & Settings */}
-      <div className="w-80 flex-shrink-0 space-y-6">
+    <div className="flex-1 grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4 md:gap-6 p-4 md:p-6 max-w-6xl mx-auto w-full items-start">
+      {/* Upload + toggle + progress (top-left on desktop, 1st on mobile) */}
+      <div className="space-y-4 md:space-y-6 order-1 md:order-none">
         <UploadPanel
           onImageSelected={setSourceFile}
           hasImage={!!sourceFile}
@@ -108,22 +108,10 @@ export default function EmoteGenerator() {
               : "エモート生成中..."}
           </div>
         )}
-
-        {sourceFile && (
-          <>
-            <SettingsPanel
-              config={config}
-              onConfigChange={updateConfig}
-              disabled={stage === "removing-background"}
-            />
-            <DownloadButton stage={stage} onExport={handleExport} />
-            <ShareButton imageDataUrl={variants.find(v => v.size === 112)?.staticDataUrl ?? null} />
-          </>
-        )}
       </div>
 
-      {/* Right: Preview */}
-      <div className="flex-1 min-w-0 bg-gray-900 rounded-lg p-6 flex flex-col items-center min-h-[400px] overflow-y-auto">
+      {/* Preview (right column on desktop, 2nd on mobile) */}
+      <div className="bg-gray-900 rounded-lg p-4 md:p-6 flex flex-col items-center min-h-[300px] md:min-h-[400px] overflow-y-auto order-2 md:order-none md:row-span-2">
         {/* Retry / skip button above preview */}
         {bgRemovedCanvas && stage === "ready" && (
           <div className="relative mb-3">
@@ -176,6 +164,19 @@ export default function EmoteGenerator() {
           />
         )}
       </div>
+
+      {/* Settings + Download + Share (bottom-left on desktop, 3rd on mobile) */}
+      {sourceFile && (
+        <div className="space-y-4 md:space-y-6 order-3 md:order-none">
+          <SettingsPanel
+            config={config}
+            onConfigChange={updateConfig}
+            disabled={stage === "removing-background"}
+          />
+          <DownloadButton stage={stage} onExport={handleExport} />
+          <ShareButton imageDataUrl={variants.find(v => v.size === 112)?.staticDataUrl ?? null} />
+        </div>
+      )}
     </div>
   );
 }

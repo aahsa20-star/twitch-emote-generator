@@ -2,13 +2,16 @@ import { EmoteVariant, TextPosition } from "@/types/emote";
 import { useCallback, useEffect, useState } from "react";
 import { checkVisibility, VisibilityResult } from "@/lib/visibilityChecker";
 
+type BgMode = "checker" | "dark" | "light";
+
 interface PreviewCardProps {
   variant: EmoteVariant;
   hasText?: boolean;
   textPosition?: TextPosition;
+  bgMode?: BgMode;
 }
 
-export default function PreviewCard({ variant, hasText = false, textPosition = "bottom" }: PreviewCardProps) {
+export default function PreviewCard({ variant, hasText = false, textPosition = "bottom", bgMode = "checker" }: PreviewCardProps) {
   const [gifUrl, setGifUrl] = useState<string | null>(null);
   const [visibilityResult, setVisibilityResult] = useState<VisibilityResult | null>(null);
 
@@ -74,10 +77,12 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
         {variant.size}x{variant.size}
       </span>
       <div
-        className="group relative checkerboard rounded flex items-center justify-center cursor-pointer"
+        className={`group relative rounded flex items-center justify-center cursor-pointer ${bgMode === "checker" ? "checkerboard" : ""}`}
         style={{
           width: Math.max(variant.size + 16, 60),
           height: Math.max(variant.size + 16, 60),
+          ...(bgMode === "dark" ? { background: "#1a1a2e" } : {}),
+          ...(bgMode === "light" ? { background: "#f0f0f0" } : {}),
         }}
         onClick={handleDownload}
       >
@@ -88,8 +93,8 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
           height={variant.size}
           style={{ imageRendering: variant.size <= 28 ? "pixelated" : "auto" }}
         />
-        <div className="absolute inset-0 bg-black/60 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-          <span className="text-xs font-semibold text-white bg-purple-600 px-3 py-1.5 rounded-md whitespace-nowrap">
+        <div className="absolute inset-0 bg-black/60 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center overflow-hidden">
+          <span className="text-[10px] font-semibold text-white bg-purple-600 px-2 py-1 rounded-md whitespace-nowrap">
             ↓ {variant.size}px {format}
           </span>
         </div>
