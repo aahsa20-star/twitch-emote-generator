@@ -243,21 +243,24 @@ export default function EmoteGenerator() {
       </div>
 
       {/* Settings + DL/Share (mobile: order-4, desktop: sticky left column with DL inside) */}
-      {sourceFile && (
-        <div className="space-y-4 md:space-y-6 order-4 md:order-none self-start md:sticky md:top-4 md:max-h-screen md:overflow-y-auto md:col-start-1">
-          <SettingsPanel
-            config={config}
-            onConfigChange={updateConfig}
-            disabled={stage === "removing-background"}
-            isSubscriber={isSubscriber}
-          />
-          {/* DL + Share inside sticky container (desktop only) */}
+      <div className={`space-y-4 md:space-y-6 order-4 md:order-none self-start md:sticky md:top-4 md:max-h-screen md:overflow-y-auto md:col-start-1 relative ${!sourceFile ? "opacity-40 pointer-events-none select-none" : ""}`}>
+        {!sourceFile && (
+          <p className="text-xs text-gray-400 text-center py-1">画像をアップロードすると設定できます</p>
+        )}
+        <SettingsPanel
+          config={config}
+          onConfigChange={updateConfig}
+          disabled={!sourceFile || stage === "removing-background"}
+          isSubscriber={isSubscriber}
+        />
+        {/* DL + Share inside sticky container (desktop only) */}
+        {sourceFile && (
           <div className="hidden md:flex flex-col gap-3">
             <DownloadButton stage={stage} onExport={handleExport} variants={variants} />
             <ShareButton imageDataUrl={variants.find(v => v.size === 112)?.staticDataUrl ?? null} />
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Recommended patterns (mobile: order-3, desktop: right column) */}
       {bgRemovedCanvas && (
