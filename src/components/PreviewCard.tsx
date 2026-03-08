@@ -99,6 +99,16 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
           </span>
         </div>
       </div>
+      {/* Mobile-only download button (no hover on touch devices) */}
+      <button
+        onClick={handleDownload}
+        className="md:hidden flex items-center gap-1 px-2.5 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-300 text-[11px] transition-colors"
+      >
+        <svg className="w-3 h-3" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V3" />
+        </svg>
+        {variant.size}px {format}
+      </button>
       {visibilityResult && !visibilityResult.ok && (
         <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-900/50 text-yellow-400">
           {"\u26a0\ufe0f"} {visibilityResult.message}

@@ -174,7 +174,7 @@ export default function EmoteGenerator() {
             onConfigChange={updateConfig}
             disabled={stage === "removing-background"}
           />
-          <DownloadButton stage={stage} onExport={handleExport} />
+          <DownloadButton stage={stage} onExport={handleExport} variants={variants} />
           <ShareButton imageDataUrl={variants.find(v => v.size === 112)?.staticDataUrl ?? null} />
         </div>
       )}

@@ -130,12 +130,12 @@ function SampleShowcase() {
   }, []);
 
   return (
-    <div className="flex flex-col items-center gap-6 w-full max-w-lg mx-auto py-4 relative">
+    <div className="flex flex-col items-center gap-6 w-full max-w-lg mx-auto py-4 relative overflow-hidden">
       {/* Catchcopy */}
       <div className="text-center space-y-2 w-full px-2">
-        <p className="text-sm md:text-base font-semibold text-gray-200 leading-relaxed">
+        <p className="text-sm sm:text-base md:text-lg font-semibold text-gray-200 leading-relaxed">
           背景透過 → フチ取り →<br className="sm:hidden" />
-          3サイズ出力まで、ブラウザだけで完結
+          3サイズ出力まで、<br className="sm:hidden" />ブラウザだけで完結
         </p>
         <p className="text-xs text-gray-400">
           Twitch仕様準拠済み。そのままアップロードできる品質で書き出せる
