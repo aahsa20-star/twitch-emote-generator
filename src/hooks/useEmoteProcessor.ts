@@ -119,14 +119,12 @@ export function useEmoteProcessor() {
             if (cancelled) return;
 
             const ext = animatedBlob ? "gif" : "png";
-            const baseName =
-              sourceFile?.name.replace(/\.[^.]+$/, "") ?? "emote";
 
             newVariants.push({
               size,
               staticDataUrl,
               animatedBlob,
-              filename: `${baseName}_${size}x${size}.${ext}`,
+              filename: `emote_${size}px.${ext}`,
             });
           }
 
@@ -158,8 +156,7 @@ export function useEmoteProcessor() {
     if (variants.length === 0) return;
     setStage("exporting");
     try {
-      const baseName = sourceFile?.name.replace(/\.[^.]+$/, "") ?? "emote";
-      await exportAsZip(variants, baseName);
+      await exportAsZip(variants);
     } catch (err) {
       console.error("Export failed:", err);
     }
