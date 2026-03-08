@@ -53,7 +53,7 @@ export default function DownloadButton({
       <button
         onClick={handleLargestDownload}
         disabled={!isReady}
-        className={`w-full py-2.5 px-4 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${
+        className={`w-full py-2.5 px-4 min-h-[44px] md:min-h-0 rounded-lg font-semibold text-sm transition-colors flex items-center justify-center gap-2 ${
           isReady
             ? "bg-purple-600 hover:bg-purple-500 text-white cursor-pointer"
             : "bg-gray-700 text-gray-500 cursor-not-allowed"
@@ -69,7 +69,7 @@ export default function DownloadButton({
       <button
         onClick={onExport}
         disabled={!isReady && !isExporting}
-        className={`w-full py-2 px-4 rounded-lg text-sm transition-colors ${
+        className={`w-full py-2 px-4 min-h-[44px] md:min-h-0 rounded-lg text-sm transition-colors ${
           isReady
             ? "bg-gray-700 hover:bg-gray-600 text-gray-200 cursor-pointer border border-gray-600"
             : isExporting

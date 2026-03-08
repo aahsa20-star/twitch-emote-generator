@@ -187,7 +187,7 @@ export default function RecommendedPatterns({ bgRemovedCanvas, onApply }: Recomm
               <div className="flex gap-0.5 w-full min-w-0">
                 <button
                   onClick={() => onApply(pattern.config)}
-                  className="flex-1 min-w-0 text-[10px] px-0.5 py-0.5 rounded bg-purple-600/80 text-white hover:bg-purple-500 transition-colors truncate"
+                  className="flex-1 min-w-0 text-[10px] px-0.5 py-0.5 min-h-[44px] md:min-h-0 rounded bg-purple-600/80 text-white hover:bg-purple-500 transition-colors truncate"
                   title="この設定を使う"
                 >
                   適用
@@ -195,7 +195,7 @@ export default function RecommendedPatterns({ bgRemovedCanvas, onApply }: Recomm
                 <button
                   onClick={() => handleDownload(i)}
                   disabled={!preview}
-                  className="text-[10px] px-0.5 py-0.5 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  className="text-[10px] px-0.5 py-0.5 min-h-[44px] md:min-h-0 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   {pattern.config.animation !== "none" ? "GIF" : "PNG"}
                 </button>

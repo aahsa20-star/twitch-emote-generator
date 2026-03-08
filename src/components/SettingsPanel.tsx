@@ -76,7 +76,7 @@ export default function SettingsPanel({
               <button
                 key={opt.value}
                 onClick={() => !locked && onConfigChange({ border: opt.value })}
-                className={`px-3 py-2 rounded text-sm transition-colors ${
+                className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
                   locked
                     ? "bg-gray-800 text-gray-600 cursor-not-allowed"
                     : config.border === opt.value
@@ -130,7 +130,7 @@ export default function SettingsPanel({
                   text: { ...config.text, customText: "" },
                 });
               }}
-              className={`px-2 py-2 rounded text-sm transition-colors ${
+              className={`px-2 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
                 config.textPreset === preset.id && !config.text.customText
                   ? "bg-purple-600 text-white"
                   : "bg-gray-700 text-gray-300 hover:bg-gray-600"
@@ -237,7 +237,7 @@ export default function SettingsPanel({
               <button
                 key={opt.value}
                 onClick={() => updateText({ position: opt.value })}
-                className={`px-3 py-1.5 rounded text-sm transition-colors ${
+                className={`px-3 py-1.5 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
                   config.text.position === opt.value
                     ? "bg-purple-600 text-white"
                     : "bg-gray-700 text-gray-300 hover:bg-gray-600"
@@ -292,7 +292,7 @@ export default function SettingsPanel({
             <button
               key={opt.value}
               onClick={() => onConfigChange({ animation: opt.value })}
-              className={`px-3 py-2 rounded text-sm transition-colors ${
+              className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
                 config.animation === opt.value
                   ? "bg-purple-600 text-white"
                   : "bg-gray-700 text-gray-300 hover:bg-gray-600"
@@ -314,7 +314,7 @@ export default function SettingsPanel({
                   <button
                     key={opt.value}
                     onClick={() => !locked && onConfigChange({ animation: opt.value })}
-                    className={`px-3 py-2 rounded text-sm transition-colors ${
+                    className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
                       locked
                         ? "bg-gray-800 text-gray-600 cursor-not-allowed"
                         : config.animation === opt.value

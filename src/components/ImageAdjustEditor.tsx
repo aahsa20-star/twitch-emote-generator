@@ -8,12 +8,17 @@ interface ImageAdjustEditorProps {
   onSkip: () => void;
 }
 
-const CANVAS_SIZE = 280;
+const PC_CANVAS_SIZE = 320;
+const MOBILE_MAX = 300;
+const MOBILE_PADDING = 48;
+const INTERNAL_SIZE = 320; // Internal resolution (always square)
 const CHECK_SIZE = 10;
 const HANDLE_SIZE = 12;
+const HANDLE_SIZE_ACTIVE = 16;
 const HANDLE_HALF = HANDLE_SIZE / 2;
+const HANDLE_HALF_ACTIVE = HANDLE_SIZE_ACTIVE / 2;
 const MIN_CROP = 40;
-const HANDLE_HIT = HANDLE_HALF + 6; // Expanded hit area for touch
+const HANDLE_HIT = HANDLE_HALF + 6;
 
 type HandleId = "tl" | "tc" | "tr" | "ml" | "mr" | "bl" | "bc" | "br";
 type DragMode =
@@ -63,12 +68,22 @@ const HANDLE_CURSORS: Record<HandleId, string> = {
   mr: "ew-resize",
 };
 
+function computeCanvasDisplaySize(): number {
+  if (typeof window === "undefined") return PC_CANVAS_SIZE;
+  const w = window.innerWidth;
+  // md breakpoint = 768px
+  if (w >= 768) return PC_CANVAS_SIZE;
+  return Math.min(MOBILE_MAX, w - MOBILE_PADDING);
+}
+
 export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdjustEditorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [image, setImage] = useState<HTMLImageElement | null>(null);
   const [zoom, setZoom] = useState(100);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
-  const [crop, setCrop] = useState<CropRect>({ x: 0, y: 0, w: CANVAS_SIZE, h: CANVAS_SIZE });
+  const [crop, setCrop] = useState<CropRect>({ x: 0, y: 0, w: INTERNAL_SIZE, h: INTERNAL_SIZE });
+  const [canvasDisplaySize, setCanvasDisplaySize] = useState(computeCanvasDisplaySize);
+  const [activeHandle, setActiveHandle] = useState<HandleId | null>(null);
 
   const dragModeRef = useRef<DragMode>({ type: "none" });
   const dragStartRef = useRef({
@@ -76,8 +91,15 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
     y: 0,
     offsetX: 0,
     offsetY: 0,
-    crop: { x: 0, y: 0, w: CANVAS_SIZE, h: CANVAS_SIZE },
+    crop: { x: 0, y: 0, w: INTERNAL_SIZE, h: INTERNAL_SIZE },
   });
+
+  // Responsive canvas size
+  useEffect(() => {
+    const handleResize = () => setCanvasDisplaySize(computeCanvasDisplaySize());
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   // Load image from file
   useEffect(() => {
@@ -87,7 +109,7 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
       setImage(img);
       setZoom(100);
       setOffset({ x: 0, y: 0 });
-      setCrop({ x: 0, y: 0, w: CANVAS_SIZE, h: CANVAS_SIZE });
+      setCrop({ x: 0, y: 0, w: INTERNAL_SIZE, h: INTERNAL_SIZE });
     };
     img.src = url;
     return () => URL.revokeObjectURL(url);
@@ -100,14 +122,14 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
     const aspect = image.naturalWidth / image.naturalHeight;
     let drawW: number, drawH: number;
     if (aspect >= 1) {
-      drawW = CANVAS_SIZE * scale;
-      drawH = (CANVAS_SIZE / aspect) * scale;
+      drawW = INTERNAL_SIZE * scale;
+      drawH = (INTERNAL_SIZE / aspect) * scale;
     } else {
-      drawH = CANVAS_SIZE * scale;
-      drawW = CANVAS_SIZE * aspect * scale;
+      drawH = INTERNAL_SIZE * scale;
+      drawW = INTERNAL_SIZE * aspect * scale;
     }
-    const drawX = (CANVAS_SIZE - drawW) / 2 + offset.x;
-    const drawY = (CANVAS_SIZE - drawH) / 2 + offset.y;
+    const drawX = (INTERNAL_SIZE - drawW) / 2 + offset.x;
+    const drawY = (INTERNAL_SIZE - drawH) / 2 + offset.y;
     return { drawX, drawY, drawW, drawH };
   }, [image, zoom, offset]);
 
@@ -118,8 +140,8 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
     const ctx = canvas.getContext("2d")!;
 
     // 1. Checkerboard
-    for (let y = 0; y < CANVAS_SIZE; y += CHECK_SIZE) {
-      for (let x = 0; x < CANVAS_SIZE; x += CHECK_SIZE) {
+    for (let y = 0; y < INTERNAL_SIZE; y += CHECK_SIZE) {
+      for (let x = 0; x < INTERNAL_SIZE; x += CHECK_SIZE) {
         ctx.fillStyle =
           (Math.floor(x / CHECK_SIZE) + Math.floor(y / CHECK_SIZE)) % 2 === 0
             ? "#2a2a2a"
@@ -138,27 +160,30 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
 
     // 3. Dark overlay outside crop
     ctx.fillStyle = "rgba(0, 0, 0, 0.55)";
-    ctx.fillRect(0, 0, CANVAS_SIZE, crop.y); // top
-    ctx.fillRect(0, crop.y + crop.h, CANVAS_SIZE, CANVAS_SIZE - crop.y - crop.h); // bottom
+    ctx.fillRect(0, 0, INTERNAL_SIZE, crop.y); // top
+    ctx.fillRect(0, crop.y + crop.h, INTERNAL_SIZE, INTERNAL_SIZE - crop.y - crop.h); // bottom
     ctx.fillRect(0, crop.y, crop.x, crop.h); // left
-    ctx.fillRect(crop.x + crop.w, crop.y, CANVAS_SIZE - crop.x - crop.w, crop.h); // right
+    ctx.fillRect(crop.x + crop.w, crop.y, INTERNAL_SIZE - crop.x - crop.w, crop.h); // right
 
     // 4. Crop border
     ctx.strokeStyle = "rgba(255, 255, 255, 0.85)";
     ctx.lineWidth = 1.5;
     ctx.strokeRect(crop.x + 0.5, crop.y + 0.5, crop.w - 1, crop.h - 1);
 
-    // 5. Handles
+    // 5. Handles (active handle highlighted)
     const handles = getHandlePositions(crop);
-    for (const pos of Object.values(handles)) {
+    for (const [id, pos] of Object.entries(handles)) {
+      const isActive = activeHandle === id;
+      const size = isActive ? HANDLE_SIZE_ACTIVE : HANDLE_SIZE;
+      const half = isActive ? HANDLE_HALF_ACTIVE : HANDLE_HALF;
       ctx.save();
       ctx.shadowColor = "rgba(0,0,0,0.6)";
       ctx.shadowBlur = 3;
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(pos.x - HANDLE_HALF, pos.y - HANDLE_HALF, HANDLE_SIZE, HANDLE_SIZE);
+      ctx.fillStyle = isActive ? "#9146FF" : "#ffffff";
+      ctx.fillRect(pos.x - half, pos.y - half, size, size);
       ctx.restore();
     }
-  }, [image, zoom, offset, crop, getDrawParams]);
+  }, [image, zoom, offset, crop, getDrawParams, activeHandle]);
 
   // Get canvas-relative coordinates from client coordinates
   const getCanvasCoords = useCallback((clientX: number, clientY: number) => {
@@ -166,8 +191,8 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
     if (!canvas) return { x: 0, y: 0 };
     const rect = canvas.getBoundingClientRect();
     return {
-      x: ((clientX - rect.left) / rect.width) * CANVAS_SIZE,
-      y: ((clientY - rect.top) / rect.height) * CANVAS_SIZE,
+      x: ((clientX - rect.left) / rect.width) * INTERNAL_SIZE,
+      y: ((clientY - rect.top) / rect.height) * INTERNAL_SIZE,
     };
   }, []);
 
@@ -180,6 +205,7 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
       const handle = hitTestHandle(cx, cy, crop);
       if (handle) {
         dragModeRef.current = { type: "handle", id: handle };
+        setActiveHandle(handle);
         dragStartRef.current = {
           x: clientX,
           y: clientY,
@@ -226,8 +252,8 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
         const canvas = canvasRef.current;
         if (!canvas) return;
         const rect = canvas.getBoundingClientRect();
-        const sdx = (dx / rect.width) * CANVAS_SIZE;
-        const sdy = (dy / rect.height) * CANVAS_SIZE;
+        const sdx = (dx / rect.width) * INTERNAL_SIZE;
+        const sdy = (dy / rect.height) * INTERNAL_SIZE;
         const prev = dragStartRef.current.crop;
         const right = prev.x + prev.w;
         const bottom = prev.y + prev.h;
@@ -250,7 +276,7 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
             break;
           case "tr":
             ny = Math.max(0, Math.min(prev.y + sdy, bottom - MIN_CROP));
-            nw = Math.max(MIN_CROP, Math.min(prev.w + sdx, CANVAS_SIZE - prev.x));
+            nw = Math.max(MIN_CROP, Math.min(prev.w + sdx, INTERNAL_SIZE - prev.x));
             nh = bottom - ny;
             break;
           case "ml":
@@ -258,19 +284,19 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
             nw = right - nx;
             break;
           case "mr":
-            nw = Math.max(MIN_CROP, Math.min(prev.w + sdx, CANVAS_SIZE - prev.x));
+            nw = Math.max(MIN_CROP, Math.min(prev.w + sdx, INTERNAL_SIZE - prev.x));
             break;
           case "bl":
             nx = Math.max(0, Math.min(prev.x + sdx, right - MIN_CROP));
             nw = right - nx;
-            nh = Math.max(MIN_CROP, Math.min(prev.h + sdy, CANVAS_SIZE - prev.y));
+            nh = Math.max(MIN_CROP, Math.min(prev.h + sdy, INTERNAL_SIZE - prev.y));
             break;
           case "bc":
-            nh = Math.max(MIN_CROP, Math.min(prev.h + sdy, CANVAS_SIZE - prev.y));
+            nh = Math.max(MIN_CROP, Math.min(prev.h + sdy, INTERNAL_SIZE - prev.y));
             break;
           case "br":
-            nw = Math.max(MIN_CROP, Math.min(prev.w + sdx, CANVAS_SIZE - prev.x));
-            nh = Math.max(MIN_CROP, Math.min(prev.h + sdy, CANVAS_SIZE - prev.y));
+            nw = Math.max(MIN_CROP, Math.min(prev.w + sdx, INTERNAL_SIZE - prev.x));
+            nh = Math.max(MIN_CROP, Math.min(prev.h + sdy, INTERNAL_SIZE - prev.y));
             break;
         }
 
@@ -282,6 +308,7 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
 
   const handlePointerUp = useCallback(() => {
     dragModeRef.current = { type: "none" };
+    setActiveHandle(null);
   }, []);
 
   // Mouse events with dynamic cursor
@@ -321,7 +348,7 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
   const handleReset = () => {
     setZoom(100);
     setOffset({ x: 0, y: 0 });
-    setCrop({ x: 0, y: 0, w: CANVAS_SIZE, h: CANVAS_SIZE });
+    setCrop({ x: 0, y: 0, w: INTERNAL_SIZE, h: INTERNAL_SIZE });
   };
 
   const handleConfirm = () => {
@@ -329,8 +356,8 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
 
     // Render the image (without overlay) to a temp canvas
     const temp = document.createElement("canvas");
-    temp.width = CANVAS_SIZE;
-    temp.height = CANVAS_SIZE;
+    temp.width = INTERNAL_SIZE;
+    temp.height = INTERNAL_SIZE;
     const tempCtx = temp.getContext("2d")!;
     const params = getDrawParams();
     if (params) {
@@ -341,15 +368,15 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
 
     // Extract crop region → square output
     const output = document.createElement("canvas");
-    output.width = CANVAS_SIZE;
-    output.height = CANVAS_SIZE;
+    output.width = INTERNAL_SIZE;
+    output.height = INTERNAL_SIZE;
     const outCtx = output.getContext("2d")!;
     outCtx.imageSmoothingEnabled = true;
     outCtx.imageSmoothingQuality = "high";
     outCtx.drawImage(
       temp,
       crop.x, crop.y, crop.w, crop.h,
-      0, 0, CANVAS_SIZE, CANVAS_SIZE
+      0, 0, INTERNAL_SIZE, INTERNAL_SIZE
     );
 
     output.toBlob((blob) => {
@@ -367,10 +394,10 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
 
       <canvas
         ref={canvasRef}
-        width={CANVAS_SIZE}
-        height={CANVAS_SIZE}
+        width={INTERNAL_SIZE}
+        height={INTERNAL_SIZE}
         className="rounded-lg border border-gray-600 touch-none"
-        style={{ width: CANVAS_SIZE, height: CANVAS_SIZE }}
+        style={{ width: canvasDisplaySize, height: canvasDisplaySize }}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={handlePointerUp}
@@ -378,9 +405,10 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
         onTouchStart={onTouchStart}
         onTouchMove={onTouchMove}
         onTouchEnd={handlePointerUp}
+        onTouchCancel={handlePointerUp}
       />
 
-      <div className="w-full max-w-[280px]">
+      <div className="w-full" style={{ maxWidth: canvasDisplaySize }}>
         <label className="text-xs text-gray-400 block mb-1">
           ズーム: {zoom}%
         </label>
@@ -397,19 +425,19 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
       <div className="flex gap-2">
         <button
           onClick={handleConfirm}
-          className="px-4 py-2 rounded bg-purple-600 text-white text-sm font-medium hover:bg-purple-500 transition-colors"
+          className="px-4 py-2 rounded bg-purple-600 text-white text-sm font-medium hover:bg-purple-500 transition-colors min-h-[44px] md:min-h-0"
         >
           この位置で確定
         </button>
         <button
           onClick={handleReset}
-          className="px-4 py-2 rounded bg-gray-700 text-gray-300 text-sm hover:bg-gray-600 transition-colors"
+          className="px-4 py-2 rounded bg-gray-700 text-gray-300 text-sm hover:bg-gray-600 transition-colors min-h-[44px] md:min-h-0"
         >
           リセット
         </button>
         <button
           onClick={onSkip}
-          className="px-4 py-2 rounded bg-gray-700 text-gray-300 text-sm hover:bg-gray-600 transition-colors"
+          className="px-4 py-2 rounded bg-gray-700 text-gray-300 text-sm hover:bg-gray-600 transition-colors min-h-[44px] md:min-h-0"
         >
           スキップ
         </button>

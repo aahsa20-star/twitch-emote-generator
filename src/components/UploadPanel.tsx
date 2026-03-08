@@ -81,7 +81,7 @@ export default function UploadPanel({
       <input
         ref={inputRef}
         type="file"
-        accept="image/png,image/jpeg,image/webp"
+        accept="image/*"
         className="hidden"
         onChange={handleChange}
       />
@@ -103,8 +103,11 @@ export default function UploadPanel({
             alt="アップロード画像"
             className="mx-auto max-h-40 object-contain rounded"
           />
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-gray-400 hidden md:block">
             クリックまたはD&Dで画像を変更
+          </p>
+          <p className="text-sm text-gray-400 md:hidden">
+            タップして画像を変更
           </p>
         </div>
       ) : (
@@ -123,9 +126,10 @@ export default function UploadPanel({
             />
           </svg>
           <div>
-            <p className="text-gray-300">画像をドラッグ&ドロップ</p>
+            <p className="text-gray-300 hidden md:block">画像をドラッグ&ドロップ</p>
+            <p className="text-gray-300 md:hidden">タップして画像を選択</p>
             <p className="text-sm text-gray-500 mt-1">
-              またはクリックして選択（PNG / JPG / WEBP）
+              PNG / JPG / WEBP
             </p>
           </div>
         </div>
