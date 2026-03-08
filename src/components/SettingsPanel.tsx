@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from "react";
 import {
   EmoteConfig,
   TextConfig,
@@ -13,6 +14,41 @@ interface SettingsPanelProps {
   config: EmoteConfig;
   onConfigChange: (partial: Partial<EmoteConfig>) => void;
   disabled: boolean;
+}
+
+function ColorPicker({
+  value,
+  onChange,
+  label,
+}: {
+  value: string;
+  onChange: (color: string) => void;
+  label: string;
+}) {
+  const [local, setLocal] = useState(value);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sync from parent when config changes externally (e.g. preset applied)
+  useEffect(() => {
+    setLocal(value);
+  }, [value]);
+
+  return (
+    <div className="flex-1">
+      <label className="text-xs text-gray-400 block mb-1">{label}</label>
+      <div className="flex items-center gap-2">
+        <input
+          ref={inputRef}
+          type="color"
+          value={local}
+          onInput={(e) => setLocal((e.target as HTMLInputElement).value)}
+          onChange={(e) => onChange(e.target.value)}
+          className="w-8 h-8 rounded border border-gray-600 bg-transparent cursor-pointer"
+        />
+        <span className="text-xs text-gray-400 font-mono">{local}</span>
+      </div>
+    </div>
+  );
 }
 
 export default function SettingsPanel({
@@ -113,34 +149,16 @@ export default function SettingsPanel({
 
         {/* Colors row */}
         <div className="flex gap-4">
-          <div className="flex-1">
-            <label className="text-xs text-gray-400 block mb-1">文字色</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                value={config.text.fillColor}
-                onChange={(e) => updateText({ fillColor: e.target.value })}
-                className="w-8 h-8 rounded border border-gray-600 bg-transparent cursor-pointer"
-              />
-              <span className="text-xs text-gray-400 font-mono">
-                {config.text.fillColor}
-              </span>
-            </div>
-          </div>
-          <div className="flex-1">
-            <label className="text-xs text-gray-400 block mb-1">縁取り色</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="color"
-                value={config.text.strokeColor}
-                onChange={(e) => updateText({ strokeColor: e.target.value })}
-                className="w-8 h-8 rounded border border-gray-600 bg-transparent cursor-pointer"
-              />
-              <span className="text-xs text-gray-400 font-mono">
-                {config.text.strokeColor}
-              </span>
-            </div>
-          </div>
+          <ColorPicker
+            label="文字色"
+            value={config.text.fillColor}
+            onChange={(c) => updateText({ fillColor: c })}
+          />
+          <ColorPicker
+            label="縁取り色"
+            value={config.text.strokeColor}
+            onChange={(c) => updateText({ strokeColor: c })}
+          />
         </div>
 
         {/* Text position */}
