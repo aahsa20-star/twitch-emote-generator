@@ -66,17 +66,20 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
     }, 1000);
   }, [variant]);
 
+  const format = variant.animatedBlob ? "GIF" : "PNG";
+
   return (
     <div className="flex flex-col items-center gap-2">
       <span className="text-xs text-gray-400 font-mono">
         {variant.size}x{variant.size}
       </span>
       <div
-        className="checkerboard rounded flex items-center justify-center"
+        className="group relative checkerboard rounded flex items-center justify-center cursor-pointer"
         style={{
           width: Math.max(variant.size + 16, 60),
           height: Math.max(variant.size + 16, 60),
         }}
+        onClick={handleDownload}
       >
         <img
           src={displayUrl}
@@ -85,18 +88,17 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
           height={variant.size}
           style={{ imageRendering: variant.size <= 28 ? "pixelated" : "auto" }}
         />
+        <div className="absolute inset-0 bg-black/60 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+          <span className="text-xs font-semibold text-white bg-purple-600 px-3 py-1.5 rounded-md whitespace-nowrap">
+            ↓ {variant.size}px {format}
+          </span>
+        </div>
       </div>
       {visibilityResult && !visibilityResult.ok && (
         <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-900/50 text-yellow-400">
           {"\u26a0\ufe0f"} {visibilityResult.message}
         </span>
       )}
-      <button
-        onClick={handleDownload}
-        className="text-xs px-3 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
-      >
-        {variant.animatedBlob ? "GIF" : "PNG"} DL
-      </button>
     </div>
   );
 }
