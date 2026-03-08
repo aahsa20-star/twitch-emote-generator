@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useEmoteProcessor } from "@/hooks/useEmoteProcessor";
 import UploadPanel from "./UploadPanel";
+import ImageAdjustEditor from "./ImageAdjustEditor";
 import SettingsPanel from "./SettingsPanel";
 import PreviewArea from "./PreviewArea";
 import DownloadButton from "./DownloadButton";
@@ -42,6 +43,7 @@ export default function EmoteGenerator() {
     useOriginalImage,
   } = useEmoteProcessor(exportMode);
 
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [showRetryMenu, setShowRetryMenu] = useState(false);
   const [isSubscriber, setIsSubscriber] = useState(false);
   const [passphrase, setPassphrase] = useState("");
@@ -81,6 +83,22 @@ export default function EmoteGenerator() {
     });
   };
 
+  const handleImageSelected = (file: File) => {
+    setPendingFile(file);
+  };
+
+  const handleAdjustConfirm = (adjustedFile: File) => {
+    setPendingFile(null);
+    setSourceFile(adjustedFile);
+  };
+
+  const handleAdjustSkip = () => {
+    if (pendingFile) {
+      setSourceFile(pendingFile);
+    }
+    setPendingFile(null);
+  };
+
   const handleApplyPattern = (patternConfig: EmoteConfig) => {
     updateConfig(patternConfig);
   };
@@ -90,9 +108,18 @@ export default function EmoteGenerator() {
       {/* Upload + toggle + progress (top-left on desktop, 1st on mobile) */}
       <div className="space-y-4 md:space-y-6 order-1 md:order-none self-start">
         <UploadPanel
-          onImageSelected={setSourceFile}
-          hasImage={!!sourceFile}
+          onImageSelected={handleImageSelected}
+          hasImage={!!sourceFile || !!pendingFile}
         />
+
+        {/* Image adjust editor */}
+        {pendingFile && (
+          <ImageAdjustEditor
+            file={pendingFile}
+            onConfirm={handleAdjustConfirm}
+            onSkip={handleAdjustSkip}
+          />
+        )}
 
         {/* Subscriber auth */}
         {isSubscriber ? (
