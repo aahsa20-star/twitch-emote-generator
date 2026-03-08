@@ -16,6 +16,7 @@ import { exportAsZip } from "@/lib/zipExporter";
 export function useEmoteProcessor() {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [bgRemovedCanvas, setBgRemovedCanvas] = useState<HTMLCanvasElement | null>(null);
+  const [skipBgRemoval, setSkipBgRemoval] = useState(false);
   const [config, setConfig] = useState<EmoteConfig>({
     border: "none",
     textPreset: null,
@@ -33,48 +34,74 @@ export function useEmoteProcessor() {
   const [variants, setVariants] = useState<EmoteVariant[]>([]);
 
   const renderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bgRemovalCancelledRef = useRef(false);
 
-  // Effect 1: Background removal when source changes
+  // Load image as canvas (shared helper)
+  const fileToCanvas = useCallback(async (file: File): Promise<HTMLCanvasElement> => {
+    const blob = new Blob([await file.arrayBuffer()], { type: file.type });
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    await new Promise<void>((resolve, reject) => {
+      img.onload = () => resolve();
+      img.onerror = () => reject(new Error("Failed to load image"));
+      img.src = url;
+    });
+    URL.revokeObjectURL(url);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = img.naturalWidth;
+    canvas.height = img.naturalHeight;
+    const ctx = canvas.getContext("2d")!;
+    ctx.drawImage(img, 0, 0);
+    return canvas;
+  }, []);
+
+  // Effect 1: Background removal (or skip) when source changes
   useEffect(() => {
     if (!sourceFile) return;
+    bgRemovalCancelledRef.current = false;
     let cancelled = false;
 
     async function process() {
+      setVariants([]);
+
+      if (skipBgRemoval) {
+        // Skip: use original image directly
+        setStage("processing");
+        try {
+          const canvas = await fileToCanvas(sourceFile!);
+          if (!cancelled && !bgRemovalCancelledRef.current) {
+            setBgRemovedCanvas(canvas);
+          }
+        } catch (err) {
+          console.error("Image loading failed:", err);
+          if (!cancelled) setStage("idle");
+        }
+        return;
+      }
+
       setStage("removing-background");
       setProgress(0);
-      setVariants([]);
 
       try {
         const blob = new Blob([await sourceFile!.arrayBuffer()], {
           type: sourceFile!.type,
         });
         const resultBlob = await removeBackground(blob, (p) => {
-          if (!cancelled) setProgress(p);
+          if (!cancelled && !bgRemovalCancelledRef.current) setProgress(p);
         });
-        if (cancelled) return;
+        if (cancelled || bgRemovalCancelledRef.current) return;
 
-        // Convert to canvas via Image
-        const url = URL.createObjectURL(resultBlob);
-        const img = new Image();
-        await new Promise<void>((resolve, reject) => {
-          img.onload = () => resolve();
-          img.onerror = () => reject(new Error("Failed to load processed image"));
-          img.src = url;
-        });
-        URL.revokeObjectURL(url);
+        const canvas = await fileToCanvas(
+          new File([resultBlob], "bg-removed.png", { type: "image/png" })
+        );
 
-        const canvas = document.createElement("canvas");
-        canvas.width = img.naturalWidth;
-        canvas.height = img.naturalHeight;
-        const ctx = canvas.getContext("2d")!;
-        ctx.drawImage(img, 0, 0);
-
-        if (!cancelled) {
+        if (!cancelled && !bgRemovalCancelledRef.current) {
           setBgRemovedCanvas(canvas);
         }
       } catch (err) {
         console.error("Background removal failed:", err);
-        if (!cancelled) {
+        if (!cancelled && !bgRemovalCancelledRef.current) {
           setStage("idle");
         }
       }
@@ -84,7 +111,7 @@ export function useEmoteProcessor() {
     return () => {
       cancelled = true;
     };
-  }, [sourceFile]);
+  }, [sourceFile, skipBgRemoval, fileToCanvas]);
 
   // Effect 2: Render previews when bgRemovedCanvas or config changes
   useEffect(() => {
@@ -152,6 +179,42 @@ export function useEmoteProcessor() {
     };
   }, [bgRemovedCanvas, config, sourceFile]);
 
+  // Cancel ongoing background removal
+  const cancelBgRemoval = useCallback(async () => {
+    bgRemovalCancelledRef.current = true;
+    if (!sourceFile) return;
+
+    // Fall back to original image
+    try {
+      const canvas = await fileToCanvas(sourceFile);
+      setBgRemovedCanvas(canvas);
+      setSkipBgRemoval(true);
+    } catch {
+      setStage("idle");
+    }
+  }, [sourceFile, fileToCanvas]);
+
+  // Retry background removal
+  const retryBgRemoval = useCallback(() => {
+    if (!sourceFile) return;
+    setSkipBgRemoval(false);
+    setBgRemovedCanvas(null);
+    // Force re-trigger by setting source file again
+    setSourceFile(Object.assign(new File([sourceFile], sourceFile.name, { type: sourceFile.type }), {}));
+  }, [sourceFile]);
+
+  // Use original image (skip bg removal after it was already done)
+  const useOriginalImage = useCallback(async () => {
+    if (!sourceFile) return;
+    setSkipBgRemoval(true);
+    try {
+      const canvas = await fileToCanvas(sourceFile);
+      setBgRemovedCanvas(canvas);
+    } catch {
+      setStage("idle");
+    }
+  }, [sourceFile, fileToCanvas]);
+
   const handleExport = useCallback(async () => {
     if (variants.length === 0) return;
     setStage("exporting");
@@ -177,5 +240,10 @@ export function useEmoteProcessor() {
     progress,
     variants,
     handleExport,
+    skipBgRemoval,
+    setSkipBgRemoval,
+    cancelBgRemoval,
+    retryBgRemoval,
+    useOriginalImage,
   };
 }
