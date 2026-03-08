@@ -85,9 +85,6 @@ export const TEXT_PRESETS: TextPreset[] = [
   { id: "egui", label: "えぐい", text: "えぐい" },
   { id: "nande", label: "なんで", text: "なんで" },
   { id: "kusahaeru", label: "草生える", text: "草生える" },
-  { id: "howsitgoing", label: "How's it going?", text: "How's it going?", subscriberOnly: true },
-  { id: "yurusanee", label: "許せねぇよ", text: "許せねぇよ", subscriberOnly: true },
-  { id: "saratouin", label: "皿党員", text: "皿党員", subscriberOnly: true },
 ];
 
 export interface BorderOption {

@@ -120,9 +120,8 @@ export default function SettingsPanel({
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-gray-300">テキスト</h3>
 
-        {/* Presets (free) */}
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-          {TEXT_PRESETS.filter((p) => !p.subscriberOnly).map((preset) => (
+          {TEXT_PRESETS.map((preset) => (
             <button
               key={preset.id}
               onClick={() => {
@@ -142,39 +141,6 @@ export default function SettingsPanel({
           ))}
         </div>
 
-        {/* Presets (subscriber-only) */}
-        {TEXT_PRESETS.some((p) => p.subscriberOnly) && (
-          <>
-            <p className="text-xs text-gray-500 mt-2 mb-1">AKI限定</p>
-            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-              {TEXT_PRESETS.filter((p) => p.subscriberOnly).map((preset) => {
-                const locked = !isSubscriber;
-                return (
-                  <button
-                    key={preset.id}
-                    onClick={() => {
-                      if (locked) return;
-                      onConfigChange({
-                        textPreset: config.textPreset === preset.id ? null : preset.id,
-                        text: { ...config.text, customText: "" },
-                      });
-                    }}
-                    className={`px-2 py-2 rounded text-sm transition-colors ${
-                      locked
-                        ? "bg-gray-800 text-gray-600 cursor-not-allowed"
-                        : config.textPreset === preset.id && !config.text.customText
-                        ? "bg-purple-600 text-white"
-                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    }`}
-                    title={locked ? "合言葉を入力すると解放されます" : undefined}
-                  >
-                    {preset.label}
-                  </button>
-                );
-              })}
-            </div>
-          </>
-        )}
 
         {/* Custom text input */}
         <input
