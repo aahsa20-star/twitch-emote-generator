@@ -135,7 +135,7 @@ function SampleShowcase() {
       <div className="text-center space-y-2 w-full px-2">
         <p className="text-sm sm:text-base md:text-lg font-semibold text-gray-200 leading-relaxed">
           背景透過 → フチ取り →<br className="sm:hidden" />
-          3サイズ出力まで、<br className="sm:hidden" />ブラウザだけで完結
+          3サイズ出力まで、<br className="sm:hidden" /><span className="whitespace-nowrap">ブラウザだけで完結</span>
         </p>
         <p className="text-xs text-gray-400">
           Twitch仕様準拠済み。そのままアップロードできる品質で書き出せる
