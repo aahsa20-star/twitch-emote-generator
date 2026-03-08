@@ -20,6 +20,7 @@ export function useEmoteProcessor() {
   const [config, setConfig] = useState<EmoteConfig>({
     border: "none",
     borderWidth: 4,
+    borderColor: "#ffffff",
     textPreset: null,
     text: {
       customText: "",

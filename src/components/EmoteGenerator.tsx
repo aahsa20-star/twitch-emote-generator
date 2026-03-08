@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useEmoteProcessor } from "@/hooks/useEmoteProcessor";
 import UploadPanel from "./UploadPanel";
 import SettingsPanel from "./SettingsPanel";
@@ -9,6 +9,9 @@ import DownloadButton from "./DownloadButton";
 import RecommendedPatterns from "./RecommendedPatterns";
 import ShareButton from "./ShareButton";
 import { EmoteConfig } from "@/types/emote";
+
+const SUBSCRIBER_KEY = "emote-subscriber";
+const PASSPHRASE = "saratouin";
 
 function SpinnerIcon() {
   return (
@@ -38,6 +41,43 @@ export default function EmoteGenerator() {
   } = useEmoteProcessor();
 
   const [showRetryMenu, setShowRetryMenu] = useState(false);
+  const [isSubscriber, setIsSubscriber] = useState(false);
+  const [passphrase, setPassphrase] = useState("");
+  const [authToast, setAuthToast] = useState<string | null>(null);
+
+  // Restore subscriber status from localStorage
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(SUBSCRIBER_KEY) === "true") {
+        setIsSubscriber(true);
+      }
+    } catch {}
+  }, []);
+
+  const handleAuth = () => {
+    if (passphrase.trim().toLowerCase() === PASSPHRASE) {
+      setIsSubscriber(true);
+      setPassphrase("");
+      try { localStorage.setItem(SUBSCRIBER_KEY, "true"); } catch {}
+      setAuthToast("限定コンテンツが解放されました！");
+      setTimeout(() => setAuthToast(null), 3000);
+    } else {
+      setAuthToast("合言葉が違います");
+      setTimeout(() => setAuthToast(null), 3000);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsSubscriber(false);
+    try { localStorage.removeItem(SUBSCRIBER_KEY); } catch {}
+    // Reset subscriber-only config values to defaults
+    updateConfig({
+      border: config.border === "custom" ? "none" : config.border,
+      borderColor: "#ffffff",
+      animation: ["gaming", "glitch", "sparkle", "afterimage", "fastspin"].includes(config.animation) ? "none" : config.animation,
+      textPreset: config.textPreset && ["howsitgoing", "yurusanee", "saratouin"].includes(config.textPreset) ? null : config.textPreset,
+    });
+  };
 
   const handleApplyPattern = (patternConfig: EmoteConfig) => {
     updateConfig(patternConfig);
@@ -51,6 +91,50 @@ export default function EmoteGenerator() {
           onImageSelected={setSourceFile}
           hasImage={!!sourceFile}
         />
+
+        {/* Subscriber auth */}
+        <div className="bg-gray-800/60 rounded-lg p-3 space-y-2">
+          {isSubscriber ? (
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs text-purple-300 font-medium">AKI限定コンテンツ解放済み</span>
+              <button
+                onClick={handleLogout}
+                className="text-[11px] px-2 py-1 rounded bg-gray-700 text-gray-400 hover:bg-gray-600 hover:text-gray-200 transition-colors"
+              >
+                リセット
+              </button>
+            </div>
+          ) : (
+            <>
+              <label className="text-xs text-gray-400 block">合言葉を入力して限定機能を解放</label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={passphrase}
+                  onChange={(e) => setPassphrase(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleAuth()}
+                  placeholder="合言葉..."
+                  className="flex-1 px-2 py-1.5 rounded bg-gray-700 text-gray-100 text-sm placeholder-gray-500 border border-gray-600 focus:border-purple-500 focus:outline-none"
+                />
+                <button
+                  onClick={handleAuth}
+                  className="px-3 py-1.5 rounded bg-purple-600 text-white text-sm hover:bg-purple-500 transition-colors"
+                >
+                  解除
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        {/* Auth toast */}
+        {authToast && (
+          <div className={`text-xs px-3 py-2 rounded-lg text-center ${
+            authToast.includes("解放") ? "bg-purple-600/30 text-purple-300" : "bg-red-600/30 text-red-300"
+          }`}>
+            {authToast}
+          </div>
+        )}
 
         {/* Skip background removal toggle */}
         {sourceFile && (
@@ -167,6 +251,7 @@ export default function EmoteGenerator() {
             config={config}
             onConfigChange={updateConfig}
             disabled={stage === "removing-background"}
+            isSubscriber={isSubscriber}
           />
           {/* DL + Share inside sticky container (desktop only) */}
           <div className="hidden md:flex flex-col gap-3">

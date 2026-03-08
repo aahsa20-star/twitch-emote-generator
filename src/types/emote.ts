@@ -1,9 +1,10 @@
 export const EMOTE_SIZES = [28, 56, 112] as const;
 export type EmoteSize = (typeof EMOTE_SIZES)[number];
 
-export type BorderStyle = "none" | "white" | "black" | "shadow";
+export type BorderStyle = "none" | "white" | "black" | "shadow" | "custom";
 
-export type AnimationType = "none" | "sway" | "shake" | "blink" | "bounce" | "zoomin" | "spin" | "hearts";
+export type AnimationType = "none" | "sway" | "shake" | "blink" | "bounce" | "zoomin" | "spin" | "hearts"
+  | "gaming" | "glitch" | "sparkle" | "afterimage" | "fastspin";
 
 export type TextPosition = "top" | "center" | "bottom";
 
@@ -11,6 +12,7 @@ export interface TextPreset {
   id: string;
   label: string;
   text: string;
+  subscriberOnly?: boolean;
 }
 
 export interface TextConfig {
@@ -24,6 +26,7 @@ export interface TextConfig {
 export interface EmoteConfig {
   border: BorderStyle;
   borderWidth: number;
+  borderColor: string;
   textPreset: string | null;
   text: TextConfig;
   fontSize: number;
@@ -76,16 +79,32 @@ export const TEXT_PRESETS: TextPreset[] = [
   { id: "egui", label: "えぐい", text: "えぐい" },
   { id: "nande", label: "なんで", text: "なんで" },
   { id: "kusahaeru", label: "草生える", text: "草生える" },
+  { id: "howsitgoing", label: "How's it going?", text: "How's it going?", subscriberOnly: true },
+  { id: "yurusanee", label: "許せねぇよ", text: "許せねぇよ", subscriberOnly: true },
+  { id: "saratouin", label: "皿党員", text: "皿党員", subscriberOnly: true },
 ];
 
-export const BORDER_OPTIONS: { value: BorderStyle; label: string }[] = [
+export interface BorderOption {
+  value: BorderStyle;
+  label: string;
+  subscriberOnly?: boolean;
+}
+
+export const BORDER_OPTIONS: BorderOption[] = [
   { value: "none", label: "なし" },
   { value: "white", label: "白フチ" },
   { value: "black", label: "黒フチ" },
   { value: "shadow", label: "影付き" },
+  { value: "custom", label: "カスタム色", subscriberOnly: true },
 ];
 
-export const ANIMATION_OPTIONS: { value: AnimationType; label: string }[] = [
+export interface AnimationOption {
+  value: AnimationType;
+  label: string;
+  subscriberOnly?: boolean;
+}
+
+export const ANIMATION_OPTIONS: AnimationOption[] = [
   { value: "none", label: "なし（静止画）" },
   { value: "sway", label: "揺れる" },
   { value: "shake", label: "震える" },
@@ -94,4 +113,9 @@ export const ANIMATION_OPTIONS: { value: AnimationType; label: string }[] = [
   { value: "zoomin", label: "ズームイン" },
   { value: "spin", label: "回転" },
   { value: "hearts", label: "ハートぷかぷか" },
+  { value: "gaming", label: "ゲーミング", subscriberOnly: true },
+  { value: "glitch", label: "グリッチ", subscriberOnly: true },
+  { value: "sparkle", label: "キラキラ", subscriberOnly: true },
+  { value: "afterimage", label: "残像", subscriberOnly: true },
+  { value: "fastspin", label: "高速回転", subscriberOnly: true },
 ];

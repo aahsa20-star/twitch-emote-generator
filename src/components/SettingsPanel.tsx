@@ -14,6 +14,7 @@ interface SettingsPanelProps {
   config: EmoteConfig;
   onConfigChange: (partial: Partial<EmoteConfig>) => void;
   disabled: boolean;
+  isSubscriber: boolean;
 }
 
 function ColorPicker({
@@ -55,6 +56,7 @@ export default function SettingsPanel({
   config,
   onConfigChange,
   disabled,
+  isSubscriber,
 }: SettingsPanelProps) {
   const updateText = (partial: Partial<TextConfig>) => {
     onConfigChange({ text: { ...config.text, ...partial } });
@@ -68,19 +70,25 @@ export default function SettingsPanel({
       <div>
         <h3 className="text-sm font-semibold text-gray-300 mb-2">フチ取り</h3>
         <div className="grid grid-cols-2 gap-2">
-          {BORDER_OPTIONS.map((opt) => (
-            <button
-              key={opt.value}
-              onClick={() => onConfigChange({ border: opt.value })}
-              className={`px-3 py-2 rounded text-sm transition-colors ${
-                config.border === opt.value
-                  ? "bg-purple-600 text-white"
-                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-              }`}
-            >
-              {opt.label}
-            </button>
-          ))}
+          {BORDER_OPTIONS.map((opt) => {
+            const locked = opt.subscriberOnly && !isSubscriber;
+            return (
+              <button
+                key={opt.value}
+                onClick={() => !locked && onConfigChange({ border: opt.value })}
+                className={`px-3 py-2 rounded text-sm transition-colors ${
+                  locked
+                    ? "bg-gray-800 text-gray-600 cursor-not-allowed"
+                    : config.border === opt.value
+                    ? "bg-purple-600 text-white"
+                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                }`}
+                title={locked ? "合言葉を入力すると解放されます" : undefined}
+              >
+                {locked ? `\u{1F512} ${opt.label}` : opt.label}
+              </button>
+            );
+          })}
         </div>
         {config.border !== "none" && (
           <div className="mt-2">
@@ -97,15 +105,24 @@ export default function SettingsPanel({
             />
           </div>
         )}
+        {config.border === "custom" && isSubscriber && (
+          <div className="mt-2">
+            <ColorPicker
+              label="フチの色"
+              value={config.borderColor}
+              onChange={(c) => onConfigChange({ borderColor: c })}
+            />
+          </div>
+        )}
       </div>
 
       {/* Text */}
       <div className="space-y-3">
         <h3 className="text-sm font-semibold text-gray-300">テキスト</h3>
 
-        {/* Presets */}
+        {/* Presets (free) */}
         <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-          {TEXT_PRESETS.map((preset) => (
+          {TEXT_PRESETS.filter((p) => !p.subscriberOnly).map((preset) => (
             <button
               key={preset.id}
               onClick={() => {
@@ -124,6 +141,40 @@ export default function SettingsPanel({
             </button>
           ))}
         </div>
+
+        {/* Presets (subscriber-only) */}
+        {TEXT_PRESETS.some((p) => p.subscriberOnly) && (
+          <>
+            <p className="text-xs text-gray-500 mt-2 mb-1">{"\u{1F512}"} AKI限定</p>
+            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+              {TEXT_PRESETS.filter((p) => p.subscriberOnly).map((preset) => {
+                const locked = !isSubscriber;
+                return (
+                  <button
+                    key={preset.id}
+                    onClick={() => {
+                      if (locked) return;
+                      onConfigChange({
+                        textPreset: config.textPreset === preset.id ? null : preset.id,
+                        text: { ...config.text, customText: "" },
+                      });
+                    }}
+                    className={`px-2 py-2 rounded text-sm transition-colors ${
+                      locked
+                        ? "bg-gray-800 text-gray-600 cursor-not-allowed"
+                        : config.textPreset === preset.id && !config.text.customText
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                    title={locked ? "合言葉を入力すると解放されます" : undefined}
+                  >
+                    {locked ? `\u{1F512} ${preset.label}` : preset.label}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         {/* Custom text input */}
         <input
@@ -254,7 +305,7 @@ export default function SettingsPanel({
           アニメーション
         </h3>
         <div className="grid grid-cols-2 gap-2">
-          {ANIMATION_OPTIONS.map((opt) => (
+          {ANIMATION_OPTIONS.filter((o) => !o.subscriberOnly).map((opt) => (
             <button
               key={opt.value}
               onClick={() => onConfigChange({ animation: opt.value })}
@@ -268,6 +319,34 @@ export default function SettingsPanel({
             </button>
           ))}
         </div>
+
+        {/* Subscriber-only animations */}
+        {ANIMATION_OPTIONS.some((o) => o.subscriberOnly) && (
+          <>
+            <p className="text-xs text-gray-500 mt-3 mb-1">{"\u{1F512}"} 限定</p>
+            <div className="grid grid-cols-2 gap-2">
+              {ANIMATION_OPTIONS.filter((o) => o.subscriberOnly).map((opt) => {
+                const locked = !isSubscriber;
+                return (
+                  <button
+                    key={opt.value}
+                    onClick={() => !locked && onConfigChange({ animation: opt.value })}
+                    className={`px-3 py-2 rounded text-sm transition-colors ${
+                      locked
+                        ? "bg-gray-800 text-gray-600 cursor-not-allowed"
+                        : config.animation === opt.value
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                    title={locked ? "合言葉を入力すると解放されます" : undefined}
+                  >
+                    {locked ? `\u{1F512} ${opt.label}` : opt.label}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

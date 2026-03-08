@@ -87,7 +87,8 @@ export function centerAndResize(
 export function applyBorder(
   canvas: HTMLCanvasElement,
   style: BorderStyle,
-  userBorderWidth?: number
+  userBorderWidth?: number,
+  customBorderColor?: string
 ): HTMLCanvasElement {
   if (style === "none") return canvas;
 
@@ -108,7 +109,7 @@ export function applyBorder(
   }
 
   // Shadow-based smooth border: draw colored silhouette with shadowBlur for anti-aliased edges
-  const borderColor = style === "white" ? "#ffffff" : "#000000";
+  const borderColor = style === "custom" ? (customBorderColor || "#ffffff") : style === "white" ? "#ffffff" : "#000000";
   // Scale borderWidth: user value is in "display px" at 112px, scale to HI_RES
   const borderWidth = userBorderWidth != null
     ? Math.max(1, Math.round(userBorderWidth * (size / 112)))
@@ -290,7 +291,7 @@ export function processEmote(
   let canvas = centerAndResize(source, HI_RES);
 
   // 2. Apply border at high resolution
-  canvas = applyBorder(canvas, config.border, config.borderWidth);
+  canvas = applyBorder(canvas, config.border, config.borderWidth, config.borderColor);
 
   // 3. Apply text overlay at high resolution (skip for 28px — text is unreadable)
   const textToRender = resolveTextToRender(config);
