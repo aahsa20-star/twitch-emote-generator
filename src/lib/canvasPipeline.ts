@@ -215,18 +215,50 @@ function resolveTextToRender(config: EmoteConfig): string | null {
   return null;
 }
 
+function downscale(
+  source: HTMLCanvasElement,
+  targetSize: number
+): HTMLCanvasElement {
+  // Multi-step downscale for better quality (halve until close, then final resize)
+  let current = source;
+  while (current.width / 2 >= targetSize) {
+    const half = document.createElement("canvas");
+    half.width = current.width / 2;
+    half.height = current.height / 2;
+    const ctx = half.getContext("2d")!;
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = "high";
+    ctx.drawImage(current, 0, 0, half.width, half.height);
+    current = half;
+  }
+
+  if (current.width === targetSize) return current;
+
+  const final = document.createElement("canvas");
+  final.width = targetSize;
+  final.height = targetSize;
+  const ctx = final.getContext("2d")!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(current, 0, 0, targetSize, targetSize);
+  return final;
+}
+
+// Internal render size: process at high resolution for crisp borders/text
+const HI_RES = 224;
+
 export function processEmote(
   source: HTMLCanvasElement | HTMLImageElement,
   size: EmoteSize,
   config: EmoteConfig
 ): HTMLCanvasElement {
-  // 1. Center and resize to target size
-  let canvas = centerAndResize(source, size);
+  // 1. Center and resize at high resolution
+  let canvas = centerAndResize(source, HI_RES);
 
-  // 2. Apply border
+  // 2. Apply border at high resolution
   canvas = applyBorder(canvas, config.border);
 
-  // 3. Apply text overlay
+  // 3. Apply text overlay at high resolution
   const textToRender = resolveTextToRender(config);
   if (textToRender) {
     canvas = applyTextOverlay(canvas, {
@@ -235,7 +267,12 @@ export function processEmote(
       fillColor: config.text.fillColor,
       strokeColor: config.text.strokeColor,
       position: config.text.position,
-    }, size);
+    }, HI_RES);
+  }
+
+  // 4. Downscale to target size (multi-step for quality)
+  if (size < HI_RES) {
+    canvas = downscale(canvas, size);
   }
 
   return canvas;
