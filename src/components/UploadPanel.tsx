@@ -13,25 +13,34 @@ export default function UploadPanel({
 }: UploadPanelProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const showError = useCallback((msg: string) => {
+    setError(msg);
+    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
+    errorTimerRef.current = setTimeout(() => setError(null), 4000);
+  }, []);
 
   const handleFile = useCallback(
     (file: File) => {
       if (!ACCEPTED_TYPES.includes(file.type)) {
-        alert("PNG, JPG, WEBP形式の画像を選択してください。");
+        showError("PNG, JPG, WEBP形式の画像を選択してください");
         return;
       }
       if (file.size > 10 * 1024 * 1024) {
-        alert("10MB以下の画像を選択してください。");
+        showError("10MB以下の画像を選択してください");
         return;
       }
 
+      setError(null);
       if (previewUrl) URL.revokeObjectURL(previewUrl);
       const url = URL.createObjectURL(file);
       setPreviewUrl(url);
       onImageSelected(file);
     },
-    [onImageSelected, previewUrl]
+    [onImageSelected, previewUrl, showError]
   );
 
   const handleDrop = useCallback(
@@ -76,6 +85,16 @@ export default function UploadPanel({
         className="hidden"
         onChange={handleChange}
       />
+
+      {/* Error toast */}
+      {error && (
+        <div className="absolute top-2 left-2 right-2 z-10 bg-red-900/90 text-red-200 text-xs px-3 py-2 rounded-md border border-red-700 flex items-center gap-2 animate-fade-in">
+          <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+          </svg>
+          {error}
+        </div>
+      )}
 
       {previewUrl ? (
         <div className="space-y-3">

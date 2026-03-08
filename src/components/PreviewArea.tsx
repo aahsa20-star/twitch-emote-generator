@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { EmoteVariant, TextPosition } from "@/types/emote";
+import { EmoteVariant, ProcessingStage, TextPosition } from "@/types/emote";
 import { applyBorder, applyTextOverlay, centerAndResize } from "@/lib/canvasPipeline";
 import PreviewCard from "./PreviewCard";
 
@@ -9,6 +9,7 @@ type BgMode = "checker" | "dark" | "light";
 
 interface PreviewAreaProps {
   variants: EmoteVariant[];
+  stage: ProcessingStage;
   hasText?: boolean;
   textPosition?: TextPosition;
 }
@@ -184,14 +185,51 @@ function SampleShowcase() {
   );
 }
 
+const SKELETON_SIZES = [112, 56, 28];
+
+function SkeletonPreview({ stage }: { stage: ProcessingStage }) {
+  const stageLabel =
+    stage === "removing-background"
+      ? "背景を透過しています..."
+      : stage === "generating-preview"
+      ? "アニメーションを生成中..."
+      : "エモートを生成中...";
+
+  return (
+    <div className="flex flex-col items-center gap-4">
+      <p className="text-xs text-gray-400 animate-pulse">{stageLabel}</p>
+      {SKELETON_SIZES.map((size) => (
+        <div key={size} className="flex flex-col items-center gap-2">
+          <span className="text-xs text-gray-600 font-mono">
+            {size}x{size}
+          </span>
+          <div
+            className="rounded bg-gray-800 animate-pulse"
+            style={{
+              width: Math.max(size + 16, 60),
+              height: Math.max(size + 16, 60),
+            }}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
 const BG_OPTIONS: { mode: BgMode; emoji: string }[] = [
   { mode: "checker", emoji: "🔲" },
   { mode: "dark", emoji: "◼️" },
   { mode: "light", emoji: "⬜" },
 ];
 
-export default function PreviewArea({ variants, hasText = false, textPosition = "bottom" }: PreviewAreaProps) {
+export default function PreviewArea({ variants, stage, hasText = false, textPosition = "bottom" }: PreviewAreaProps) {
   const [bgMode, setBgMode] = useState<BgMode>("checker");
+
+  const isProcessing = stage === "removing-background" || stage === "processing" || stage === "generating-preview";
+
+  if (variants.length === 0 && isProcessing) {
+    return <SkeletonPreview stage={stage} />;
+  }
 
   if (variants.length === 0) {
     return <SampleShowcase />;

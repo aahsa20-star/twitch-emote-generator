@@ -154,6 +154,7 @@ export default function EmoteGenerator() {
 
         <PreviewArea
           variants={variants}
+          stage={stage}
           hasText={!!(config.text.customText.trim() || config.textPreset)}
           textPosition={config.text.position}
         />
