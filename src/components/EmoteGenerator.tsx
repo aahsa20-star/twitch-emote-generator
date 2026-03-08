@@ -194,8 +194,8 @@ export default function EmoteGenerator() {
         )}
       </div>
 
-      {/* Preview (mobile: order-1, desktop: right column) */}
-      <div className="bg-gray-900 rounded-lg p-4 md:p-6 flex flex-col items-center min-h-[300px] md:min-h-[400px] overflow-y-auto order-1 md:order-none self-start">
+      {/* Preview (mobile: order-1, desktop: right column, sticky) */}
+      <div className="bg-gray-900 rounded-lg p-4 md:p-6 flex flex-col items-center min-h-[300px] md:min-h-[400px] overflow-y-auto order-1 md:order-none self-start md:sticky md:top-4 md:max-h-screen">
         {/* Retry / skip button above preview */}
         {bgRemovedCanvas && stage === "ready" && (
           <div className="relative mb-3">
