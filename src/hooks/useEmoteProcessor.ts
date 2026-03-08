@@ -34,6 +34,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
     fontSize: 20,
     textOffsetX: 0,
     textOffsetY: 0,
+    textOutlineWidth: 3,
     animation: "none",
   });
   const [stage, setStage] = useState<ProcessingStage>("idle");

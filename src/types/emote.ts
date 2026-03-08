@@ -37,6 +37,7 @@ export interface EmoteConfig {
   fontSize: number;
   textOffsetX: number;
   textOffsetY: number;
+  textOutlineWidth: number;
   animation: AnimationType;
 }
 

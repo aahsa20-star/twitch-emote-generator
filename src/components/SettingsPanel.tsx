@@ -246,6 +246,23 @@ export default function SettingsPanel({
           />
         </div>
 
+        {/* Text outline width slider */}
+        {hasText && (
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">
+              縁の幅: {config.textOutlineWidth}px{config.textOutlineWidth === 0 ? "（なし）" : ""}
+            </label>
+            <input
+              type="range"
+              min={0}
+              max={10}
+              value={config.textOutlineWidth}
+              onChange={(e) => onConfigChange({ textOutlineWidth: Number(e.target.value) })}
+              className="w-full accent-purple-500"
+            />
+          </div>
+        )}
+
         {/* Text position */}
         <div>
           <label className="text-xs text-gray-400 block mb-1">テキスト位置</label>

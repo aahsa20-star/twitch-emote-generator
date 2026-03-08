@@ -162,6 +162,7 @@ export interface TextOverlayOptions {
   userFontSize?: number;
   offsetX?: number;
   offsetY?: number;
+  outlineWidth?: number;
 }
 
 export function applyTextOverlay(
@@ -176,7 +177,7 @@ export function applyTextOverlay(
 
   ctx.drawImage(canvas, 0, 0);
 
-  const { text, font, fillColor, strokeColor, position, userFontSize, offsetX = 0, offsetY = 0 } = options;
+  const { text, font, fillColor, strokeColor, position, userFontSize, offsetX = 0, offsetY = 0, outlineWidth: userOutlineWidth } = options;
 
   // Scale font size: userFontSize is in "display px" at 112px, scale to canvasSize
   let fontSize: number;
@@ -217,18 +218,23 @@ export function applyTextOverlay(
   }
 
   // Shadow-based text outline for smooth anti-aliased edges
-  const outlineWidth = Math.max(1, canvasSize * 0.025);
-  ctx.save();
-  ctx.shadowColor = strokeColor;
-  ctx.shadowBlur = outlineWidth;
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = 0;
-  ctx.fillStyle = strokeColor;
-  // Multiple passes for full opacity buildup
-  for (let i = 0; i < 4; i++) {
-    ctx.fillText(text, x, y);
+  const outlineWidth = userOutlineWidth != null
+    ? userOutlineWidth * (canvasSize / 112)
+    : Math.max(1, canvasSize * 0.025);
+
+  if (outlineWidth > 0) {
+    ctx.save();
+    ctx.shadowColor = strokeColor;
+    ctx.shadowBlur = outlineWidth;
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    ctx.fillStyle = strokeColor;
+    // Multiple passes for full opacity buildup
+    for (let i = 0; i < 4; i++) {
+      ctx.fillText(text, x, y);
+    }
+    ctx.restore();
   }
-  ctx.restore();
 
   // Text fill on top
   ctx.fillStyle = fillColor;
@@ -305,6 +311,7 @@ export function processEmote(
       userFontSize: config.fontSize,
       offsetX: config.textOffsetX,
       offsetY: config.textOffsetY,
+      outlineWidth: config.textOutlineWidth,
     }, HI_RES);
   }
 
