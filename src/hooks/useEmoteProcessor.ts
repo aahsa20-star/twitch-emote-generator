@@ -19,6 +19,7 @@ export function useEmoteProcessor() {
   const [skipBgRemoval, setSkipBgRemoval] = useState(false);
   const [config, setConfig] = useState<EmoteConfig>({
     border: "none",
+    borderWidth: 4,
     textPreset: null,
     text: {
       customText: "",
@@ -27,6 +28,9 @@ export function useEmoteProcessor() {
       strokeColor: "#000000",
       position: "bottom",
     },
+    fontSize: 20,
+    textOffsetX: 0,
+    textOffsetY: 0,
     animation: "none",
   });
   const [stage, setStage] = useState<ProcessingStage>("idle");

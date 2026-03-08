@@ -60,6 +60,8 @@ export default function SettingsPanel({
     onConfigChange({ text: { ...config.text, ...partial } });
   };
 
+  const hasText = !!(config.text.customText.trim() || config.textPreset);
+
   return (
     <div className={`space-y-5 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
       {/* Border */}
@@ -80,6 +82,21 @@ export default function SettingsPanel({
             </button>
           ))}
         </div>
+        {config.border !== "none" && (
+          <div className="mt-2">
+            <label className="text-xs text-gray-400 block mb-1">
+              縁の幅: {config.borderWidth}px
+            </label>
+            <input
+              type="range"
+              min={1}
+              max={20}
+              value={config.borderWidth}
+              onChange={(e) => onConfigChange({ borderWidth: Number(e.target.value) })}
+              className="w-full accent-purple-500"
+            />
+          </div>
+        )}
       </div>
 
       {/* Text */}
@@ -87,7 +104,7 @@ export default function SettingsPanel({
         <h3 className="text-sm font-semibold text-gray-300">テキスト</h3>
 
         {/* Presets */}
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
           {TEXT_PRESETS.map((preset) => (
             <button
               key={preset.id}
@@ -147,6 +164,23 @@ export default function SettingsPanel({
           </select>
         </div>
 
+        {/* Font size slider */}
+        {hasText && (
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">
+              文字サイズ: {config.fontSize}px
+            </label>
+            <input
+              type="range"
+              min={8}
+              max={48}
+              value={config.fontSize}
+              onChange={(e) => onConfigChange({ fontSize: Number(e.target.value) })}
+              className="w-full accent-purple-500"
+            />
+          </div>
+        )}
+
         {/* Colors row */}
         <div className="flex gap-4">
           <ColorPicker
@@ -180,6 +214,38 @@ export default function SettingsPanel({
             ))}
           </div>
         </div>
+
+        {/* Text position fine-tune */}
+        {hasText && (
+          <div className="space-y-2">
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">
+                横位置: {config.textOffsetX}px
+              </label>
+              <input
+                type="range"
+                min={-50}
+                max={50}
+                value={config.textOffsetX}
+                onChange={(e) => onConfigChange({ textOffsetX: Number(e.target.value) })}
+                className="w-full accent-purple-500"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-gray-400 block mb-1">
+                縦位置: {config.textOffsetY}px
+              </label>
+              <input
+                type="range"
+                min={-50}
+                max={50}
+                value={config.textOffsetY}
+                onChange={(e) => onConfigChange({ textOffsetY: Number(e.target.value) })}
+                className="w-full accent-purple-500"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Animation */}

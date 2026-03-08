@@ -11,39 +11,40 @@ interface AutoPattern {
 }
 
 const defaultText = { customText: "", font: "Noto Sans JP", fillColor: "#ffffff", strokeColor: "#000000", position: "bottom" as const };
+const defaultSliders = { borderWidth: 4, fontSize: 20, textOffsetX: 0, textOffsetY: 0 };
 
 const AUTO_PATTERNS: AutoPattern[] = [
   {
     label: "1. 白フチ",
-    config: { border: "white", textPreset: null, text: { ...defaultText }, animation: "none" },
+    config: { border: "white", textPreset: null, text: { ...defaultText }, animation: "none", ...defaultSliders },
   },
   {
     label: "2. 黒フチ",
-    config: { border: "black", textPreset: null, text: { ...defaultText }, animation: "none" },
+    config: { border: "black", textPreset: null, text: { ...defaultText }, animation: "none", ...defaultSliders },
   },
   {
     label: "3. 白フチ+草",
-    config: { border: "white", textPreset: "kusa", text: { ...defaultText }, animation: "none" },
+    config: { border: "white", textPreset: "kusa", text: { ...defaultText }, animation: "none", ...defaultSliders },
   },
   {
     label: "4. 白フチ+GG",
-    config: { border: "white", textPreset: "gg", text: { ...defaultText }, animation: "none" },
+    config: { border: "white", textPreset: "gg", text: { ...defaultText }, animation: "none", ...defaultSliders },
   },
   {
     label: "5. 影付き",
-    config: { border: "shadow", textPreset: null, text: { ...defaultText }, animation: "none" },
+    config: { border: "shadow", textPreset: null, text: { ...defaultText }, animation: "none", ...defaultSliders },
   },
   {
     label: "6. 白フチ+揺れ",
-    config: { border: "white", textPreset: null, text: { ...defaultText }, animation: "sway" },
+    config: { border: "white", textPreset: null, text: { ...defaultText }, animation: "sway", ...defaultSliders },
   },
   {
     label: "7. 草+揺れ",
-    config: { border: "white", textPreset: "kusa", text: { ...defaultText, fillColor: "#ffff00" }, animation: "sway" },
+    config: { border: "white", textPreset: "kusa", text: { ...defaultText, fillColor: "#ffff00" }, animation: "sway", ...defaultSliders },
   },
   {
     label: "8. 黒フチ+点滅",
-    config: { border: "black", textPreset: null, text: { ...defaultText }, animation: "blink" },
+    config: { border: "black", textPreset: null, text: { ...defaultText }, animation: "blink", ...defaultSliders },
   },
 ];
 

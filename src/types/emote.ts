@@ -23,8 +23,12 @@ export interface TextConfig {
 
 export interface EmoteConfig {
   border: BorderStyle;
+  borderWidth: number;
   textPreset: string | null;
   text: TextConfig;
+  fontSize: number;
+  textOffsetX: number;
+  textOffsetY: number;
   animation: AnimationType;
 }
 

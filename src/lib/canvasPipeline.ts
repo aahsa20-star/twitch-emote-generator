@@ -86,7 +86,8 @@ export function centerAndResize(
 
 export function applyBorder(
   canvas: HTMLCanvasElement,
-  style: BorderStyle
+  style: BorderStyle,
+  userBorderWidth?: number
 ): HTMLCanvasElement {
   if (style === "none") return canvas;
 
@@ -97,17 +98,21 @@ export function applyBorder(
   const ctx = result.getContext("2d")!;
 
   if (style === "shadow") {
+    const shadowScale = userBorderWidth != null ? (userBorderWidth / 4) : 1;
     ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
-    ctx.shadowBlur = Math.max(2, size * 0.03);
-    ctx.shadowOffsetX = Math.max(1, size * 0.015);
-    ctx.shadowOffsetY = Math.max(1, size * 0.015);
+    ctx.shadowBlur = Math.max(2, size * 0.03 * shadowScale);
+    ctx.shadowOffsetX = Math.max(1, size * 0.015 * shadowScale);
+    ctx.shadowOffsetY = Math.max(1, size * 0.015 * shadowScale);
     ctx.drawImage(canvas, 0, 0);
     return result;
   }
 
   // Shadow-based smooth border: draw colored silhouette with shadowBlur for anti-aliased edges
   const borderColor = style === "white" ? "#ffffff" : "#000000";
-  const borderWidth = Math.max(1, Math.round(size * 0.027));
+  // Scale borderWidth: user value is in "display px" at 112px, scale to HI_RES
+  const borderWidth = userBorderWidth != null
+    ? Math.max(1, Math.round(userBorderWidth * (size / 112)))
+    : Math.max(1, Math.round(size * 0.027));
 
   // Create a solid-color silhouette
   const silhouette = document.createElement("canvas");
@@ -153,6 +158,9 @@ export interface TextOverlayOptions {
   fillColor: string;
   strokeColor: string;
   position: TextPosition;
+  userFontSize?: number;
+  offsetX?: number;
+  offsetY?: number;
 }
 
 export function applyTextOverlay(
@@ -167,34 +175,43 @@ export function applyTextOverlay(
 
   ctx.drawImage(canvas, 0, 0);
 
-  const { text, font, fillColor, strokeColor, position } = options;
+  const { text, font, fillColor, strokeColor, position, userFontSize, offsetX = 0, offsetY = 0 } = options;
 
-  // Scale font size based on canvas size and text length
-  const baseFontSize = canvasSize * 0.22;
-  const fontSize = text.length > 3
-    ? Math.max(canvasSize * 0.12, baseFontSize * (3 / text.length))
-    : baseFontSize;
+  // Scale font size: userFontSize is in "display px" at 112px, scale to canvasSize
+  let fontSize: number;
+  if (userFontSize != null) {
+    fontSize = userFontSize * (canvasSize / 112);
+  } else {
+    const baseFontSize = canvasSize * 0.22;
+    fontSize = text.length > 3
+      ? Math.max(canvasSize * 0.12, baseFontSize * (3 / text.length))
+      : baseFontSize;
+  }
 
   const fontFamily = `"${font}", "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif`;
   ctx.font = `bold ${fontSize}px ${fontFamily}`;
   ctx.textAlign = "center";
 
+  // Scale offsets from 112px display space to canvas space
+  const scaledOffsetX = offsetX * (canvasSize / 112);
+  const scaledOffsetY = offsetY * (canvasSize / 112);
+
   // Position
-  let x = canvasSize / 2;
+  let x = canvasSize / 2 + scaledOffsetX;
   let y: number;
   switch (position) {
     case "top":
       ctx.textBaseline = "top";
-      y = canvasSize * 0.04;
+      y = canvasSize * 0.04 + scaledOffsetY;
       break;
     case "center":
       ctx.textBaseline = "middle";
-      y = canvasSize / 2;
+      y = canvasSize / 2 + scaledOffsetY;
       break;
     case "bottom":
     default:
       ctx.textBaseline = "bottom";
-      y = canvasSize - canvasSize * 0.04;
+      y = canvasSize - canvasSize * 0.04 + scaledOffsetY;
       break;
   }
 
@@ -273,7 +290,7 @@ export function processEmote(
   let canvas = centerAndResize(source, HI_RES);
 
   // 2. Apply border at high resolution
-  canvas = applyBorder(canvas, config.border);
+  canvas = applyBorder(canvas, config.border, config.borderWidth);
 
   // 3. Apply text overlay at high resolution (skip for 28px — text is unreadable)
   const textToRender = resolveTextToRender(config);
@@ -284,6 +301,9 @@ export function processEmote(
       fillColor: config.text.fillColor,
       strokeColor: config.text.strokeColor,
       position: config.text.position,
+      userFontSize: config.fontSize,
+      offsetX: config.textOffsetX,
+      offsetY: config.textOffsetY,
     }, HI_RES);
   }
 

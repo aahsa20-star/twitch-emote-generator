@@ -44,9 +44,9 @@ export default function EmoteGenerator() {
   };
 
   return (
-    <div className="flex-1 grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4 md:gap-6 p-4 md:p-6 max-w-6xl mx-auto w-full items-start">
+    <div className="flex-1 grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4 md:gap-6 p-4 md:p-6 max-w-6xl mx-auto w-full">
       {/* Upload + toggle + progress (top-left on desktop, 1st on mobile) */}
-      <div className="space-y-4 md:space-y-6 order-1 md:order-none">
+      <div className="space-y-4 md:space-y-6 order-1 md:order-none self-start">
         <UploadPanel
           onImageSelected={setSourceFile}
           hasImage={!!sourceFile}
@@ -110,8 +110,8 @@ export default function EmoteGenerator() {
         )}
       </div>
 
-      {/* Preview (right column on desktop, 2nd on mobile) */}
-      <div className="bg-gray-900 rounded-lg p-4 md:p-6 flex flex-col items-center min-h-[300px] md:min-h-[400px] overflow-y-auto order-2 md:order-none md:row-span-2">
+      {/* Preview (mobile: order-1, desktop: right column) */}
+      <div className="bg-gray-900 rounded-lg p-4 md:p-6 flex flex-col items-center min-h-[300px] md:min-h-[400px] overflow-y-auto order-1 md:order-none self-start">
         {/* Retry / skip button above preview */}
         {bgRemovedCanvas && stage === "ready" && (
           <div className="relative mb-3">
@@ -158,22 +158,33 @@ export default function EmoteGenerator() {
           hasText={!!(config.text.customText.trim() || config.textPreset)}
           textPosition={config.text.position}
         />
-        {bgRemovedCanvas && (
-          <RecommendedPatterns
-            bgRemovedCanvas={bgRemovedCanvas}
-            onApply={handleApplyPattern}
-          />
-        )}
       </div>
 
-      {/* Settings + Download + Share (bottom-left on desktop, 3rd on mobile) */}
+      {/* Settings (mobile: order-4, desktop: sticky left column) */}
       {sourceFile && (
-        <div className="space-y-4 md:space-y-6 order-3 md:order-none">
+        <div className="space-y-4 md:space-y-6 order-4 md:order-none self-start md:sticky md:top-4 md:max-h-screen md:overflow-y-auto md:col-start-1">
           <SettingsPanel
             config={config}
             onConfigChange={updateConfig}
             disabled={stage === "removing-background"}
           />
+        </div>
+      )}
+
+      {/* Recommended patterns (mobile: order-3, desktop: right column) */}
+      {/* DOM order: before DL+Share so grid auto-placement puts this in row 2 col 2 alongside Settings */}
+      {bgRemovedCanvas && (
+        <div className="order-3 md:order-none self-start md:col-start-2">
+          <RecommendedPatterns
+            bgRemovedCanvas={bgRemovedCanvas}
+            onApply={handleApplyPattern}
+          />
+        </div>
+      )}
+
+      {/* DL + Share (mobile: order-2, desktop: left column below settings) */}
+      {sourceFile && (
+        <div className="space-y-3 order-2 md:order-none self-start md:col-start-1">
           <DownloadButton stage={stage} onExport={handleExport} variants={variants} />
           <ShareButton imageDataUrl={variants.find(v => v.size === 112)?.staticDataUrl ?? null} />
         </div>
