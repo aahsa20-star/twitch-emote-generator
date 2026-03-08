@@ -160,7 +160,7 @@ export default function EmoteGenerator() {
         />
       </div>
 
-      {/* Settings (mobile: order-4, desktop: sticky left column) */}
+      {/* Settings + DL/Share (mobile: order-4, desktop: sticky left column with DL inside) */}
       {sourceFile && (
         <div className="space-y-4 md:space-y-6 order-4 md:order-none self-start md:sticky md:top-4 md:max-h-screen md:overflow-y-auto md:col-start-1">
           <SettingsPanel
@@ -168,11 +168,15 @@ export default function EmoteGenerator() {
             onConfigChange={updateConfig}
             disabled={stage === "removing-background"}
           />
+          {/* DL + Share inside sticky container (desktop only) */}
+          <div className="hidden md:flex flex-col gap-3">
+            <DownloadButton stage={stage} onExport={handleExport} variants={variants} />
+            <ShareButton imageDataUrl={variants.find(v => v.size === 112)?.staticDataUrl ?? null} />
+          </div>
         </div>
       )}
 
       {/* Recommended patterns (mobile: order-3, desktop: right column) */}
-      {/* DOM order: before DL+Share so grid auto-placement puts this in row 2 col 2 alongside Settings */}
       {bgRemovedCanvas && (
         <div className="order-3 md:order-none self-start md:col-start-2">
           <RecommendedPatterns
@@ -182,9 +186,9 @@ export default function EmoteGenerator() {
         </div>
       )}
 
-      {/* DL + Share (mobile: order-2, desktop: left column below settings) */}
+      {/* DL + Share (mobile only: order-2) */}
       {sourceFile && (
-        <div className="space-y-3 order-2 md:order-none self-start md:col-start-1">
+        <div className="space-y-3 order-2 md:hidden self-start">
           <DownloadButton stage={stage} onExport={handleExport} variants={variants} />
           <ShareButton imageDataUrl={variants.find(v => v.size === 112)?.staticDataUrl ?? null} />
         </div>

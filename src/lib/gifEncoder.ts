@@ -210,8 +210,8 @@ export async function generateGif(
       repeat: 0,
     });
 
-    const totalFrames = 12;
-    const frameDelay = 80;
+    const totalFrames = 20;
+    const frameDelay = 50;
 
     for (let i = 0; i < totalFrames; i++) {
       const frameCanvas = generator(baseCanvas, i, totalFrames);
