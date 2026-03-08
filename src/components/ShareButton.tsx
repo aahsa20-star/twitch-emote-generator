@@ -9,24 +9,8 @@ interface ShareButtonProps {
 export default function ShareButton({ imageDataUrl }: ShareButtonProps) {
   const [toast, setToast] = useState(false);
 
-  const handleShare = useCallback(async () => {
-    // 1. Copy 112px image to clipboard
-    if (imageDataUrl) {
-      try {
-        const res = await fetch(imageDataUrl);
-        const blob = await res.blob();
-        const pngBlob = new Blob([blob], { type: "image/png" });
-        await navigator.clipboard.write([
-          new ClipboardItem({ "image/png": pngBlob }),
-        ]);
-        setToast(true);
-        setTimeout(() => setToast(false), 3000);
-      } catch {
-        // Clipboard API not supported or permission denied — still open X
-      }
-    }
-
-    // 2. Open X share window
+  const handleShare = useCallback(() => {
+    // 1. Open X share window FIRST (must be synchronous for popup blocker)
     const text = encodeURIComponent(
       "Twitchエモートを作ったよ！ #TwitchEmote #Twitch配信者 #エモート生成ツール #ダツ皿アキ"
     );
@@ -36,6 +20,24 @@ export default function ShareButton({ imageDataUrl }: ShareButtonProps) {
       "_blank",
       "noopener,noreferrer,width=550,height=420"
     );
+
+    // 2. Copy 112px image to clipboard (async, runs after popup opens)
+    if (imageDataUrl) {
+      (async () => {
+        try {
+          const res = await fetch(imageDataUrl);
+          const blob = await res.blob();
+          const pngBlob = new Blob([blob], { type: "image/png" });
+          await navigator.clipboard.write([
+            new ClipboardItem({ "image/png": pngBlob }),
+          ]);
+          setToast(true);
+          setTimeout(() => setToast(false), 3000);
+        } catch {
+          // Clipboard API not supported or permission denied
+        }
+      })();
+    }
   }, [imageDataUrl]);
 
   return (
