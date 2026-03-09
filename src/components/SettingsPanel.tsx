@@ -28,11 +28,25 @@ function ColorPicker({
 }) {
   const [local, setLocal] = useState(value);
   const inputRef = useRef<HTMLInputElement>(null);
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
 
   // Sync from parent when config changes externally (e.g. preset applied)
   useEffect(() => {
     setLocal(value);
   }, [value]);
+
+  // Use native "change" event (fires only when picker is closed/color finalized)
+  // React's onChange fires continuously during drag like onInput, so we bypass it
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    const handler = (e: Event) => {
+      onChangeRef.current((e.target as HTMLInputElement).value);
+    };
+    el.addEventListener("change", handler);
+    return () => el.removeEventListener("change", handler);
+  }, []);
 
   return (
     <div className="flex-1">
@@ -43,7 +57,6 @@ function ColorPicker({
           type="color"
           value={local}
           onInput={(e) => setLocal((e.target as HTMLInputElement).value)}
-          onChange={(e) => onChange(e.target.value)}
           className="w-8 h-8 rounded border border-gray-600 bg-transparent cursor-pointer"
         />
         <span className="text-xs text-gray-400 font-mono">{local}</span>
