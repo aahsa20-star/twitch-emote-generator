@@ -10,6 +10,15 @@ export type BgRemovalQuality = "speed" | "quality";
 
 export type BorderStyle = "none" | "white" | "black" | "shadow" | "custom";
 
+export type FrameType =
+  | "none"
+  | "stars"
+  | "hearts"
+  | "gaming"
+  | "sparkles"
+  | "rainbow"
+  | "dots";
+
 export type AnimationSpeed = "slow" | "normal" | "fast";
 
 export type AnimationType = "none" | "sway" | "shake" | "blink" | "bounce" | "zoomin" | "spin" | "hearts"
@@ -39,6 +48,7 @@ export interface EmoteConfig {
   border: BorderStyle;
   borderWidth: number;
   borderColor: string;
+  frameType: FrameType;
   textPreset: string | null;
   text: TextConfig;
   fontSize: number;
@@ -108,6 +118,22 @@ export const BORDER_OPTIONS: BorderOption[] = [
   { value: "black", label: "黒フチ" },
   { value: "shadow", label: "影付き" },
   { value: "custom", label: "カスタム色", subscriberOnly: true },
+];
+
+export interface FrameOption {
+  value: FrameType;
+  label: string;
+  subscriberOnly?: boolean;
+}
+
+export const FRAME_OPTIONS: FrameOption[] = [
+  { value: "none", label: "なし" },
+  { value: "stars", label: "星", subscriberOnly: true },
+  { value: "hearts", label: "ハート", subscriberOnly: true },
+  { value: "gaming", label: "ゲーミング", subscriberOnly: true },
+  { value: "sparkles", label: "キラキラ", subscriberOnly: true },
+  { value: "rainbow", label: "レインボー", subscriberOnly: true },
+  { value: "dots", label: "ドット", subscriberOnly: true },
 ];
 
 export interface AnimationOption {

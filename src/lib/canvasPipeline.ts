@@ -1,4 +1,4 @@
-import { BorderStyle, EmoteConfig, TextConfig, TextPosition, TEXT_PRESETS } from "@/types/emote";
+import { BorderStyle, EmoteConfig, FrameType, TextConfig, TextPosition, TEXT_PRESETS } from "@/types/emote";
 
 interface Bounds {
   top: number;
@@ -243,6 +243,213 @@ export function applyTextOverlay(
   return result;
 }
 
+// --- Frame helpers ---
+
+function drawStar5(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  const innerR = r * 0.4;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const angle = (i * Math.PI) / 5 - Math.PI / 2;
+    const radius = i % 2 === 0 ? r : innerR;
+    ctx.lineTo(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
+  }
+  ctx.closePath();
+}
+
+function drawSparkle4(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  const innerR = r * 0.25;
+  ctx.beginPath();
+  for (let i = 0; i < 8; i++) {
+    const angle = (i * Math.PI) / 4 - Math.PI / 2;
+    const radius = i % 2 === 0 ? r : innerR;
+    ctx.lineTo(cx + radius * Math.cos(angle), cy + radius * Math.sin(angle));
+  }
+  ctx.closePath();
+}
+
+function drawHeart(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  ctx.save();
+  ctx.translate(cx, cy - r * 0.15);
+  const w = r;
+  const h = r * 1.1;
+  ctx.beginPath();
+  ctx.moveTo(0, h * 0.35);
+  ctx.bezierCurveTo(0, h * 0.05, -w, -h * 0.3, -w, h * 0.1);
+  ctx.bezierCurveTo(-w, h * 0.55, 0, h * 0.7, 0, h);
+  ctx.bezierCurveTo(0, h * 0.7, w, h * 0.55, w, h * 0.1);
+  ctx.bezierCurveTo(w, -h * 0.3, 0, h * 0.05, 0, h * 0.35);
+  ctx.closePath();
+  ctx.restore();
+}
+
+function seededRand(seed: number): number {
+  const x = Math.sin(seed * 127.1 + 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+export function applyFrame(
+  canvas: HTMLCanvasElement,
+  frameType: FrameType
+): HTMLCanvasElement {
+  if (frameType === "none") return canvas;
+
+  const size = canvas.width;
+  const result = document.createElement("canvas");
+  result.width = size;
+  result.height = size;
+  const ctx = result.getContext("2d")!;
+  ctx.drawImage(canvas, 0, 0);
+
+  switch (frameType) {
+    case "stars": {
+      const starR = size * 0.06;
+      const margin = size * 0.08;
+      const mid = size / 2;
+      const positions = [
+        [margin, margin], [mid, margin], [size - margin, margin],
+        [margin, mid], [size - margin, mid],
+        [margin, size - margin], [mid, size - margin], [size - margin, size - margin],
+      ];
+      ctx.fillStyle = "#FFD700";
+      ctx.shadowColor = "#FFD700";
+      ctx.shadowBlur = starR * 0.8;
+      for (const [x, y] of positions) {
+        drawStar5(ctx, x, y, starR);
+        ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = "transparent";
+      break;
+    }
+
+    case "hearts": {
+      const heartR = size * 0.06;
+      const margin = size * 0.08;
+      const corners = [
+        { x: margin, y: margin, rot: -15 },
+        { x: size - margin, y: margin, rot: 15 },
+        { x: margin, y: size - margin, rot: 15 },
+        { x: size - margin, y: size - margin, rot: -15 },
+      ];
+      ctx.fillStyle = "#FF6B9D";
+      for (const c of corners) {
+        ctx.save();
+        ctx.translate(c.x, c.y);
+        ctx.rotate((c.rot * Math.PI) / 180);
+        ctx.translate(-c.x, -c.y);
+        drawHeart(ctx, c.x, c.y, heartR);
+        ctx.fill();
+        ctx.restore();
+      }
+      break;
+    }
+
+    case "gaming": {
+      const lw = Math.max(1, size * 0.025);
+      const offset = lw / 2;
+      // Top: red → green
+      const gradTop = ctx.createLinearGradient(0, 0, size, 0);
+      gradTop.addColorStop(0, "#ff0000");
+      gradTop.addColorStop(1, "#00ff00");
+      ctx.strokeStyle = gradTop;
+      ctx.lineWidth = lw;
+      ctx.beginPath(); ctx.moveTo(0, offset); ctx.lineTo(size, offset); ctx.stroke();
+      // Right: green → blue
+      const gradRight = ctx.createLinearGradient(0, 0, 0, size);
+      gradRight.addColorStop(0, "#00ff00");
+      gradRight.addColorStop(1, "#0000ff");
+      ctx.strokeStyle = gradRight;
+      ctx.beginPath(); ctx.moveTo(size - offset, 0); ctx.lineTo(size - offset, size); ctx.stroke();
+      // Bottom: blue → purple
+      const gradBottom = ctx.createLinearGradient(size, 0, 0, 0);
+      gradBottom.addColorStop(0, "#0000ff");
+      gradBottom.addColorStop(1, "#9900ff");
+      ctx.strokeStyle = gradBottom;
+      ctx.beginPath(); ctx.moveTo(size, size - offset); ctx.lineTo(0, size - offset); ctx.stroke();
+      // Left: purple → red
+      const gradLeft = ctx.createLinearGradient(0, size, 0, 0);
+      gradLeft.addColorStop(0, "#9900ff");
+      gradLeft.addColorStop(1, "#ff0000");
+      ctx.strokeStyle = gradLeft;
+      ctx.beginPath(); ctx.moveTo(offset, size); ctx.lineTo(offset, 0); ctx.stroke();
+      break;
+    }
+
+    case "sparkles": {
+      const margin = size * 0.05;
+      for (let i = 0; i < 12; i++) {
+        const t = i / 12;
+        const side = Math.floor(t * 4);
+        const sideT = (t * 4) - side;
+        let x: number, y: number;
+        switch (side) {
+          case 0: x = sideT * size; y = margin; break;
+          case 1: x = size - margin; y = sideT * size; break;
+          case 2: x = (1 - sideT) * size; y = size - margin; break;
+          default: x = margin; y = (1 - sideT) * size; break;
+        }
+        x += (seededRand(i * 2) - 0.5) * size * 0.04;
+        y += (seededRand(i * 2 + 1) - 0.5) * size * 0.04;
+        const r = size * (0.03 + seededRand(i * 3) * 0.015);
+
+        ctx.save();
+        const hue = 50 + seededRand(i * 7) * 20;
+        const light = 85 + seededRand(i * 11) * 15;
+        ctx.fillStyle = `hsl(${hue}, 100%, ${light}%)`;
+        ctx.shadowColor = "#ffffff";
+        ctx.shadowBlur = r * 1.5;
+        drawSparkle4(ctx, x, y, r);
+        ctx.fill();
+        ctx.restore();
+      }
+      break;
+    }
+
+    case "rainbow": {
+      const lw = Math.max(1, size * 0.04);
+      const offset = lw / 2;
+      const grad = ctx.createLinearGradient(0, 0, size, size);
+      grad.addColorStop(0, "#ff0000");
+      grad.addColorStop(0.17, "#ff8800");
+      grad.addColorStop(0.33, "#ffff00");
+      grad.addColorStop(0.5, "#00cc00");
+      grad.addColorStop(0.67, "#0066ff");
+      grad.addColorStop(0.83, "#8800ff");
+      grad.addColorStop(1, "#ff0088");
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = lw;
+      ctx.strokeRect(offset, offset, size - lw, size - lw);
+      break;
+    }
+
+    case "dots": {
+      const dotR = size * 0.02;
+      const count = 16;
+      const margin = size * 0.03;
+      for (let i = 0; i < count; i++) {
+        const t = i / count;
+        const side = Math.floor(t * 4);
+        const sideT = (t * 4) - side;
+        let x: number, y: number;
+        const span = size - 2 * margin;
+        switch (side) {
+          case 0: x = sideT * span + margin; y = margin; break;
+          case 1: x = size - margin; y = sideT * span + margin; break;
+          case 2: x = (1 - sideT) * span + margin; y = size - margin; break;
+          default: x = margin; y = (1 - sideT) * span + margin; break;
+        }
+        ctx.beginPath();
+        ctx.arc(x, y, dotR, 0, Math.PI * 2);
+        ctx.fillStyle = `hsl(${(i * 360) / count}, 80%, 60%)`;
+        ctx.fill();
+      }
+      break;
+    }
+  }
+
+  return result;
+}
+
 function resolveTextToRender(config: EmoteConfig): string | null {
   // Custom text takes priority
   if (config.text.customText.trim()) {
@@ -299,7 +506,10 @@ export function processEmote(
   // 2. Apply border at high resolution
   canvas = applyBorder(canvas, config.border, config.borderWidth, config.borderColor);
 
-  // 3. Apply text overlay at high resolution (skip for ≤32px — text is unreadable)
+  // 3. Apply frame at high resolution
+  canvas = applyFrame(canvas, config.frameType);
+
+  // 4. Apply text overlay at high resolution (skip for ≤32px — text is unreadable)
   const textToRender = resolveTextToRender(config);
   if (textToRender && size > 32) {
     canvas = applyTextOverlay(canvas, {
@@ -315,7 +525,7 @@ export function processEmote(
     }, HI_RES);
   }
 
-  // 4. Downscale to target size (multi-step for quality)
+  // 5. Downscale to target size (multi-step for quality)
   if (size < HI_RES) {
     canvas = downscale(canvas, size);
   }
