@@ -25,6 +25,9 @@ export default function Footer() {
         <li>・生成物の利用はすべてご自身の責任で行ってください。</li>
         <li>・背景透過はAIによる自動処理のため、結果の精度を保証しません。</li>
       </ul>
+      <p className="text-center text-gray-500">
+        本サービスはサービス改善のためUmami Analyticsによるアクセス解析を行っています。取得するデータはIPアドレスを含まない匿名の統計情報のみです。
+      </p>
     </footer>
   );
 }
