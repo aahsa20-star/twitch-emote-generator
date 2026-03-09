@@ -10,7 +10,7 @@ export async function removeBackground(
   );
 
   const result = await removeBg(imageBlob, {
-    model: quality === "quality" ? "medium" : "small",
+    model: quality === "quality" ? "isnet" : "isnet_quint8",
     output: {
       format: "image/png",
       quality: 1,
