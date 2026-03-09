@@ -28,36 +28,40 @@ function ColorPicker({
   label: string;
 }) {
   const [local, setLocal] = useState(value);
-  const inputRef = useRef<HTMLInputElement>(null);
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Sync from parent when config changes externally (e.g. preset applied)
   useEffect(() => {
     setLocal(value);
   }, [value]);
 
-  // Use native "change" event (fires only when picker is closed/color finalized)
-  // React's onChange fires continuously during drag like onInput, so we bypass it
+  // Cleanup debounce on unmount
   useEffect(() => {
-    const el = inputRef.current;
-    if (!el) return;
-    const handler = (e: Event) => {
-      onChangeRef.current((e.target as HTMLInputElement).value);
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-    el.addEventListener("change", handler);
-    return () => el.removeEventListener("change", handler);
   }, []);
+
+  const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
+    const newColor = (e.target as HTMLInputElement).value;
+    setLocal(newColor);
+    // Debounce parent update so preview refreshes during drag without excessive re-renders
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      onChangeRef.current(newColor);
+    }, 200);
+  };
 
   return (
     <div className="flex-1">
       <label className="text-xs text-gray-400 block mb-1">{label}</label>
       <div className="flex items-center gap-2">
         <input
-          ref={inputRef}
           type="color"
           value={local}
-          onInput={(e) => setLocal((e.target as HTMLInputElement).value)}
+          onInput={handleInput}
           className="w-10 h-10 rounded border border-gray-600 bg-transparent cursor-pointer"
         />
         <span className="text-xs text-gray-400 font-mono">{local}</span>
@@ -204,7 +208,7 @@ export default function SettingsPanel({
             <input
               type="range"
               min={8}
-              max={48}
+              max={72}
               value={config.fontSize}
               onChange={(e) => onConfigChange({ fontSize: Number(e.target.value) })}
               className="w-full accent-purple-500"
