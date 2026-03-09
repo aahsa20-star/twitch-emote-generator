@@ -29,6 +29,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     borderColor: "#ffffff",
     frameType: "none",
     compositeMode: "none",
+    subImageScale: 38,
     textPreset: null,
     text: {
       customText: "",

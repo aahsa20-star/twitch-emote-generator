@@ -249,7 +249,8 @@ export function compositeImages(
   mainCanvas: HTMLCanvasElement,
   subCanvas: HTMLCanvasElement,
   mode: CompositeMode,
-  size: number
+  size: number,
+  subScale: number = 38
 ): HTMLCanvasElement {
   if (mode === "none") return mainCanvas;
 
@@ -261,7 +262,7 @@ export function compositeImages(
   if (mode === "overlay-br" || mode === "overlay-bl") {
     ctx.drawImage(mainCanvas, 0, 0);
 
-    const subSize = Math.round(size * 0.38);
+    const subSize = Math.round(size * subScale / 100);
     const subCentered = centerAndResize(subCanvas, subSize);
 
     const x = mode === "overlay-br" ? Math.round(size * 0.58) : Math.round(size * 0.04);
@@ -563,7 +564,7 @@ export function processEmote(
 
   // 2. Composite with sub image (if applicable)
   if (config.compositeMode !== "none" && subCanvas) {
-    canvas = compositeImages(canvas, subCanvas, config.compositeMode, HI_RES);
+    canvas = compositeImages(canvas, subCanvas, config.compositeMode, HI_RES, config.subImageScale);
   }
 
   // 3. Apply border at high resolution

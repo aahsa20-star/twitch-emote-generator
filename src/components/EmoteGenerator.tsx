@@ -12,7 +12,6 @@ import RecommendedPatterns from "./RecommendedPatterns";
 import ShareButton from "./ShareButton";
 import ShareAfterDownloadModal from "./ShareAfterDownloadModal";
 import FloatingMiniPreview from "./FloatingMiniPreview";
-import SubImageUpload from "./SubImageUpload";
 import { EmoteConfig, ExportMode, BgRemovalQuality } from "@/types/emote";
 
 const SUBSCRIBER_KEY = "emote-subscriber";
@@ -115,6 +114,7 @@ export default function EmoteGenerator() {
       borderColor: "#ffffff",
       frameType: "none",
       compositeMode: "none",
+      subImageScale: 38,
       animation: ["gaming", "glitch", "sparkle", "afterimage", "fastspin", "float", "wobble", "neon", "vhs", "snow", "fire", "matrix", "drunk", "confetti", "hypno", "tv", "earthquake", "party", "flip", "ghost", "glitch2", "spiral", "heartbeat", "spring", "jelly"].includes(config.animation) ? "none" : config.animation,
       textPreset: config.textPreset,
     });
@@ -366,18 +366,13 @@ export default function EmoteGenerator() {
         {!sourceFile && (
           <p className="text-xs text-gray-400 text-center py-1">画像をアップロードすると設定できます</p>
         )}
-        {/* Sub image upload for composite (subscriber-only, visible when composite mode selected) */}
-        {isSubscriber && sourceFile && config.compositeMode !== "none" && (
-          <SubImageUpload
-            onSubImageSelected={handleSubImageSelected}
-            currentFile={subFile}
-          />
-        )}
         <SettingsPanel
           config={config}
           onConfigChange={updateConfig}
           disabled={!sourceFile || stage === "removing-background"}
           isSubscriber={isSubscriber}
+          subFile={subFile}
+          onSubImageSelected={handleSubImageSelected}
         />
         {/* DL + Share inside sticky container (desktop only) */}
         {sourceFile && (

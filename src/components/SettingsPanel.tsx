@@ -12,12 +12,15 @@ import {
   TEXT_POSITION_OPTIONS,
   FontCategory,
 } from "@/types/emote";
+import SubImageUpload from "./SubImageUpload";
 
 interface SettingsPanelProps {
   config: EmoteConfig;
   onConfigChange: (partial: Partial<EmoteConfig>) => void;
   disabled: boolean;
   isSubscriber: boolean;
+  subFile: File | null;
+  onSubImageSelected: (file: File) => void;
 }
 
 function ColorPicker({
@@ -77,6 +80,8 @@ export default function SettingsPanel({
   onConfigChange,
   disabled,
   isSubscriber,
+  subFile,
+  onSubImageSelected,
 }: SettingsPanelProps) {
   const updateText = (partial: Partial<TextConfig>) => {
     onConfigChange({ text: { ...config.text, ...partial } });
@@ -178,6 +183,31 @@ export default function SettingsPanel({
               </button>
             ))}
           </div>
+          {config.compositeMode !== "none" && (
+            <div className="mt-3 space-y-2">
+              <SubImageUpload
+                onSubImageSelected={onSubImageSelected}
+                currentFile={subFile}
+              />
+              <p className="text-[10px] text-gray-500">透過済みPNG推奨。背景ありの場合は透過処理が必要です。</p>
+              {(config.compositeMode === "overlay-br" || config.compositeMode === "overlay-bl") && (
+                <div>
+                  <label className="text-xs text-gray-400 block mb-1">
+                    サブ画像サイズ: {config.subImageScale}%
+                  </label>
+                  <input
+                    type="range"
+                    min={20}
+                    max={60}
+                    step={1}
+                    value={config.subImageScale}
+                    onChange={(e) => onConfigChange({ subImageScale: Number(e.target.value) })}
+                    className="w-full accent-purple-500"
+                  />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 

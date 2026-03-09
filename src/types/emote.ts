@@ -52,6 +52,7 @@ export interface EmoteConfig {
   borderColor: string;
   frameType: FrameType;
   compositeMode: CompositeMode;
+  subImageScale: number;
   textPreset: string | null;
   text: TextConfig;
   fontSize: number;
