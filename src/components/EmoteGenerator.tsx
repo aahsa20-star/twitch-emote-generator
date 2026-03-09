@@ -174,11 +174,8 @@ export default function EmoteGenerator() {
                   : "border-gray-600 bg-transparent text-gray-300 hover:border-gray-400 hover:text-gray-200"
               }`}
             >
-              透過済み画像をそのまま使う
+              透過済みPNGをそのまま使う（VTuber・イラスト素材など）
             </button>
-            <p className="text-[11px] text-gray-500 pl-1">
-              VTuber・イラスト素材など、既に透過済みのPNGはこちら
-            </p>
           </div>
         )}
 
@@ -248,7 +245,7 @@ export default function EmoteGenerator() {
               onClick={() => setShowRetryMenu(!showRetryMenu)}
               className="text-xs px-3 py-1.5 rounded bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors border border-gray-700"
             >
-              ↩ 透過をやり直す／透過済み画像を使う
+              ↩ 透過を調整する
             </button>
             {showRetryMenu && (
               <>
@@ -273,7 +270,7 @@ export default function EmoteGenerator() {
                     }}
                     className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-gray-700 transition-colors"
                   >
-                    透過済みPNGをそのまま使う
+                    透過済み画像をそのまま使う（VTuber・イラスト素材など）
                   </button>
                 </div>
               </>
