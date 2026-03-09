@@ -11,7 +11,7 @@ interface AutoPattern {
 }
 
 const defaultText = { customText: "", font: "Noto Sans JP", fillColor: "#ffffff", strokeColor: "#000000", position: "bottom" as const };
-const defaultSliders = { borderWidth: 4, borderColor: "#ffffff", fontSize: 20, textOffsetX: 0, textOffsetY: 0, textOutlineWidth: 3 };
+const defaultSliders = { borderWidth: 4, borderColor: "#ffffff", fontSize: 20, textOffsetX: 0, textOffsetY: 0, textOutlineWidth: 3, animationSpeed: "normal" as const };
 
 const AUTO_PATTERNS: AutoPattern[] = [
   {

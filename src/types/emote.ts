@@ -10,9 +10,12 @@ export type BgRemovalQuality = "speed" | "quality";
 
 export type BorderStyle = "none" | "white" | "black" | "shadow" | "custom";
 
+export type AnimationSpeed = "slow" | "normal" | "fast";
+
 export type AnimationType = "none" | "sway" | "shake" | "blink" | "bounce" | "zoomin" | "spin" | "hearts"
   | "gaming" | "glitch" | "sparkle" | "afterimage" | "fastspin"
-  | "float" | "wobble" | "neon" | "vhs" | "snow" | "fire" | "matrix" | "drunk" | "confetti" | "hypno";
+  | "float" | "wobble" | "neon" | "vhs" | "snow" | "fire" | "matrix" | "drunk" | "confetti" | "hypno"
+  | "tv" | "earthquake" | "party" | "flip" | "ghost" | "glitch2" | "spiral" | "heartbeat" | "spring";
 
 export type TextPosition = "top" | "center" | "bottom";
 
@@ -42,6 +45,7 @@ export interface EmoteConfig {
   textOffsetY: number;
   textOutlineWidth: number;
   animation: AnimationType;
+  animationSpeed: AnimationSpeed;
 }
 
 export type FontCategory = "標準" | "日本語" | "英字";
@@ -135,4 +139,19 @@ export const ANIMATION_OPTIONS: AnimationOption[] = [
   { value: "drunk", label: "酔っ払い", subscriberOnly: true },
   { value: "confetti", label: "紙吹雪", subscriberOnly: true },
   { value: "hypno", label: "催眠", subscriberOnly: true },
+  { value: "tv", label: "ブラウン管", subscriberOnly: true },
+  { value: "earthquake", label: "地震", subscriberOnly: true },
+  { value: "party", label: "パーティ", subscriberOnly: true },
+  { value: "flip", label: "ひっくり返る", subscriberOnly: true },
+  { value: "ghost", label: "幽霊", subscriberOnly: true },
+  { value: "glitch2", label: "デジタル崩壊", subscriberOnly: true },
+  { value: "spiral", label: "スパイラル", subscriberOnly: true },
+  { value: "heartbeat", label: "鼓動", subscriberOnly: true },
+  { value: "spring", label: "バネ", subscriberOnly: true },
+];
+
+export const ANIMATION_SPEED_OPTIONS: { value: AnimationSpeed; label: string }[] = [
+  { value: "slow", label: "遅い" },
+  { value: "normal", label: "普通" },
+  { value: "fast", label: "速い" },
 ];

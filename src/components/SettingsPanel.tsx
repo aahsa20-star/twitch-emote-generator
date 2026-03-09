@@ -4,6 +4,7 @@ import {
   TextConfig,
   BORDER_OPTIONS,
   ANIMATION_OPTIONS,
+  ANIMATION_SPEED_OPTIONS,
   TEXT_PRESETS,
   FONT_OPTIONS,
   TEXT_POSITION_OPTIONS,
@@ -342,6 +343,28 @@ export default function SettingsPanel({
               })}
             </div>
           </>
+        )}
+
+        {/* Animation speed */}
+        {config.animation !== "none" && (
+          <div className="mt-3">
+            <label className="text-xs text-gray-400 block mb-1">速度</label>
+            <div className="grid grid-cols-3 gap-2">
+              {ANIMATION_SPEED_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => onConfigChange({ animationSpeed: opt.value })}
+                  className={`px-3 py-1.5 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
+                    config.animationSpeed === opt.value
+                      ? "bg-purple-600 text-white"
+                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
         )}
       </div>
     </div>

@@ -40,6 +40,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
     textOffsetY: 0,
     textOutlineWidth: 3,
     animation: "none",
+    animationSpeed: "normal",
   });
   const [stage, setStage] = useState<ProcessingStage>("idle");
   const [progress, setProgress] = useState(0);
@@ -152,7 +153,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
             let animatedBlob: Blob | null = null;
             if (config.animation !== "none") {
               if (!cancelled) setStage("generating-preview");
-              animatedBlob = await generateGif(canvas, config.animation, size);
+              animatedBlob = await generateGif(canvas, config.animation, size, config.animationSpeed);
             }
 
             if (cancelled) return;

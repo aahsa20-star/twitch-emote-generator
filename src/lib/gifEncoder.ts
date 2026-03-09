@@ -1,4 +1,4 @@
-import { AnimationType } from "@/types/emote";
+import { AnimationType, AnimationSpeed } from "@/types/emote";
 import GIF from "gif.js";
 
 type FrameGenerator = (
@@ -729,6 +729,259 @@ function createHypnoFrame(
   return canvas;
 }
 
+// --- 9 new subscriber-only animations (batch 2) ---
+
+function createTvFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  // CRT turn-off: scaleY goes 1 → 0 → 1
+  const scaleY = Math.abs(Math.cos(t * Math.PI));
+
+  ctx.translate(size / 2, size / 2);
+  ctx.scale(1, Math.max(0.02, scaleY));
+  ctx.translate(-size / 2, -size / 2);
+  ctx.drawImage(baseCanvas, 0, 0);
+
+  // White flash line at minimum scale
+  if (scaleY < 0.15) {
+    ctx.resetTransform();
+    ctx.fillStyle = `rgba(255, 255, 255, ${1 - scaleY / 0.15})`;
+    ctx.fillRect(0, size / 2 - 1, size, 2);
+  }
+
+  return canvas;
+}
+
+function createEarthquakeFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const maxOffset = Math.max(2, size * 0.06);
+  const offsetX = Math.sin(t * Math.PI * 8) * maxOffset;
+  const offsetY = Math.cos(t * Math.PI * 6) * maxOffset * 0.4;
+  // Occasional big Y jolt
+  const jolt = (frameIndex % 5 === 0) ? maxOffset * 0.8 * ((frameIndex % 2 === 0) ? 1 : -1) : 0;
+
+  ctx.drawImage(baseCanvas, offsetX, offsetY + jolt);
+  return canvas;
+}
+
+function createPartyFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const hue = t * 360;
+  const bounceHeight = Math.abs(Math.sin(t * Math.PI * 4)) * size * 0.08;
+
+  ctx.filter = `hue-rotate(${hue}deg) saturate(1.4)`;
+  ctx.drawImage(baseCanvas, 0, -bounceHeight);
+  ctx.filter = "none";
+  return canvas;
+}
+
+function createFlipFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  // scaleX: 1 → 0 → -1 → 0 → 1
+  const scaleX = Math.cos(t * Math.PI * 2);
+
+  ctx.translate(size / 2, 0);
+  ctx.scale(scaleX, 1);
+  ctx.translate(-size / 2, 0);
+  ctx.drawImage(baseCanvas, 0, 0);
+  return canvas;
+}
+
+function createGhostFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  // Alpha fades from 1 → 0.1 → 1
+  const alpha = 0.1 + 0.9 * (0.5 + 0.5 * Math.cos(t * Math.PI * 2));
+  // Wide float movement
+  const offsetY = Math.sin(t * Math.PI * 2) * size * 0.08;
+
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(baseCanvas, 0, offsetY);
+  return canvas;
+}
+
+function createGlitch2Frame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  // White flash on specific frames
+  if (frameIndex % 7 === 3) {
+    ctx.fillStyle = "rgba(255, 255, 255, 0.7)";
+    ctx.fillRect(0, 0, size, size);
+    ctx.globalAlpha = 0.4;
+    ctx.drawImage(baseCanvas, 0, 0);
+    return canvas;
+  }
+
+  ctx.drawImage(baseCanvas, 0, 0);
+
+  const imgData = ctx.getImageData(0, 0, size, size);
+  const src = new Uint8ClampedArray(imgData.data);
+  const seed = frameIndex * 11;
+
+  // 3x stronger RGB channel split
+  const shift = Math.sin((frameIndex / totalFrames) * Math.PI * 4) * size * 0.09;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const idx = (y * size + x) * 4;
+      const rxSrc = Math.min(size - 1, Math.max(0, Math.round(x - shift)));
+      imgData.data[idx] = src[(y * size + rxSrc) * 4];
+      const bxSrc = Math.min(size - 1, Math.max(0, Math.round(x + shift)));
+      imgData.data[idx + 2] = src[(y * size + bxSrc) * 4 + 2];
+    }
+  }
+
+  // 8 heavy slices
+  for (let s = 0; s < 8; s++) {
+    const sliceY = Math.floor(((seed + s * 29) % 100) / 100 * size);
+    const sliceH = Math.max(2, Math.floor(size * 0.05));
+    const sliceShift = Math.round((((seed + s * 41) % 100) / 100 - 0.5) * size * 0.2);
+    for (let y = sliceY; y < Math.min(size, sliceY + sliceH); y++) {
+      for (let x = 0; x < size; x++) {
+        const dstIdx = (y * size + x) * 4;
+        const srcX = Math.min(size - 1, Math.max(0, x - sliceShift));
+        const srcIdx = (y * size + srcX) * 4;
+        imgData.data[dstIdx] = src[srcIdx];
+        imgData.data[dstIdx + 1] = src[srcIdx + 1];
+        imgData.data[dstIdx + 2] = src[srcIdx + 2];
+        imgData.data[dstIdx + 3] = src[srcIdx + 3];
+      }
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+  return canvas;
+}
+
+function createSpiralFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const angle = t * Math.PI * 2;
+  // Radius oscillates 0 → size*0.05 → 0
+  const r = Math.sin(t * Math.PI * 2) * size * 0.05;
+  const offsetX = Math.cos(angle) * r;
+  const offsetY = Math.sin(angle) * r;
+
+  ctx.drawImage(baseCanvas, offsetX, offsetY);
+  return canvas;
+}
+
+function createHeartbeatFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  // Two beats per cycle: scale peaks at t=0.15 and t=0.35
+  const beat1 = Math.exp(-((t - 0.15) * (t - 0.15)) / 0.003) * 0.15;
+  const beat2 = Math.exp(-((t - 0.35) * (t - 0.35)) / 0.003) * 0.10;
+  const scale = 1.0 + beat1 + beat2;
+
+  const drawSize = size * scale;
+  const offset = (size - drawSize) / 2;
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(baseCanvas, offset, offset, drawSize, drawSize);
+  return canvas;
+}
+
+function createSpringFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  // Enhanced bounce with overshoot: damped spring oscillation
+  const decay = Math.exp(-t * 4);
+  const bounceHeight = Math.abs(Math.sin(t * Math.PI * 6)) * size * 0.15 * decay;
+  // Slight squash at bottom
+  const scaleY = 1.0 - (1.0 - Math.abs(Math.sin(t * Math.PI * 6))) * 0.08 * decay;
+  const scaleX = 1.0 + (1.0 - scaleY) * 0.5;
+
+  ctx.translate(size / 2, size);
+  ctx.scale(scaleX, scaleY);
+  ctx.translate(-size / 2, -size);
+  ctx.drawImage(baseCanvas, 0, -bounceHeight);
+  return canvas;
+}
+
 const generators: Record<string, FrameGenerator> = {
   sway: createSwayFrame,
   shake: createShakeFrame,
@@ -752,12 +1005,28 @@ const generators: Record<string, FrameGenerator> = {
   drunk: createDrunkFrame,
   confetti: createConfettiFrame,
   hypno: createHypnoFrame,
+  tv: createTvFrame,
+  earthquake: createEarthquakeFrame,
+  party: createPartyFrame,
+  flip: createFlipFrame,
+  ghost: createGhostFrame,
+  glitch2: createGlitch2Frame,
+  spiral: createSpiralFrame,
+  heartbeat: createHeartbeatFrame,
+  spring: createSpringFrame,
+};
+
+const SPEED_DELAY: Record<AnimationSpeed, number> = {
+  slow: 80,
+  normal: 50,
+  fast: 25,
 };
 
 export async function generateGif(
   baseCanvas: HTMLCanvasElement,
   animationType: AnimationType,
-  size: number
+  size: number,
+  speed: AnimationSpeed = "normal"
 ): Promise<Blob> {
   const generator = generators[animationType];
   if (!generator) {
@@ -776,7 +1045,7 @@ export async function generateGif(
     });
 
     const totalFrames = 20;
-    const frameDelay = 50;
+    const frameDelay = SPEED_DELAY[speed];
 
     for (let i = 0; i < totalFrames; i++) {
       const frameCanvas = generator(baseCanvas, i, totalFrames);
