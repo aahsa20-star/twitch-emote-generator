@@ -9,9 +9,9 @@
 | GitHub | https://github.com/aahsa20-star/twitch-emote-generator |
 | 技術スタック | Next.js 16 (App Router) + TypeScript + Tailwind CSS v3 |
 | ホスティング | Vercel（GitHub自動デプロイ） |
-| コード規模 | 25ファイル / 約4,937行（src/配下） |
-| コミット数 | 52 |
-| 最新コミット | `2c52e41` improve: フォントサイズ上限を48px→72pxに拡大 + カラーピッカーのデバウンス修正 |
+| コード規模 | 26ファイル / 約5,005行（src/配下） |
+| コミット数 | 56 |
+| 最新コミット | `2048d71` legal: フッターにUmami Analyticsアクセス解析の告知文を追加 |
 
 ## コンセプト
 
@@ -76,6 +76,7 @@
 - モバイル個別DLボタン（各サイズ下に常時表示、タッチデバイス対応）
 - PCホバーオーバーレイDL（マウスオーバーで表示）
 - Xシェアボタン（クリップボードコピー + ツイート画面同時オープン）
+- ダウンロード完了後Xシェアモーダル（ShareAfterDownloadModal、一括DL・個別DL・ZIP全対応、@akiissamurai メンション付き、スキップ可能）
 
 ### UX
 - 画像位置調整エディタ（アップロード直後に表示、8ハンドルトリミング+ドラッグ移動+ズーム、確定/スキップ選択可能、ドラッグ中ハンドルをTwitchパープル#9146FFで16pxにハイライト）
@@ -104,6 +105,11 @@
 - OGP/Twitterカード対応（動的OG画像生成 + summary_large_image）
 - 免責事項強化（Twitch/Discord商標表示・AS-IS保証免責・AI精度免責）
 
+### アナリティクス
+- Umami Analytics（`next/script` strategy="afterInteractive"でページ読み込みブロックなし）
+- IPアドレス非取得の匿名統計のみ（GDPR準拠、Cookie不使用）
+- フッターにアクセス解析免責文言を表示
+
 ### 品質最適化
 - 224px高解像度中間キャンバス → multi-step downscale
 - shadowBlur方式のフチ取り（アンチエイリアス改善）
@@ -120,7 +126,7 @@
 src/
 ├── app/
 │   ├── api/auth/route.ts        # 合言葉認証APIルート（Vercel環境変数照合）
-│   ├── layout.tsx               # ルートレイアウト（Google Fonts、OGP/Twitterメタデータ）
+│   ├── layout.tsx               # ルートレイアウト（Google Fonts、OGP/Twitterメタデータ、Umami Analytics）
 │   ├── opengraph-image.tsx      # 動的OG画像生成（Edge Runtime、1200x630）
 │   ├── globals.css              # グローバルCSS（Inter + Noto Sans JP）
 │   └── page.tsx                 # メインページ
@@ -134,9 +140,10 @@ src/
 │   ├── PreviewCard.tsx          # 個別プレビュー（ホバーDLオーバーレイ）
 │   ├── DownloadButton.tsx       # 最大サイズ単体DL + ZIP一括DLボタン
 │   ├── ShareButton.tsx          # Xシェア + クリップボードコピー
+│   ├── ShareAfterDownloadModal.tsx # DL完了後Xシェア促進モーダル
 │   ├── RecommendedPatterns.tsx  # おすすめ8パターン
 │   ├── FloatingMiniPreview.tsx  # モバイル専用フローティングプレビュー（90x90px）
-│   └── Footer.tsx               # フィードバック導線 + 免責表示
+│   └── Footer.tsx               # フィードバック導線 + 免責表示 + アクセス解析告知
 ├── hooks/
 │   └── useEmoteProcessor.ts     # 処理パイプライン統合フック（ExportMode対応、ブラシ編集ステージ管理、速度パラメータ対応）
 ├── lib/
@@ -209,7 +216,7 @@ src/
 
 ---
 
-## コミット履歴（52コミット）
+## コミット履歴（56コミット）
 
 ```
 d542fba Initial commit from Create Next App
@@ -264,6 +271,10 @@ deab1fb fix: background-removal v1.7.0のモデル名を正しい型に修正（
 4b26acf fix: 4件のバグ修正（generateGif速度引数・テキストUI条件表示・不要チェック削除・依存配列修正）
 2722ff2 feat: 限定アニメーション「ジェリー」追加（ぽよんぽよん弾み）
 2c52e41 improve: フォントサイズ上限を48px→72pxに拡大 + カラーピッカーのデバウンス修正
+f180108 docs: REPORT.md更新（52コミット/4,937行、ジェリー追加で32種・速度調整・カラーピッカー改善・フォントサイズ72px・バグ修正4件反映）
+0db7853 feat: ダウンロード完了後にXシェアを促すモーダルを追加
+508f712 feat: Umami Analytics を追加（afterInteractive で非ブロッキング読み込み）
+2048d71 legal: フッターにUmami Analyticsアクセス解析の告知文を追加
 ```
 
 ---
@@ -285,4 +296,10 @@ deab1fb fix: background-removal v1.7.0のモデル名を正しい型に修正（
 - OAuth連携（Twitch APIでサブスク自動検証）
 
 ### 最優先事項
-**ユーザーフィードバックの収集。** 機能はMVP+UX改善+サブスク限定機能+Discord対応+トリミング＋位置調整+背景透過精度改善+ブラシ微調整+セキュリティ強化+アニメーション32種+速度調整+モバイルミニプレビュー+カラーピッカー改善まで完了。実際に使った人の声を聞いてから次の判断をするのが最も効率的。
+**ユーザーフィードバックの収集。** 機能はMVP+UX改善+サブスク限定機能+Discord対応+トリミング＋位置調整+背景透過精度改善+ブラシ微調整+セキュリティ強化+アニメーション32種+速度調整+モバイルミニプレビュー+カラーピッカー改善+シェアモーダル+アナリティクスまで完了。実際に使った人の声を聞いてから次の判断をするのが最も効率的。
+
+---
+
+## 成果記録
+
+- 2026-03-09: 宣伝ツイートが12,120インプレッション・138リンククリック・エンゲージメント率13%を記録（4時間）
