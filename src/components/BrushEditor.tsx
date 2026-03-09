@@ -269,9 +269,17 @@ export default function BrushEditor({
     }, "image/png");
   }, [onConfirm]);
 
+  // Auto-scroll into view when editor appears
+  const containerRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (loaded && containerRef.current) {
+      containerRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [loaded]);
+
   if (!loaded) {
     return (
-      <div className="flex flex-col items-center gap-2 py-8">
+      <div className="flex flex-col items-center gap-2 py-8 bg-purple-900/20 border border-purple-500/40 rounded-xl p-4">
         <svg className="animate-spin h-5 w-5 text-purple-400" viewBox="0 0 24 24" fill="none">
           <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
           <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" className="opacity-75" />
@@ -282,10 +290,13 @@ export default function BrushEditor({
   }
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      <h3 className="text-sm font-semibold text-gray-300">
-        透過の微調整（ブラシ）
+    <div ref={containerRef} className="flex flex-col items-center gap-4 bg-purple-900/20 border border-purple-500/40 rounded-xl p-4">
+      <h3 className="text-sm font-semibold text-purple-300">
+        透過の微調整
       </h3>
+      <p className="text-[11px] text-gray-400 text-center -mt-2">
+        消しゴムで不要な部分を消したり、復元ブラシで消えすぎた部分を戻せます
+      </p>
 
       {/* Brush mode toggle */}
       <div className="flex gap-2 w-full" style={{ maxWidth: displaySize }}>
