@@ -163,25 +163,23 @@ export default function EmoteGenerator() {
           </div>
         )}
 
-        {/* Skip background removal toggle */}
+        {/* Skip background removal */}
         {sourceFile && (
-          <label className="flex items-center gap-3 cursor-pointer select-none">
-            <div
-              className={`relative w-10 h-5 rounded-full transition-colors ${
-                skipBgRemoval ? "bg-purple-600" : "bg-gray-600"
-              }`}
+          <div className="flex flex-col items-start gap-1">
+            <button
               onClick={() => setSkipBgRemoval(!skipBgRemoval)}
+              className={`w-full px-3 py-2 rounded-lg text-sm transition-colors border ${
+                skipBgRemoval
+                  ? "border-purple-500 bg-purple-600/20 text-purple-300"
+                  : "border-gray-600 bg-transparent text-gray-300 hover:border-gray-400 hover:text-gray-200"
+              }`}
             >
-              <div
-                className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                  skipBgRemoval ? "translate-x-5" : ""
-                }`}
-              />
-            </div>
-            <span className="text-xs text-gray-400">
-              背景透過をスキップ（元画像をそのまま使う）
-            </span>
-          </label>
+              透過済み画像をそのまま使う
+            </button>
+            <p className="text-[11px] text-gray-500 pl-1">
+              VTuber・イラスト素材など、既に透過済みのPNGはこちら
+            </p>
+          </div>
         )}
 
         {/* Processing indicator with cancel */}
@@ -222,7 +220,7 @@ export default function EmoteGenerator() {
       </div>
 
       {/* Preview (mobile: order-1, desktop: right column, sticky) */}
-      <div className="bg-gray-900 rounded-lg p-4 md:p-6 flex flex-col items-center min-h-[300px] md:min-h-[400px] overflow-y-auto order-1 md:order-none self-start md:sticky md:top-4 md:max-h-screen">
+      <div className="bg-gray-900 rounded-lg p-4 md:p-6 flex flex-col items-center min-h-[300px] md:min-h-[400px] md:overflow-y-auto order-1 md:order-none self-start md:sticky md:top-4 md:max-h-screen">
         {/* Export mode tabs */}
         <div className="flex w-full mb-4 bg-gray-800 rounded-lg p-0.5">
           {([
@@ -250,7 +248,7 @@ export default function EmoteGenerator() {
               onClick={() => setShowRetryMenu(!showRetryMenu)}
               className="text-xs px-3 py-1.5 rounded bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors border border-gray-700"
             >
-              ↩ 透過をやり直す／スキップする
+              ↩ 透過をやり直す／透過済み画像を使う
             </button>
             {showRetryMenu && (
               <>
@@ -275,7 +273,7 @@ export default function EmoteGenerator() {
                     }}
                     className="w-full text-left px-4 py-2.5 text-sm text-gray-200 hover:bg-gray-700 transition-colors"
                   >
-                    透過をスキップして元画像を使う
+                    透過済みPNGをそのまま使う
                   </button>
                 </div>
               </>
