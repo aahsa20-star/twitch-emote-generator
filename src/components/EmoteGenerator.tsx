@@ -10,6 +10,7 @@ import PreviewArea from "./PreviewArea";
 import DownloadButton from "./DownloadButton";
 import RecommendedPatterns from "./RecommendedPatterns";
 import ShareButton from "./ShareButton";
+import FloatingMiniPreview from "./FloatingMiniPreview";
 import { EmoteConfig, ExportMode, BgRemovalQuality } from "@/types/emote";
 
 const SUBSCRIBER_KEY = "emote-subscriber";
@@ -267,7 +268,7 @@ export default function EmoteGenerator() {
       </div>
 
       {/* Preview (mobile: order-1, desktop: right column, sticky) */}
-      <div className="bg-gray-900 rounded-lg p-4 md:p-6 flex flex-col items-center min-h-[300px] md:min-h-[400px] md:overflow-y-auto order-1 md:order-none self-start md:sticky md:top-4 md:max-h-screen">
+      <div id="preview-area" className="bg-gray-900 rounded-lg p-4 md:p-6 flex flex-col items-center min-h-[300px] md:min-h-[400px] md:overflow-y-auto order-1 md:order-none self-start md:sticky md:top-4 md:max-h-screen">
         {/* Export mode tabs */}
         <div className="flex w-full mb-4 bg-gray-800 rounded-lg p-0.5">
           {([
@@ -374,6 +375,9 @@ export default function EmoteGenerator() {
           <ShareButton imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
         </div>
       )}
+
+      {/* Floating mini preview (mobile only) */}
+      <FloatingMiniPreview variants={variants} stage={stage} />
     </div>
   );
 }
