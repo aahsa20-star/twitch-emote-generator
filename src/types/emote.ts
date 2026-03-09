@@ -15,7 +15,8 @@ export type AnimationSpeed = "slow" | "normal" | "fast";
 export type AnimationType = "none" | "sway" | "shake" | "blink" | "bounce" | "zoomin" | "spin" | "hearts"
   | "gaming" | "glitch" | "sparkle" | "afterimage" | "fastspin"
   | "float" | "wobble" | "neon" | "vhs" | "snow" | "fire" | "matrix" | "drunk" | "confetti" | "hypno"
-  | "tv" | "earthquake" | "party" | "flip" | "ghost" | "glitch2" | "spiral" | "heartbeat" | "spring";
+  | "tv" | "earthquake" | "party" | "flip" | "ghost" | "glitch2" | "spiral" | "heartbeat" | "spring"
+  | "jelly";
 
 export type TextPosition = "top" | "center" | "bottom";
 
@@ -148,6 +149,7 @@ export const ANIMATION_OPTIONS: AnimationOption[] = [
   { value: "spiral", label: "スパイラル", subscriberOnly: true },
   { value: "heartbeat", label: "鼓動", subscriberOnly: true },
   { value: "spring", label: "バネ", subscriberOnly: true },
+  { value: "jelly", label: "ジェリー", subscriberOnly: true },
 ];
 
 export const ANIMATION_SPEED_OPTIONS: { value: AnimationSpeed; label: string }[] = [

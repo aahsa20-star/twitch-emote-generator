@@ -93,7 +93,7 @@ export default function EmoteGenerator() {
     updateConfig({
       border: config.border === "custom" ? "none" : config.border,
       borderColor: "#ffffff",
-      animation: ["gaming", "glitch", "sparkle", "afterimage", "fastspin", "float", "wobble", "neon", "vhs", "snow", "fire", "matrix", "drunk", "confetti", "hypno", "tv", "earthquake", "party", "flip", "ghost", "glitch2", "spiral", "heartbeat", "spring"].includes(config.animation) ? "none" : config.animation,
+      animation: ["gaming", "glitch", "sparkle", "afterimage", "fastspin", "float", "wobble", "neon", "vhs", "snow", "fire", "matrix", "drunk", "confetti", "hypno", "tv", "earthquake", "party", "flip", "ghost", "glitch2", "spiral", "heartbeat", "spring", "jelly"].includes(config.animation) ? "none" : config.animation,
       textPreset: config.textPreset,
     });
   };

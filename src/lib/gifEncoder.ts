@@ -982,6 +982,28 @@ function createSpringFrame(
   return canvas;
 }
 
+function createJellyFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const scaleY = 1.0 + 0.18 * Math.sin(t * Math.PI * 2);
+  const scaleX = 1.0 - (scaleY - 1.0) * 0.6;
+
+  ctx.translate(size / 2, size);
+  ctx.scale(scaleX, scaleY);
+  ctx.translate(-size / 2, -size);
+  ctx.drawImage(baseCanvas, 0, 0);
+  return canvas;
+}
+
 const generators: Record<string, FrameGenerator> = {
   sway: createSwayFrame,
   shake: createShakeFrame,
@@ -1014,6 +1036,7 @@ const generators: Record<string, FrameGenerator> = {
   spiral: createSpiralFrame,
   heartbeat: createHeartbeatFrame,
   spring: createSpringFrame,
+  jelly: createJellyFrame,
 };
 
 const SPEED_DELAY: Record<AnimationSpeed, number> = {
