@@ -21,6 +21,37 @@ export type FrameType =
 
 export type CompositeMode = "none" | "overlay-br" | "overlay-bl" | "sidebyside";
 
+export type BadgeShape = "circle" | "square" | "rounded";
+
+export interface BadgeSettings {
+  enabled: boolean;
+  shape: BadgeShape;
+  bgColor: string;
+  bgTransparent: boolean;
+  padding: number;
+  outlineWidth: number;
+  outlineColor: string;
+}
+
+export const BADGE_SHAPE_OPTIONS: { value: BadgeShape; label: string }[] = [
+  { value: "circle", label: "円形" },
+  { value: "square", label: "四角" },
+  { value: "rounded", label: "角丸" },
+];
+
+export const BADGE_SIZES = [72, 36, 18] as const;
+export type BadgeSize = (typeof BADGE_SIZES)[number];
+
+export const DEFAULT_BADGE_SETTINGS: BadgeSettings = {
+  enabled: false,
+  shape: "circle",
+  bgColor: "#9147FF",
+  bgTransparent: false,
+  padding: 8,
+  outlineWidth: 0,
+  outlineColor: "#FFFFFF",
+};
+
 export type AnimationSpeed = "slow" | "normal" | "fast";
 
 export type AnimationType = "none" | "sway" | "shake" | "blink" | "bounce" | "zoomin" | "spin" | "hearts"
@@ -61,6 +92,7 @@ export interface EmoteConfig {
   textOutlineWidth: number;
   animation: AnimationType;
   animationSpeed: AnimationSpeed;
+  badgeSettings: BadgeSettings;
 }
 
 export type FontCategory = "標準" | "日本語" | "英字";

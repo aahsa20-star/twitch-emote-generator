@@ -1,5 +1,6 @@
 import { useCallback } from "react";
-import { EmoteVariant, ExportMode, ProcessingStage } from "@/types/emote";
+import { BadgeSettings, BADGE_SIZES, EmoteVariant, ExportMode, ProcessingStage } from "@/types/emote";
+import { renderBadge } from "@/lib/canvasPipeline";
 
 interface DownloadButtonProps {
   stage: ProcessingStage;
@@ -7,6 +8,8 @@ interface DownloadButtonProps {
   variants: EmoteVariant[];
   exportMode?: ExportMode;
   onDownloadComplete?: () => void;
+  badgeSettings?: BadgeSettings;
+  bgRemovedCanvas?: HTMLCanvasElement | null;
 }
 
 export default function DownloadButton({
@@ -15,6 +18,8 @@ export default function DownloadButton({
   variants,
   exportMode = "twitch",
   onDownloadComplete,
+  badgeSettings,
+  bgRemovedCanvas,
 }: DownloadButtonProps) {
   const isReady = stage === "ready";
   const isExporting = stage === "exporting";
@@ -46,6 +51,27 @@ export default function DownloadButton({
     }, 1000);
     onDownloadComplete?.();
   }, [variants, largestSize, onDownloadComplete]);
+
+  const handleBadgeDownload = useCallback(async () => {
+    if (!badgeSettings?.enabled || !bgRemovedCanvas) return;
+    const { default: JSZip } = await import("jszip");
+    const zip = new JSZip();
+    for (const size of BADGE_SIZES) {
+      const canvas = renderBadge(bgRemovedCanvas, badgeSettings, size);
+      const dataUrl = canvas.toDataURL("image/png");
+      const base64 = dataUrl.split(",")[1];
+      zip.file(`badge_${size}.png`, base64, { base64: true });
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "badge.zip";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+    onDownloadComplete?.();
+  }, [badgeSettings, bgRemovedCanvas, onDownloadComplete]);
 
   const vLargest = variants.find((v) => v.size === largestSize);
   const formatLargest = vLargest?.animatedBlob ? "GIF" : "PNG";
@@ -107,6 +133,21 @@ export default function DownloadButton({
           "全サイズ一括DL（ZIP）"
         )}
       </button>
+
+      {/* Badge ZIP download */}
+      {badgeSettings?.enabled && bgRemovedCanvas && (
+        <button
+          onClick={handleBadgeDownload}
+          disabled={!isReady}
+          className={`w-full py-2 px-4 min-h-[44px] md:min-h-0 rounded-lg text-sm transition-colors ${
+            isReady
+              ? "bg-gray-700 hover:bg-gray-600 text-gray-200 cursor-pointer border border-purple-600"
+              : "bg-gray-700 text-gray-500 cursor-not-allowed"
+          }`}
+        >
+          バッジ一括DL（ZIP）
+        </button>
+      )}
     </div>
   );
 }

@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { EmoteVariant, ExportMode, ProcessingStage, TextPosition } from "@/types/emote";
-import { applyBorder, applyTextOverlay, centerAndResize } from "@/lib/canvasPipeline";
+import { BadgeSettings, BADGE_SIZES, EmoteVariant, ExportMode, ProcessingStage, TextPosition } from "@/types/emote";
+import { applyBorder, applyTextOverlay, centerAndResize, renderBadge } from "@/lib/canvasPipeline";
 import PreviewCard from "./PreviewCard";
 
 type BgMode = "checker" | "dark" | "light";
@@ -14,6 +14,8 @@ interface PreviewAreaProps {
   textPosition?: TextPosition;
   exportMode?: ExportMode;
   onDownloadComplete?: () => void;
+  badgeSettings?: BadgeSettings;
+  bgRemovedCanvas?: HTMLCanvasElement | null;
 }
 
 const FEATURES = [
@@ -189,6 +191,68 @@ function SampleShowcase() {
   );
 }
 
+function BadgePreviewSection({
+  bgRemovedCanvas,
+  badgeSettings,
+}: {
+  bgRemovedCanvas: HTMLCanvasElement;
+  badgeSettings: BadgeSettings;
+}) {
+  const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
+
+  useEffect(() => {
+    BADGE_SIZES.forEach((size, i) => {
+      const target = canvasRefs.current[i];
+      if (!target) return;
+      const result = renderBadge(bgRemovedCanvas, badgeSettings, size);
+      target.width = size;
+      target.height = size;
+      const ctx = target.getContext("2d")!;
+      ctx.clearRect(0, 0, size, size);
+      ctx.drawImage(result, 0, 0);
+    });
+  }, [bgRemovedCanvas, badgeSettings]);
+
+  const handleDownload = (size: number, idx: number) => {
+    const target = canvasRefs.current[idx];
+    if (!target) return;
+    const url = target.toDataURL("image/png");
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `badge_${size}.png`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => document.body.removeChild(a), 500);
+  };
+
+  return (
+    <div className="mt-4 pt-4 border-t border-gray-700">
+      <p className="text-xs text-gray-400 mb-2">バッジプレビュー（18 / 36 / 72px）</p>
+      <div className="flex items-end gap-4 justify-center">
+        {BADGE_SIZES.map((size, i) => (
+          <div key={size} className="flex flex-col items-center gap-1">
+            <div className="checkerboard rounded p-1 flex items-center justify-center" style={{ width: size + 16, height: size + 16 }}>
+              <canvas
+                ref={(el) => { canvasRefs.current[i] = el; }}
+                width={size}
+                height={size}
+                style={{ width: size, height: size }}
+              />
+            </div>
+            <span className="text-[10px] text-gray-500">{size}px</span>
+            <button
+              onClick={() => handleDownload(size, i)}
+              className="text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
+            >
+              DL
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 const SKELETON_SIZES_TWITCH = [112, 56, 28];
 const SKELETON_SIZES_DISCORD = [128, 64, 32];
 
@@ -228,7 +292,7 @@ const BG_OPTIONS: { mode: BgMode; label: string; className: string }[] = [
   { mode: "light", label: "ライト", className: "bg-white" },
 ];
 
-export default function PreviewArea({ variants, stage, hasText = false, textPosition = "bottom", exportMode = "twitch", onDownloadComplete }: PreviewAreaProps) {
+export default function PreviewArea({ variants, stage, hasText = false, textPosition = "bottom", exportMode = "twitch", onDownloadComplete, badgeSettings, bgRemovedCanvas }: PreviewAreaProps) {
   const [bgMode, setBgMode] = useState<BgMode>("checker");
 
   const isProcessing = stage === "removing-background" || stage === "processing" || stage === "generating-preview";
@@ -265,6 +329,11 @@ export default function PreviewArea({ variants, stage, hasText = false, textPosi
       {[...variants].reverse().map((variant) => (
         <PreviewCard key={variant.size} variant={variant} hasText={hasText} textPosition={textPosition} bgMode={bgMode} onDownloadComplete={onDownloadComplete} />
       ))}
+
+      {/* Badge preview */}
+      {badgeSettings?.enabled && bgRemovedCanvas && (
+        <BadgePreviewSection bgRemovedCanvas={bgRemovedCanvas} badgeSettings={badgeSettings} />
+      )}
     </div>
   );
 }

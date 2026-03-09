@@ -12,7 +12,7 @@ import RecommendedPatterns from "./RecommendedPatterns";
 import ShareButton from "./ShareButton";
 import ShareAfterDownloadModal from "./ShareAfterDownloadModal";
 import FloatingMiniPreview from "./FloatingMiniPreview";
-import { EmoteConfig, ExportMode, BgRemovalQuality } from "@/types/emote";
+import { EmoteConfig, ExportMode, BgRemovalQuality, DEFAULT_BADGE_SETTINGS } from "@/types/emote";
 
 const SUBSCRIBER_KEY = "emote-subscriber";
 
@@ -115,6 +115,7 @@ export default function EmoteGenerator() {
       frameType: "none",
       compositeMode: "none",
       subImageScale: 38,
+      badgeSettings: { ...DEFAULT_BADGE_SETTINGS },
       animation: ["gaming", "glitch", "sparkle", "afterimage", "fastspin", "float", "wobble", "neon", "vhs", "snow", "fire", "matrix", "drunk", "confetti", "hypno", "tv", "earthquake", "party", "flip", "ghost", "glitch2", "spiral", "heartbeat", "spring", "jelly"].includes(config.animation) ? "none" : config.animation,
       textPreset: config.textPreset,
     });
@@ -366,6 +367,8 @@ export default function EmoteGenerator() {
           textPosition={config.text.position}
           exportMode={exportMode}
           onDownloadComplete={handleDownloadComplete}
+          badgeSettings={config.badgeSettings}
+          bgRemovedCanvas={bgRemovedCanvas}
         />
       </div>
 
@@ -385,7 +388,7 @@ export default function EmoteGenerator() {
         {/* DL + Share inside sticky container (desktop only) */}
         {sourceFile && (
           <div className="hidden md:flex flex-col gap-3">
-            <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} />
+            <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} badgeSettings={config.badgeSettings} bgRemovedCanvas={bgRemovedCanvas} />
             <ShareButton imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
           </div>
         )}
@@ -404,7 +407,7 @@ export default function EmoteGenerator() {
       {/* DL + Share (mobile only: order-2) */}
       {sourceFile && (
         <div className="space-y-3 order-2 md:hidden self-start">
-          <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} />
+          <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} badgeSettings={config.badgeSettings} bgRemovedCanvas={bgRemovedCanvas} />
           <ShareButton imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
         </div>
       )}

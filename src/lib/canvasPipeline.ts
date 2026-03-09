@@ -1,4 +1,4 @@
-import { BorderStyle, CompositeMode, EmoteConfig, FrameType, TextConfig, TextPosition, TEXT_PRESETS } from "@/types/emote";
+import { BadgeSettings, BadgeSize, BorderStyle, CompositeMode, EmoteConfig, FrameType, TextConfig, TextPosition, TEXT_PRESETS } from "@/types/emote";
 
 interface Bounds {
   top: number;
@@ -592,6 +592,70 @@ export function processEmote(
   // 6. Downscale to target size (multi-step for quality)
   if (size < HI_RES) {
     canvas = downscale(canvas, size);
+  }
+
+  return canvas;
+}
+
+// --- Badge rendering ---
+
+export function renderBadge(
+  sourceCanvas: HTMLCanvasElement,
+  settings: BadgeSettings,
+  outputSize: BadgeSize
+): HTMLCanvasElement {
+  const canvas = document.createElement("canvas");
+  canvas.width = outputSize;
+  canvas.height = outputSize;
+  const ctx = canvas.getContext("2d")!;
+
+  const r = outputSize / 2;
+  const cornerRadius = outputSize * 0.2;
+
+  // Clipping path
+  ctx.save();
+  ctx.beginPath();
+  if (settings.shape === "circle") {
+    ctx.arc(r, r, r, 0, Math.PI * 2);
+  } else if (settings.shape === "rounded") {
+    ctx.roundRect(0, 0, outputSize, outputSize, cornerRadius);
+  } else {
+    ctx.rect(0, 0, outputSize, outputSize);
+  }
+  ctx.clip();
+
+  // Background
+  if (!settings.bgTransparent) {
+    ctx.fillStyle = settings.bgColor;
+    ctx.fillRect(0, 0, outputSize, outputSize);
+  }
+
+  // Image with padding (use centerAndResize to fit content)
+  const pad = Math.round(outputSize * (settings.padding / 72));
+  const drawSize = outputSize - pad * 2;
+  if (drawSize > 0) {
+    const centered = centerAndResize(sourceCanvas, drawSize);
+    ctx.drawImage(centered, pad, pad);
+  }
+
+  ctx.restore(); // release clip
+
+  // Outline
+  if (settings.outlineWidth > 0) {
+    const lineWidth = Math.max(1, Math.round(settings.outlineWidth * outputSize / 72));
+    ctx.strokeStyle = settings.outlineColor;
+    ctx.lineWidth = lineWidth;
+    ctx.beginPath();
+    if (settings.shape === "circle") {
+      ctx.arc(r, r, r - lineWidth / 2, 0, Math.PI * 2);
+    } else if (settings.shape === "rounded") {
+      ctx.roundRect(lineWidth / 2, lineWidth / 2,
+        outputSize - lineWidth, outputSize - lineWidth, cornerRadius);
+    } else {
+      ctx.rect(lineWidth / 2, lineWidth / 2,
+        outputSize - lineWidth, outputSize - lineWidth);
+    }
+    ctx.stroke();
   }
 
   return canvas;

@@ -10,6 +10,7 @@ import {
   EMOTE_SIZES,
   DISCORD_SIZES,
   TEXT_PRESETS,
+  DEFAULT_BADGE_SETTINGS,
 } from "@/types/emote";
 import { removeBackground } from "@/lib/backgroundRemoval";
 import { processEmote } from "@/lib/canvasPipeline";
@@ -44,6 +45,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     textOutlineWidth: 3,
     animation: "none",
     animationSpeed: "normal",
+    badgeSettings: { ...DEFAULT_BADGE_SETTINGS },
   });
   const [stage, setStage] = useState<ProcessingStage>("idle");
   const [progress, setProgress] = useState(0);
