@@ -13,7 +13,6 @@ import ShareButton from "./ShareButton";
 import { EmoteConfig, ExportMode, BgRemovalQuality } from "@/types/emote";
 
 const SUBSCRIBER_KEY = "emote-subscriber";
-const PASSPHRASE = "saratouin";
 
 function SpinnerIcon() {
   return (
@@ -65,17 +64,25 @@ export default function EmoteGenerator() {
     } catch {}
   }, []);
 
-  const handleAuth = () => {
-    if (passphrase.trim().toLowerCase() === PASSPHRASE) {
-      setIsSubscriber(true);
-      setPassphrase("");
-      try { localStorage.setItem(SUBSCRIBER_KEY, "true"); } catch {}
-      setAuthToast("限定コンテンツが解放されました！");
-      setTimeout(() => setAuthToast(null), 3000);
-    } else {
-      setAuthToast("合言葉が違います");
-      setTimeout(() => setAuthToast(null), 3000);
+  const handleAuth = async () => {
+    try {
+      const res = await fetch("/api/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ passphrase: passphrase.trim() }),
+      });
+      if (res.ok) {
+        setIsSubscriber(true);
+        setPassphrase("");
+        try { localStorage.setItem(SUBSCRIBER_KEY, "true"); } catch {}
+        setAuthToast("限定コンテンツが解放されました！");
+      } else {
+        setAuthToast("合言葉が違います");
+      }
+    } catch {
+      setAuthToast("認証エラーが発生しました");
     }
+    setTimeout(() => setAuthToast(null), 3000);
   };
 
   const handleLogout = () => {
