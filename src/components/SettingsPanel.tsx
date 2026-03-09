@@ -57,7 +57,7 @@ function ColorPicker({
           type="color"
           value={local}
           onInput={(e) => setLocal((e.target as HTMLInputElement).value)}
-          className="w-8 h-8 rounded border border-gray-600 bg-transparent cursor-pointer"
+          className="w-10 h-10 rounded border border-gray-600 bg-transparent cursor-pointer"
         />
         <span className="text-xs text-gray-400 font-mono">{local}</span>
       </div>
