@@ -1,3 +1,4 @@
+import Script from "next/script";
 import type { Metadata } from "next";
 import {
   Inter,
@@ -114,6 +115,12 @@ export default function RootLayout({
     <html lang="ja" className="dark">
       <body className={`${fontVars} font-sans antialiased`}>
         {children}
+        <Script
+          defer
+          src="https://cloud.umami.is/script.js"
+          data-website-id="30d97495-7286-4936-a2a9-831d65ec49bc"
+          strategy="afterInteractive"
+        />
       </body>
     </html>
   );
