@@ -21,6 +21,8 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
   const [bgRemovedCanvas, setBgRemovedCanvas] = useState<HTMLCanvasElement | null>(null);
   const [skipBgRemoval, setSkipBgRemoval] = useState(false);
   const [bgRemovalQuality, setBgRemovalQuality] = useState<BgRemovalQuality>("speed");
+  const [bgRemovedBlob, setBgRemovedBlob] = useState<Blob | null>(null);
+  const [originalBlob, setOriginalBlob] = useState<Blob | null>(null);
   const [config, setConfig] = useState<EmoteConfig>({
     border: "none",
     borderWidth: 4,
@@ -75,6 +77,12 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
     async function process() {
       setVariants([]);
 
+      // Store original blob for BrushEditor restore brush
+      const origBlob = new Blob([await sourceFile!.arrayBuffer()], {
+        type: sourceFile!.type,
+      });
+      if (!cancelled) setOriginalBlob(origBlob);
+
       if (skipBgRemoval) {
         // Skip: use original image directly
         setStage("processing");
@@ -94,21 +102,14 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
       setProgress(0);
 
       try {
-        const blob = new Blob([await sourceFile!.arrayBuffer()], {
-          type: sourceFile!.type,
-        });
-        const resultBlob = await removeBackground(blob, (p) => {
+        const resultBlob = await removeBackground(origBlob, (p) => {
           if (!cancelled && !bgRemovalCancelledRef.current) setProgress(p);
         }, bgRemovalQuality);
         if (cancelled || bgRemovalCancelledRef.current) return;
 
-        const canvas = await fileToCanvas(
-          new File([resultBlob], "bg-removed.png", { type: "image/png" })
-        );
-
-        if (!cancelled && !bgRemovalCancelledRef.current) {
-          setBgRemovedCanvas(canvas);
-        }
+        // Store bg-removed blob for BrushEditor, transition to brush-editing
+        setBgRemovedBlob(resultBlob);
+        setStage("brush-editing");
       } catch (err) {
         console.error("Background removal failed:", err);
         if (!cancelled && !bgRemovalCancelledRef.current) {
@@ -190,6 +191,35 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
     };
   }, [bgRemovedCanvas, config, sourceFile, exportMode]);
 
+  // Convert blob to canvas helper
+  const blobToCanvas = useCallback(async (blob: Blob): Promise<HTMLCanvasElement> => {
+    const file = new File([blob], "temp.png", { type: "image/png" });
+    return fileToCanvas(file);
+  }, [fileToCanvas]);
+
+  // BrushEditor confirm: use adjusted blob
+  const handleBrushConfirm = useCallback(async (adjustedBlob: Blob) => {
+    try {
+      const canvas = await blobToCanvas(adjustedBlob);
+      setBgRemovedCanvas(canvas);
+    } catch (err) {
+      console.error("Brush confirm failed:", err);
+      setStage("idle");
+    }
+  }, [blobToCanvas]);
+
+  // BrushEditor skip: use bg-removed result as-is
+  const handleBrushSkip = useCallback(async () => {
+    if (!bgRemovedBlob) return;
+    try {
+      const canvas = await blobToCanvas(bgRemovedBlob);
+      setBgRemovedCanvas(canvas);
+    } catch (err) {
+      console.error("Brush skip failed:", err);
+      setStage("idle");
+    }
+  }, [bgRemovedBlob, blobToCanvas]);
+
   // Cancel ongoing background removal
   const cancelBgRemoval = useCallback(async () => {
     bgRemovalCancelledRef.current = true;
@@ -259,5 +289,9 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
     cancelBgRemoval,
     retryBgRemoval,
     useOriginalImage,
+    bgRemovedBlob,
+    originalBlob,
+    handleBrushConfirm,
+    handleBrushSkip,
   };
 }

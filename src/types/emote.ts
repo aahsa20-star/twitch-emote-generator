@@ -66,6 +66,7 @@ export const TEXT_POSITION_OPTIONS: { value: TextPosition; label: string }[] = [
 export type ProcessingStage =
   | "idle"
   | "removing-background"
+  | "brush-editing"
   | "processing"
   | "generating-preview"
   | "ready"

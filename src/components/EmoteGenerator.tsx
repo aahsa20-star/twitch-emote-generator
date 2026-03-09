@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useEmoteProcessor } from "@/hooks/useEmoteProcessor";
 import UploadPanel from "./UploadPanel";
 import ImageAdjustEditor from "./ImageAdjustEditor";
+import BrushEditor from "./BrushEditor";
 import SettingsPanel from "./SettingsPanel";
 import PreviewArea from "./PreviewArea";
 import DownloadButton from "./DownloadButton";
@@ -43,6 +44,10 @@ export default function EmoteGenerator() {
     cancelBgRemoval,
     retryBgRemoval,
     useOriginalImage,
+    bgRemovedBlob,
+    originalBlob,
+    handleBrushConfirm,
+    handleBrushSkip,
   } = useEmoteProcessor(exportMode);
 
   const [pendingFile, setPendingFile] = useState<File | null>(null);
@@ -241,6 +246,16 @@ export default function EmoteGenerator() {
               ? "アニメーション生成中..."
               : "エモート生成中..."}
           </div>
+        )}
+
+        {/* Brush editor for manual bg adjustment */}
+        {stage === "brush-editing" && bgRemovedBlob && originalBlob && (
+          <BrushEditor
+            bgRemovedBlob={bgRemovedBlob}
+            originalBlob={originalBlob}
+            onConfirm={handleBrushConfirm}
+            onSkip={handleBrushSkip}
+          />
         )}
       </div>
 
