@@ -86,7 +86,7 @@ export default function RecommendedPatterns({ bgRemovedCanvas, onApply }: Recomm
           let animatedBlob: Blob | null = null;
           let animatedUrl: string | null = null;
           if (pattern.config.animation !== "none") {
-            animatedBlob = await generateGif(canvas, pattern.config.animation, 112);
+            animatedBlob = await generateGif(canvas, pattern.config.animation, 112, pattern.config.animationSpeed);
             if (cancelled) return;
             animatedUrl = URL.createObjectURL(animatedBlob);
             blobUrlsRef.current.push(animatedUrl);

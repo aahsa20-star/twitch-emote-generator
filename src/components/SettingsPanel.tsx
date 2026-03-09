@@ -213,18 +213,20 @@ export default function SettingsPanel({
         )}
 
         {/* Colors row */}
-        <div className="flex gap-4">
-          <ColorPicker
-            label="文字色"
-            value={config.text.fillColor}
-            onChange={(c) => updateText({ fillColor: c })}
-          />
-          <ColorPicker
-            label="縁取り色"
-            value={config.text.strokeColor}
-            onChange={(c) => updateText({ strokeColor: c })}
-          />
-        </div>
+        {hasText && (
+          <div className="flex gap-4">
+            <ColorPicker
+              label="文字色"
+              value={config.text.fillColor}
+              onChange={(c) => updateText({ fillColor: c })}
+            />
+            <ColorPicker
+              label="縁取り色"
+              value={config.text.strokeColor}
+              onChange={(c) => updateText({ strokeColor: c })}
+            />
+          </div>
+        )}
 
         {/* Text outline width slider */}
         {hasText && (
@@ -244,24 +246,26 @@ export default function SettingsPanel({
         )}
 
         {/* Text position */}
-        <div>
-          <label className="text-xs text-gray-400 block mb-1">テキスト位置</label>
-          <div className="grid grid-cols-3 gap-2">
-            {TEXT_POSITION_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => updateText({ position: opt.value })}
-                className={`px-3 py-1.5 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
-                  config.text.position === opt.value
-                    ? "bg-purple-600 text-white"
-                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
+        {hasText && (
+          <div>
+            <label className="text-xs text-gray-400 block mb-1">テキスト位置</label>
+            <div className="grid grid-cols-3 gap-2">
+              {TEXT_POSITION_OPTIONS.map((opt) => (
+                <button
+                  key={opt.value}
+                  onClick={() => updateText({ position: opt.value })}
+                  className={`px-3 py-1.5 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
+                    config.text.position === opt.value
+                      ? "bg-purple-600 text-white"
+                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Text position fine-tune */}
         {hasText && (

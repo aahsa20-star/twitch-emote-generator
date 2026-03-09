@@ -267,7 +267,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
       console.error("Export failed:", err);
     }
     setStage("ready");
-  }, [variants, sourceFile, exportMode]);
+  }, [variants, exportMode]);
 
   const updateConfig = useCallback((partial: Partial<EmoteConfig>) => {
     setConfig((prev) => ({ ...prev, ...partial }));
