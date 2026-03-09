@@ -13,6 +13,7 @@ interface PreviewAreaProps {
   hasText?: boolean;
   textPosition?: TextPosition;
   exportMode?: ExportMode;
+  onDownloadComplete?: () => void;
 }
 
 const FEATURES = [
@@ -227,7 +228,7 @@ const BG_OPTIONS: { mode: BgMode; label: string; className: string }[] = [
   { mode: "light", label: "ライト", className: "bg-white" },
 ];
 
-export default function PreviewArea({ variants, stage, hasText = false, textPosition = "bottom", exportMode = "twitch" }: PreviewAreaProps) {
+export default function PreviewArea({ variants, stage, hasText = false, textPosition = "bottom", exportMode = "twitch", onDownloadComplete }: PreviewAreaProps) {
   const [bgMode, setBgMode] = useState<BgMode>("checker");
 
   const isProcessing = stage === "removing-background" || stage === "processing" || stage === "generating-preview";
@@ -262,7 +263,7 @@ export default function PreviewArea({ variants, stage, hasText = false, textPosi
 
       <div className="pt-2" />
       {[...variants].reverse().map((variant) => (
-        <PreviewCard key={variant.size} variant={variant} hasText={hasText} textPosition={textPosition} bgMode={bgMode} />
+        <PreviewCard key={variant.size} variant={variant} hasText={hasText} textPosition={textPosition} bgMode={bgMode} onDownloadComplete={onDownloadComplete} />
       ))}
     </div>
   );

@@ -10,6 +10,7 @@ import PreviewArea from "./PreviewArea";
 import DownloadButton from "./DownloadButton";
 import RecommendedPatterns from "./RecommendedPatterns";
 import ShareButton from "./ShareButton";
+import ShareAfterDownloadModal from "./ShareAfterDownloadModal";
 import FloatingMiniPreview from "./FloatingMiniPreview";
 import { EmoteConfig, ExportMode, BgRemovalQuality } from "@/types/emote";
 
@@ -55,6 +56,9 @@ export default function EmoteGenerator() {
   const [isSubscriber, setIsSubscriber] = useState(false);
   const [passphrase, setPassphrase] = useState("");
   const [authToast, setAuthToast] = useState<string | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+
+  const handleDownloadComplete = () => setShowShareModal(true);
 
   // Restore subscriber status from localStorage
   useEffect(() => {
@@ -335,6 +339,7 @@ export default function EmoteGenerator() {
           hasText={!!(config.text.customText.trim() || config.textPreset)}
           textPosition={config.text.position}
           exportMode={exportMode}
+          onDownloadComplete={handleDownloadComplete}
         />
       </div>
 
@@ -352,7 +357,7 @@ export default function EmoteGenerator() {
         {/* DL + Share inside sticky container (desktop only) */}
         {sourceFile && (
           <div className="hidden md:flex flex-col gap-3">
-            <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} />
+            <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} />
             <ShareButton imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
           </div>
         )}
@@ -371,13 +376,18 @@ export default function EmoteGenerator() {
       {/* DL + Share (mobile only: order-2) */}
       {sourceFile && (
         <div className="space-y-3 order-2 md:hidden self-start">
-          <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} />
+          <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} />
           <ShareButton imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
         </div>
       )}
 
       {/* Floating mini preview (mobile only) */}
       <FloatingMiniPreview variants={variants} stage={stage} />
+
+      {/* Share after download modal */}
+      {showShareModal && (
+        <ShareAfterDownloadModal onClose={() => setShowShareModal(false)} />
+      )}
     </div>
   );
 }

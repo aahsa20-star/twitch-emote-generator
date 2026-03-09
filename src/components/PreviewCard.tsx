@@ -9,9 +9,10 @@ interface PreviewCardProps {
   hasText?: boolean;
   textPosition?: TextPosition;
   bgMode?: BgMode;
+  onDownloadComplete?: () => void;
 }
 
-export default function PreviewCard({ variant, hasText = false, textPosition = "bottom", bgMode = "checker" }: PreviewCardProps) {
+export default function PreviewCard({ variant, hasText = false, textPosition = "bottom", bgMode = "checker", onDownloadComplete }: PreviewCardProps) {
   const [gifUrl, setGifUrl] = useState<string | null>(null);
   const [visibilityResult, setVisibilityResult] = useState<VisibilityResult | null>(null);
 
@@ -68,7 +69,8 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
       document.body.removeChild(a);
       if (needsRevoke) URL.revokeObjectURL(url);
     }, 1000);
-  }, [variant]);
+    onDownloadComplete?.();
+  }, [variant, onDownloadComplete]);
 
   const format = variant.animatedBlob ? "GIF" : "PNG";
 

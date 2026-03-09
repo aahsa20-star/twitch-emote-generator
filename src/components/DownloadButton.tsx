@@ -6,6 +6,7 @@ interface DownloadButtonProps {
   onExport: () => void;
   variants: EmoteVariant[];
   exportMode?: ExportMode;
+  onDownloadComplete?: () => void;
 }
 
 export default function DownloadButton({
@@ -13,6 +14,7 @@ export default function DownloadButton({
   onExport,
   variants,
   exportMode = "twitch",
+  onDownloadComplete,
 }: DownloadButtonProps) {
   const isReady = stage === "ready";
   const isExporting = stage === "exporting";
@@ -42,7 +44,8 @@ export default function DownloadButton({
       document.body.removeChild(a);
       if (needsRevoke) URL.revokeObjectURL(url);
     }, 1000);
-  }, [variants, largestSize]);
+    onDownloadComplete?.();
+  }, [variants, largestSize, onDownloadComplete]);
 
   const vLargest = variants.find((v) => v.size === largestSize);
   const formatLargest = vLargest?.animatedBlob ? "GIF" : "PNG";
@@ -67,7 +70,7 @@ export default function DownloadButton({
 
       {/* ZIP bulk download */}
       <button
-        onClick={onExport}
+        onClick={async () => { await onExport(); onDownloadComplete?.(); }}
         disabled={!isReady && !isExporting}
         className={`w-full py-2 px-4 min-h-[44px] md:min-h-0 rounded-lg text-sm transition-colors ${
           isReady
