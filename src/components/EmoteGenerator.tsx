@@ -172,6 +172,14 @@ export default function EmoteGenerator() {
         ) : (
           <div className="bg-gray-800/60 rounded-lg p-3 space-y-2">
             <label className="text-xs text-gray-400 block">合言葉を入力して限定機能を解放</label>
+            <a
+              href="https://discord.gg/CheMXWdj"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-purple-400 hover:underline block"
+            >
+              合言葉はダツ皿アキのDiscordサーバーのサブスク限定チャットで配布中
+            </a>
             <div className="flex gap-2">
               <input
                 type="text"
