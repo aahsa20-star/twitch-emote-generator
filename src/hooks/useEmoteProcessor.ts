@@ -6,6 +6,7 @@ import {
   EmoteVariant,
   ProcessingStage,
   ExportMode,
+  BgRemovalQuality,
   EMOTE_SIZES,
   DISCORD_SIZES,
   TEXT_PRESETS,
@@ -19,6 +20,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [bgRemovedCanvas, setBgRemovedCanvas] = useState<HTMLCanvasElement | null>(null);
   const [skipBgRemoval, setSkipBgRemoval] = useState(false);
+  const [bgRemovalQuality, setBgRemovalQuality] = useState<BgRemovalQuality>("speed");
   const [config, setConfig] = useState<EmoteConfig>({
     border: "none",
     borderWidth: 4,
@@ -97,7 +99,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
         });
         const resultBlob = await removeBackground(blob, (p) => {
           if (!cancelled && !bgRemovalCancelledRef.current) setProgress(p);
-        });
+        }, bgRemovalQuality);
         if (cancelled || bgRemovalCancelledRef.current) return;
 
         const canvas = await fileToCanvas(
@@ -119,7 +121,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
     return () => {
       cancelled = true;
     };
-  }, [sourceFile, skipBgRemoval, fileToCanvas]);
+  }, [sourceFile, skipBgRemoval, bgRemovalQuality, fileToCanvas]);
 
   // Effect 2: Render previews when bgRemovedCanvas or config changes
   useEffect(() => {
@@ -252,6 +254,8 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
     handleExport,
     skipBgRemoval,
     setSkipBgRemoval,
+    bgRemovalQuality,
+    setBgRemovalQuality,
     cancelBgRemoval,
     retryBgRemoval,
     useOriginalImage,

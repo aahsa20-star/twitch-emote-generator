@@ -6,6 +6,8 @@ export type DiscordSize = (typeof DISCORD_SIZES)[number];
 
 export type ExportMode = "twitch" | "discord";
 
+export type BgRemovalQuality = "speed" | "quality";
+
 export type BorderStyle = "none" | "white" | "black" | "shadow" | "custom";
 
 export type AnimationType = "none" | "sway" | "shake" | "blink" | "bounce" | "zoomin" | "spin" | "hearts"

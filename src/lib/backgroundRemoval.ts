@@ -1,12 +1,16 @@
+import type { BgRemovalQuality } from "@/types/emote";
+
 export async function removeBackground(
   imageBlob: Blob,
-  onProgress?: (progress: number) => void
+  onProgress?: (progress: number) => void,
+  quality: BgRemovalQuality = "speed"
 ): Promise<Blob> {
   const { removeBackground: removeBg } = await import(
     "@imgly/background-removal"
   );
 
   const result = await removeBg(imageBlob, {
+    model: quality === "quality" ? "medium" : "small",
     output: {
       format: "image/png",
       quality: 1,

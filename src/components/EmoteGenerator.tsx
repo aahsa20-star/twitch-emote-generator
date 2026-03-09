@@ -9,7 +9,7 @@ import PreviewArea from "./PreviewArea";
 import DownloadButton from "./DownloadButton";
 import RecommendedPatterns from "./RecommendedPatterns";
 import ShareButton from "./ShareButton";
-import { EmoteConfig, ExportMode } from "@/types/emote";
+import { EmoteConfig, ExportMode, BgRemovalQuality } from "@/types/emote";
 
 const SUBSCRIBER_KEY = "emote-subscriber";
 const PASSPHRASE = "saratouin";
@@ -38,6 +38,8 @@ export default function EmoteGenerator() {
     handleExport,
     skipBgRemoval,
     setSkipBgRemoval,
+    bgRemovalQuality,
+    setBgRemovalQuality,
     cancelBgRemoval,
     retryBgRemoval,
     useOriginalImage,
@@ -179,12 +181,38 @@ export default function EmoteGenerator() {
           </div>
         )}
 
+        {/* Background removal quality toggle */}
+        {sourceFile && !skipBgRemoval && (
+          <div className="space-y-1">
+            <label className="text-xs text-gray-400 block">透過精度</label>
+            <div className="flex gap-2">
+              {([
+                { value: "speed" as BgRemovalQuality, label: "標準", desc: "速い" },
+                { value: "quality" as BgRemovalQuality, label: "高精度", desc: "VTuber・イラスト向け" },
+              ]).map(({ value, label, desc }) => (
+                <button
+                  key={value}
+                  onClick={() => setBgRemovalQuality(value)}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm transition-colors border ${
+                    bgRemovalQuality === value
+                      ? "border-purple-500 bg-purple-600/20 text-purple-300"
+                      : "border-gray-600 bg-transparent text-gray-400 hover:border-gray-400 hover:text-gray-200"
+                  }`}
+                >
+                  <span className="block font-medium">{label}</span>
+                  <span className="block text-[10px] opacity-70">{desc}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Processing indicator with cancel */}
         {stage === "removing-background" && (
           <div className="space-y-2">
             <div className="flex items-center gap-2 text-sm text-purple-300">
               <SpinnerIcon />
-              背景を透過中...
+              {bgRemovalQuality === "quality" ? "背景を透過中（高精度モード）..." : "背景を透過中..."}
             </div>
             <div className="w-full bg-gray-700 rounded-full h-2">
               <div
