@@ -11,7 +11,8 @@ export type BgRemovalQuality = "speed" | "quality";
 export type BorderStyle = "none" | "white" | "black" | "shadow" | "custom";
 
 export type AnimationType = "none" | "sway" | "shake" | "blink" | "bounce" | "zoomin" | "spin" | "hearts"
-  | "gaming" | "glitch" | "sparkle" | "afterimage" | "fastspin";
+  | "gaming" | "glitch" | "sparkle" | "afterimage" | "fastspin"
+  | "float" | "wobble" | "neon" | "vhs" | "snow" | "fire" | "matrix" | "drunk" | "confetti" | "hypno";
 
 export type TextPosition = "top" | "center" | "bottom";
 
@@ -124,4 +125,14 @@ export const ANIMATION_OPTIONS: AnimationOption[] = [
   { value: "sparkle", label: "キラキラ", subscriberOnly: true },
   { value: "afterimage", label: "残像", subscriberOnly: true },
   { value: "fastspin", label: "高速回転", subscriberOnly: true },
+  { value: "float", label: "ふわふわ", subscriberOnly: true },
+  { value: "wobble", label: "ぐにゃぐにゃ", subscriberOnly: true },
+  { value: "neon", label: "ネオン", subscriberOnly: true },
+  { value: "vhs", label: "VHS", subscriberOnly: true },
+  { value: "snow", label: "雪", subscriberOnly: true },
+  { value: "fire", label: "炎", subscriberOnly: true },
+  { value: "matrix", label: "マトリックス", subscriberOnly: true },
+  { value: "drunk", label: "酔っ払い", subscriberOnly: true },
+  { value: "confetti", label: "紙吹雪", subscriberOnly: true },
+  { value: "hypno", label: "催眠", subscriberOnly: true },
 ];

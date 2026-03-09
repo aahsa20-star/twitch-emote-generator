@@ -379,6 +379,356 @@ function createFastSpinFrame(
   return canvas;
 }
 
+// --- New subscriber-only animations ---
+
+function createFloatFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const offsetY = Math.sin(t * Math.PI * 2) * size * 0.05;
+
+  ctx.drawImage(baseCanvas, 0, offsetY);
+  return canvas;
+}
+
+function createWobbleFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const scaleX = 1 + 0.15 * Math.sin(t * Math.PI * 2);
+  const scaleY = 1 + 0.15 * Math.sin(t * Math.PI * 2 + Math.PI);
+
+  ctx.translate(size / 2, size / 2);
+  ctx.scale(scaleX, scaleY);
+  ctx.translate(-size / 2, -size / 2);
+  ctx.drawImage(baseCanvas, 0, 0);
+  return canvas;
+}
+
+function createNeonFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const hue = t * 360;
+  const blur = 10 + 10 * Math.sin(t * Math.PI * 2);
+
+  ctx.shadowColor = `hsl(${hue}, 100%, 60%)`;
+  ctx.shadowBlur = blur;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 0;
+  // Draw twice for stronger glow
+  ctx.drawImage(baseCanvas, 0, 0);
+  ctx.drawImage(baseCanvas, 0, 0);
+  return canvas;
+}
+
+function createVhsFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  ctx.drawImage(baseCanvas, 0, 0);
+
+  const imgData = ctx.getImageData(0, 0, size, size);
+  const src = new Uint8ClampedArray(imgData.data);
+  const seed = frameIndex * 13;
+
+  // Horizontal slice displacement (fine, many slices)
+  const sliceCount = 6;
+  for (let s = 0; s < sliceCount; s++) {
+    const sliceY = Math.floor(((seed + s * 31) % 100) / 100 * size);
+    const sliceH = Math.max(1, Math.floor(size * 0.02));
+    const sliceShift = Math.round((((seed + s * 47) % 100) / 100 - 0.5) * size * 0.05);
+    for (let y = sliceY; y < Math.min(size, sliceY + sliceH); y++) {
+      for (let x = 0; x < size; x++) {
+        const dstIdx = (y * size + x) * 4;
+        const srcX = Math.min(size - 1, Math.max(0, x - sliceShift));
+        const srcIdx = (y * size + srcX) * 4;
+        imgData.data[dstIdx] = src[srcIdx];
+        imgData.data[dstIdx + 1] = src[srcIdx + 1];
+        imgData.data[dstIdx + 2] = src[srcIdx + 2];
+        imgData.data[dstIdx + 3] = src[srcIdx + 3];
+      }
+    }
+  }
+
+  // Scanlines + sepia tint
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const idx = (y * size + x) * 4;
+      // Sepia tint
+      const r = imgData.data[idx], g = imgData.data[idx + 1], b = imgData.data[idx + 2];
+      imgData.data[idx] = Math.min(255, r * 1.1 + 20);
+      imgData.data[idx + 1] = Math.min(255, g * 0.95 + 10);
+      imgData.data[idx + 2] = Math.min(255, b * 0.8);
+      // Scanline darkening every 2 rows
+      if (y % 4 < 2) {
+        imgData.data[idx] = Math.floor(imgData.data[idx] * 0.85);
+        imgData.data[idx + 1] = Math.floor(imgData.data[idx + 1] * 0.85);
+        imgData.data[idx + 2] = Math.floor(imgData.data[idx + 2] * 0.85);
+      }
+    }
+  }
+
+  ctx.putImageData(imgData, 0, 0);
+  return canvas;
+}
+
+function createSnowFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  ctx.drawImage(baseCanvas, 0, 0);
+
+  const t = frameIndex / totalFrames;
+  const snowflakes = 8;
+
+  for (let i = 0; i < snowflakes; i++) {
+    const seed = i * 73 + 17;
+    const xBase = ((seed * 37) % 100) / 100;
+    const speed = 0.7 + ((seed * 53) % 30) / 100;
+    const snowSize = 2 + ((seed * 19) % 3);
+    const progress = (t * speed + i / snowflakes) % 1;
+
+    const x = xBase * size + Math.sin(progress * Math.PI * 2 + i) * size * 0.04;
+    const y = progress * size * 1.1 - size * 0.05;
+
+    ctx.save();
+    ctx.globalAlpha = 0.8;
+    ctx.fillStyle = "#ffffff";
+    ctx.beginPath();
+    ctx.arc(x, y, snowSize, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  return canvas;
+}
+
+function createFireFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  ctx.drawImage(baseCanvas, 0, 0);
+
+  const t = frameIndex / totalFrames;
+  const particles = 8;
+
+  for (let i = 0; i < particles; i++) {
+    const seed = i * 67 + 23;
+    const xBase = 0.2 + ((seed * 41) % 60) / 100;
+    const speed = 0.5 + ((seed * 29) % 50) / 100;
+    const progress = (t * speed + i / particles) % 1;
+
+    const x = xBase * size + Math.sin(progress * Math.PI * 3 + i) * size * 0.03;
+    const y = size * (1.0 - progress * 0.7);
+    const alpha = 1 - progress;
+    const particleSize = Math.max(2, size * 0.03) * (1 - progress * 0.5);
+    const hue = 15 + progress * 45;
+    const lightness = 50 + progress * 20;
+
+    ctx.save();
+    ctx.globalAlpha = alpha * 0.8;
+    ctx.fillStyle = `hsl(${hue}, 100%, ${lightness}%)`;
+    ctx.beginPath();
+    ctx.arc(x, y, particleSize, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  return canvas;
+}
+
+function createMatrixFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  ctx.drawImage(baseCanvas, 0, 0);
+
+  const t = frameIndex / totalFrames;
+  const columns = 7;
+  const charSize = Math.max(4, Math.floor(size * 0.08));
+
+  ctx.font = `${charSize}px monospace`;
+  ctx.textAlign = "center";
+
+  for (let col = 0; col < columns; col++) {
+    const x = (col + 0.5) * (size / columns);
+    const speed = 0.4 + (col * 17 % 6) / 10;
+    const charsInCol = 6;
+
+    for (let c = 0; c < charsInCol; c++) {
+      const progress = (t * speed + c / charsInCol + col * 0.13) % 1;
+      const y = progress * size * 1.2 - size * 0.1;
+      const alpha = progress < 0.1 ? progress * 10 : progress > 0.8 ? (1 - progress) * 5 : 1;
+      const char = ((col * 7 + c * 13 + frameIndex) % 2 === 0) ? "0" : "1";
+
+      ctx.save();
+      ctx.globalAlpha = alpha * 0.35;
+      ctx.fillStyle = `hsl(120, 100%, ${50 + c * 5}%)`;
+      ctx.fillText(char, x, y);
+      ctx.restore();
+    }
+  }
+
+  return canvas;
+}
+
+function createDrunkFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const offsetX = Math.sin(t * Math.PI * 2) * size * 0.06;
+  const offsetY = Math.cos(t * Math.PI * 2 * 1.3) * size * 0.06;
+  const angle = Math.sin(t * Math.PI * 2 * 0.7) * (8 * Math.PI / 180);
+
+  ctx.translate(size / 2 + offsetX, size / 2 + offsetY);
+  ctx.rotate(angle);
+  ctx.translate(-size / 2, -size / 2);
+  ctx.drawImage(baseCanvas, 0, 0);
+  return canvas;
+}
+
+function createConfettiFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  ctx.drawImage(baseCanvas, 0, 0);
+
+  const t = frameIndex / totalFrames;
+  const pieces = 10;
+
+  for (let i = 0; i < pieces; i++) {
+    const seed = i * 59 + 11;
+    const xBase = ((seed * 43) % 100) / 100;
+    const speed = 0.3 + ((seed * 31) % 70) / 100;
+    const progress = (t * speed + i / pieces) % 1;
+
+    const x = xBase * size + Math.sin(progress * Math.PI * 4 + i * 2) * size * 0.06;
+    const y = progress * size * 1.2 - size * 0.1;
+    const rotation = progress * Math.PI * 4 + i;
+    const hue = (seed * 67) % 360;
+    const w = Math.max(2, size * 0.025);
+    const h = Math.max(1, size * 0.015);
+
+    ctx.save();
+    ctx.globalAlpha = progress > 0.9 ? (1 - progress) * 10 : 0.8;
+    ctx.translate(x, y);
+    ctx.rotate(rotation);
+    ctx.fillStyle = `hsl(${hue}, 80%, 60%)`;
+    ctx.fillRect(-w / 2, -h / 2, w, h);
+    ctx.restore();
+  }
+
+  return canvas;
+}
+
+function createHypnoFrame(
+  baseCanvas: HTMLCanvasElement,
+  frameIndex: number,
+  totalFrames: number
+): HTMLCanvasElement {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  ctx.drawImage(baseCanvas, 0, 0);
+
+  const t = frameIndex / totalFrames;
+  const cx = size / 2;
+  const cy = size / 2;
+  const maxRadius = size * 0.6;
+  const rings = 6;
+  const rotation = t * Math.PI * 2;
+  const scale = 0.8 + 0.2 * Math.sin(t * Math.PI * 2);
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation);
+  ctx.scale(scale, scale);
+
+  for (let i = rings; i >= 1; i--) {
+    const r = (i / rings) * maxRadius;
+    ctx.beginPath();
+    ctx.arc(0, 0, r, 0, Math.PI * 2);
+    ctx.fillStyle = i % 2 === 0
+      ? "rgba(168, 85, 247, 0.15)"
+      : "rgba(255, 255, 255, 0.12)";
+    ctx.fill();
+  }
+
+  ctx.restore();
+  return canvas;
+}
+
 const generators: Record<string, FrameGenerator> = {
   sway: createSwayFrame,
   shake: createShakeFrame,
@@ -392,6 +742,16 @@ const generators: Record<string, FrameGenerator> = {
   sparkle: createSparkleFrame,
   afterimage: createAfterimageFrame,
   fastspin: createFastSpinFrame,
+  float: createFloatFrame,
+  wobble: createWobbleFrame,
+  neon: createNeonFrame,
+  vhs: createVhsFrame,
+  snow: createSnowFrame,
+  fire: createFireFrame,
+  matrix: createMatrixFrame,
+  drunk: createDrunkFrame,
+  confetti: createConfettiFrame,
+  hypno: createHypnoFrame,
 };
 
 export async function generateGif(
