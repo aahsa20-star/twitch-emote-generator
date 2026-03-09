@@ -4,6 +4,7 @@ import {
   TextConfig,
   BORDER_OPTIONS,
   FRAME_OPTIONS,
+  COMPOSITE_OPTIONS,
   ANIMATION_OPTIONS,
   ANIMATION_SPEED_OPTIONS,
   TEXT_PRESETS,
@@ -151,6 +152,29 @@ export default function SettingsPanel({
                 }`}
               >
                 {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Composite (subscriber-only, hidden for non-subscribers) */}
+      {isSubscriber && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-300 mb-2">2画像合成</h3>
+          <div className="grid grid-cols-2 gap-2">
+            {COMPOSITE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => onConfigChange({ compositeMode: opt.value })}
+                className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
+                  config.compositeMode === opt.value
+                    ? "bg-purple-600 text-white"
+                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                }`}
+              >
+                <span className="block font-medium">{opt.label}</span>
+                {opt.desc && <span className="block text-[10px] opacity-70">{opt.desc}</span>}
               </button>
             ))}
           </div>

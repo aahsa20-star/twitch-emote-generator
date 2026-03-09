@@ -16,7 +16,7 @@ import { processEmote } from "@/lib/canvasPipeline";
 import { generateGif } from "@/lib/gifEncoder";
 import { exportAsZip } from "@/lib/zipExporter";
 
-export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
+export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: HTMLCanvasElement | null = null) {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [bgRemovedCanvas, setBgRemovedCanvas] = useState<HTMLCanvasElement | null>(null);
   const [skipBgRemoval, setSkipBgRemoval] = useState(false);
@@ -28,6 +28,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
     borderWidth: 4,
     borderColor: "#ffffff",
     frameType: "none",
+    compositeMode: "none",
     textPreset: null,
     text: {
       customText: "",
@@ -148,7 +149,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
 
           const sizes = exportMode === "discord" ? DISCORD_SIZES : EMOTE_SIZES;
           for (const size of sizes) {
-            const canvas = processEmote(bgRemovedCanvas!, size, config);
+            const canvas = processEmote(bgRemovedCanvas!, size, config, subCanvas ?? undefined);
             const staticDataUrl = canvas.toDataURL("image/png");
 
             let animatedBlob: Blob | null = null;
@@ -191,7 +192,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
         clearTimeout(renderTimeoutRef.current);
       }
     };
-  }, [bgRemovedCanvas, config, sourceFile, exportMode]);
+  }, [bgRemovedCanvas, config, sourceFile, exportMode, subCanvas]);
 
   // Convert blob to canvas helper
   const blobToCanvas = useCallback(async (blob: Blob): Promise<HTMLCanvasElement> => {
@@ -295,5 +296,6 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch") {
     originalBlob,
     handleBrushConfirm,
     handleBrushSkip,
+    fileToCanvas,
   };
 }

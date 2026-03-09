@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useEmoteProcessor } from "@/hooks/useEmoteProcessor";
 import UploadPanel from "./UploadPanel";
 import ImageAdjustEditor from "./ImageAdjustEditor";
@@ -12,6 +12,7 @@ import RecommendedPatterns from "./RecommendedPatterns";
 import ShareButton from "./ShareButton";
 import ShareAfterDownloadModal from "./ShareAfterDownloadModal";
 import FloatingMiniPreview from "./FloatingMiniPreview";
+import SubImageUpload from "./SubImageUpload";
 import { EmoteConfig, ExportMode, BgRemovalQuality } from "@/types/emote";
 
 const SUBSCRIBER_KEY = "emote-subscriber";
@@ -27,6 +28,8 @@ function SpinnerIcon() {
 
 export default function EmoteGenerator() {
   const [exportMode, setExportMode] = useState<ExportMode>("twitch");
+  const [subFile, setSubFile] = useState<File | null>(null);
+  const [subCanvas, setSubCanvas] = useState<HTMLCanvasElement | null>(null);
 
   const {
     sourceFile,
@@ -49,7 +52,20 @@ export default function EmoteGenerator() {
     originalBlob,
     handleBrushConfirm,
     handleBrushSkip,
-  } = useEmoteProcessor(exportMode);
+    fileToCanvas,
+  } = useEmoteProcessor(exportMode, subCanvas);
+
+  // Convert subFile to subCanvas
+  useEffect(() => {
+    if (!subFile) { setSubCanvas(null); return; }
+    let cancelled = false;
+    fileToCanvas(subFile).then((c) => { if (!cancelled) setSubCanvas(c); }).catch(() => { if (!cancelled) setSubCanvas(null); });
+    return () => { cancelled = true; };
+  }, [subFile, fileToCanvas]);
+
+  const handleSubImageSelected = useCallback((file: File) => {
+    setSubFile(file);
+  }, []);
 
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [showRetryMenu, setShowRetryMenu] = useState(false);
@@ -98,6 +114,7 @@ export default function EmoteGenerator() {
       border: config.border === "custom" ? "none" : config.border,
       borderColor: "#ffffff",
       frameType: "none",
+      compositeMode: "none",
       animation: ["gaming", "glitch", "sparkle", "afterimage", "fastspin", "float", "wobble", "neon", "vhs", "snow", "fire", "matrix", "drunk", "confetti", "hypno", "tv", "earthquake", "party", "flip", "ghost", "glitch2", "spiral", "heartbeat", "spring", "jelly"].includes(config.animation) ? "none" : config.animation,
       textPreset: config.textPreset,
     });
@@ -348,6 +365,13 @@ export default function EmoteGenerator() {
       <div className={`space-y-4 md:space-y-6 order-4 md:order-none self-start md:sticky md:top-4 md:max-h-screen md:overflow-y-auto md:col-start-1 relative z-10 ${!sourceFile ? "opacity-40 pointer-events-none select-none" : ""}`}>
         {!sourceFile && (
           <p className="text-xs text-gray-400 text-center py-1">画像をアップロードすると設定できます</p>
+        )}
+        {/* Sub image upload for composite (subscriber-only, visible when composite mode selected) */}
+        {isSubscriber && sourceFile && config.compositeMode !== "none" && (
+          <SubImageUpload
+            onSubImageSelected={handleSubImageSelected}
+            currentFile={subFile}
+          />
         )}
         <SettingsPanel
           config={config}

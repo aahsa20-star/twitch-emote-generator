@@ -19,6 +19,8 @@ export type FrameType =
   | "rainbow"
   | "dots";
 
+export type CompositeMode = "none" | "overlay-br" | "overlay-bl" | "sidebyside";
+
 export type AnimationSpeed = "slow" | "normal" | "fast";
 
 export type AnimationType = "none" | "sway" | "shake" | "blink" | "bounce" | "zoomin" | "spin" | "hearts"
@@ -49,6 +51,7 @@ export interface EmoteConfig {
   borderWidth: number;
   borderColor: string;
   frameType: FrameType;
+  compositeMode: CompositeMode;
   textPreset: string | null;
   text: TextConfig;
   fontSize: number;
@@ -134,6 +137,13 @@ export const FRAME_OPTIONS: FrameOption[] = [
   { value: "sparkles", label: "キラキラ", subscriberOnly: true },
   { value: "rainbow", label: "レインボー", subscriberOnly: true },
   { value: "dots", label: "ドット", subscriberOnly: true },
+];
+
+export const COMPOSITE_OPTIONS: { value: CompositeMode; label: string; desc: string }[] = [
+  { value: "none", label: "なし", desc: "" },
+  { value: "overlay-br", label: "右下に重ねる", desc: "サブ画像を右下に小さく" },
+  { value: "overlay-bl", label: "左下に重ねる", desc: "サブ画像を左下に小さく" },
+  { value: "sidebyside", label: "左右に並べる", desc: "2枚を横並びに" },
 ];
 
 export interface AnimationOption {

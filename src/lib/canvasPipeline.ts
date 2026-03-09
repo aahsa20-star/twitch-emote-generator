@@ -1,4 +1,4 @@
-import { BorderStyle, EmoteConfig, FrameType, TextConfig, TextPosition, TEXT_PRESETS } from "@/types/emote";
+import { BorderStyle, CompositeMode, EmoteConfig, FrameType, TextConfig, TextPosition, TEXT_PRESETS } from "@/types/emote";
 
 interface Bounds {
   top: number;
@@ -241,6 +241,63 @@ export function applyTextOverlay(
   ctx.fillText(text, x, y);
 
   return result;
+}
+
+// --- Composite helpers ---
+
+export function compositeImages(
+  mainCanvas: HTMLCanvasElement,
+  subCanvas: HTMLCanvasElement,
+  mode: CompositeMode,
+  size: number
+): HTMLCanvasElement {
+  if (mode === "none") return mainCanvas;
+
+  const result = document.createElement("canvas");
+  result.width = size;
+  result.height = size;
+  const ctx = result.getContext("2d")!;
+
+  if (mode === "overlay-br" || mode === "overlay-bl") {
+    ctx.drawImage(mainCanvas, 0, 0);
+
+    const subSize = Math.round(size * 0.38);
+    const subCentered = centerAndResize(subCanvas, subSize);
+
+    const x = mode === "overlay-br" ? Math.round(size * 0.58) : Math.round(size * 0.04);
+    const y = Math.round(size * 0.58);
+
+    // White border via shadowBlur
+    ctx.save();
+    ctx.shadowColor = "#ffffff";
+    ctx.shadowBlur = Math.max(1, Math.round(subSize * 0.025));
+    ctx.shadowOffsetX = 0;
+    ctx.shadowOffsetY = 0;
+    for (let i = 0; i < 3; i++) {
+      ctx.drawImage(subCentered, x, y);
+    }
+    ctx.restore();
+    ctx.drawImage(subCentered, x, y);
+
+    return result;
+  }
+
+  if (mode === "sidebyside") {
+    const padding = Math.round(size * 0.04);
+    const halfW = Math.floor(size / 2);
+    const innerSize = halfW - padding * 2;
+    const yOffset = Math.round((size - innerSize) / 2);
+
+    const mainSmall = centerAndResize(mainCanvas, innerSize);
+    const subSmall = centerAndResize(subCanvas, innerSize);
+
+    ctx.drawImage(mainSmall, padding, yOffset);
+    ctx.drawImage(subSmall, halfW + padding, yOffset);
+
+    return result;
+  }
+
+  return mainCanvas;
 }
 
 // --- Frame helpers ---
@@ -498,18 +555,24 @@ const HI_RES = 224;
 export function processEmote(
   source: HTMLCanvasElement | HTMLImageElement,
   size: number,
-  config: EmoteConfig
+  config: EmoteConfig,
+  subCanvas?: HTMLCanvasElement
 ): HTMLCanvasElement {
   // 1. Center and resize at high resolution
   let canvas = centerAndResize(source, HI_RES);
 
-  // 2. Apply border at high resolution
+  // 2. Composite with sub image (if applicable)
+  if (config.compositeMode !== "none" && subCanvas) {
+    canvas = compositeImages(canvas, subCanvas, config.compositeMode, HI_RES);
+  }
+
+  // 3. Apply border at high resolution
   canvas = applyBorder(canvas, config.border, config.borderWidth, config.borderColor);
 
-  // 3. Apply frame at high resolution
+  // 4. Apply frame at high resolution
   canvas = applyFrame(canvas, config.frameType);
 
-  // 4. Apply text overlay at high resolution (skip for ≤32px — text is unreadable)
+  // 5. Apply text overlay at high resolution (skip for ≤32px — text is unreadable)
   const textToRender = resolveTextToRender(config);
   if (textToRender && size > 32) {
     canvas = applyTextOverlay(canvas, {
@@ -525,7 +588,7 @@ export function processEmote(
     }, HI_RES);
   }
 
-  // 5. Downscale to target size (multi-step for quality)
+  // 6. Downscale to target size (multi-step for quality)
   if (size < HI_RES) {
     canvas = downscale(canvas, size);
   }
