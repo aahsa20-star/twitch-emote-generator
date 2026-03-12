@@ -84,6 +84,8 @@ export interface EmoteConfig {
   frameType: FrameType;
   compositeMode: CompositeMode;
   subImageScale: number;
+  subImageOffsetX: number;
+  subImageOffsetY: number;
   textPreset: string | null;
   text: TextConfig;
   fontSize: number;

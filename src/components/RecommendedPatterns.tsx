@@ -11,7 +11,7 @@ interface AutoPattern {
 }
 
 const defaultText = { customText: "", font: "Noto Sans JP", fillColor: "#ffffff", strokeColor: "#000000", position: "bottom" as const };
-const defaultSliders = { borderWidth: 4, borderColor: "#ffffff", frameType: "none" as const, compositeMode: "none" as const, subImageScale: 38, fontSize: 20, textOffsetX: 0, textOffsetY: 0, textOutlineWidth: 3, animationSpeed: "normal" as const, badgeSettings: { ...DEFAULT_BADGE_SETTINGS } };
+const defaultSliders = { borderWidth: 4, borderColor: "#ffffff", frameType: "none" as const, compositeMode: "none" as const, subImageScale: 38, subImageOffsetX: 0, subImageOffsetY: 0, fontSize: 20, textOffsetX: 0, textOffsetY: 0, textOutlineWidth: 3, animationSpeed: "normal" as const, badgeSettings: { ...DEFAULT_BADGE_SETTINGS } };
 
 const AUTO_PATTERNS: AutoPattern[] = [
   {

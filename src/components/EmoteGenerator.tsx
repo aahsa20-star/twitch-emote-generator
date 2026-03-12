@@ -115,6 +115,8 @@ export default function EmoteGenerator() {
       frameType: "none",
       compositeMode: "none",
       subImageScale: 38,
+      subImageOffsetX: 0,
+      subImageOffsetY: 0,
       badgeSettings: { ...DEFAULT_BADGE_SETTINGS },
       animation: ["gaming", "glitch", "sparkle", "afterimage", "fastspin", "float", "wobble", "neon", "vhs", "snow", "fire", "matrix", "drunk", "confetti", "hypno", "tv", "earthquake", "party", "flip", "ghost", "glitch2", "spiral", "heartbeat", "spring", "jelly"].includes(config.animation) ? "none" : config.animation,
       textPreset: config.textPreset,
@@ -384,6 +386,8 @@ export default function EmoteGenerator() {
           isSubscriber={isSubscriber}
           subFile={subFile}
           onSubImageSelected={handleSubImageSelected}
+          bgRemovedCanvas={bgRemovedCanvas}
+          subCanvas={subCanvas}
         />
         {/* DL + Share inside sticky container (desktop only) */}
         {sourceFile && (

@@ -15,6 +15,7 @@ import {
   FontCategory,
 } from "@/types/emote";
 import SubImageUpload from "./SubImageUpload";
+import DragPositionCanvas from "./DragPositionCanvas";
 
 interface SettingsPanelProps {
   config: EmoteConfig;
@@ -23,6 +24,8 @@ interface SettingsPanelProps {
   isSubscriber: boolean;
   subFile: File | null;
   onSubImageSelected: (file: File) => void;
+  bgRemovedCanvas?: HTMLCanvasElement | null;
+  subCanvas?: HTMLCanvasElement | null;
 }
 
 function ColorPicker({
@@ -84,6 +87,8 @@ export default function SettingsPanel({
   isSubscriber,
   subFile,
   onSubImageSelected,
+  bgRemovedCanvas,
+  subCanvas,
 }: SettingsPanelProps) {
   const updateText = (partial: Partial<TextConfig>) => {
     onConfigChange({ text: { ...config.text, ...partial } });
@@ -197,19 +202,47 @@ export default function SettingsPanel({
               />
               <p className="text-[10px] text-gray-500">透過済みPNG推奨。背景ありの場合は透過処理が必要です。</p>
               {(config.compositeMode === "overlay-br" || config.compositeMode === "overlay-bl") && (
-                <div>
-                  <label className="text-xs text-gray-400 block mb-1">
-                    サブ画像サイズ: {config.subImageScale}%
-                  </label>
-                  <input
-                    type="range"
-                    min={20}
-                    max={60}
-                    step={1}
-                    value={config.subImageScale}
-                    onChange={(e) => onConfigChange({ subImageScale: Number(e.target.value) })}
-                    className="w-full accent-purple-500"
-                  />
+                <div className="space-y-2">
+                  <div>
+                    <label className="text-xs text-gray-400 block mb-1">
+                      サブ画像サイズ: {config.subImageScale}%
+                    </label>
+                    <input
+                      type="range"
+                      min={20}
+                      max={60}
+                      step={1}
+                      value={config.subImageScale}
+                      onChange={(e) => onConfigChange({ subImageScale: Number(e.target.value) })}
+                      className="w-full accent-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 block mb-1">
+                      横位置: {config.subImageOffsetX}px
+                    </label>
+                    <input
+                      type="range"
+                      min={-50}
+                      max={50}
+                      value={config.subImageOffsetX}
+                      onChange={(e) => onConfigChange({ subImageOffsetX: Number(e.target.value) })}
+                      className="w-full accent-purple-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-gray-400 block mb-1">
+                      縦位置: {config.subImageOffsetY}px
+                    </label>
+                    <input
+                      type="range"
+                      min={-50}
+                      max={50}
+                      value={config.subImageOffsetY}
+                      onChange={(e) => onConfigChange({ subImageOffsetY: Number(e.target.value) })}
+                      className="w-full accent-purple-500"
+                    />
+                  </div>
                 </div>
               )}
             </div>
@@ -352,6 +385,16 @@ export default function SettingsPanel({
               ))}
             </div>
           </div>
+        )}
+
+        {/* Drag position canvas (shown when text or sub-image overlay is active) */}
+        {bgRemovedCanvas && (
+          <DragPositionCanvas
+            bgRemovedCanvas={bgRemovedCanvas}
+            config={config}
+            subCanvas={subCanvas}
+            onConfigChange={onConfigChange}
+          />
         )}
 
         {/* Text position fine-tune */}

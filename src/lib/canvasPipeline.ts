@@ -259,7 +259,9 @@ export function compositeImages(
   subCanvas: HTMLCanvasElement,
   mode: CompositeMode,
   size: number,
-  subScale: number = 38
+  subScale: number = 38,
+  subOffsetX: number = 0,
+  subOffsetY: number = 0
 ): HTMLCanvasElement {
   if (mode === "none") return mainCanvas;
 
@@ -274,8 +276,10 @@ export function compositeImages(
     const subSize = Math.round(size * subScale / 100);
     const subCentered = centerAndResize(subCanvas, subSize);
 
-    const x = mode === "overlay-br" ? Math.round(size * 0.58) : Math.round(size * 0.04);
-    const y = Math.round(size * 0.58);
+    const scaledOffsetX = Math.round(subOffsetX * (size / 112));
+    const scaledOffsetY = Math.round(subOffsetY * (size / 112));
+    const x = (mode === "overlay-br" ? Math.round(size * 0.58) : Math.round(size * 0.04)) + scaledOffsetX;
+    const y = Math.round(size * 0.58) + scaledOffsetY;
 
     // White border via shadowBlur
     ctx.save();
@@ -579,7 +583,7 @@ export function processEmote(
   // 2. Composite with sub image (if applicable)
   if (config.compositeMode !== "none" && subCanvas) {
     const prev = canvas;
-    canvas = compositeImages(canvas, subCanvas, config.compositeMode, HI_RES, config.subImageScale);
+    canvas = compositeImages(canvas, subCanvas, config.compositeMode, HI_RES, config.subImageScale, config.subImageOffsetX, config.subImageOffsetY);
     if (canvas !== prev) releaseCanvas(prev);
   }
 
