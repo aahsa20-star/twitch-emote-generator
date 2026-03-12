@@ -47,15 +47,30 @@ const MAX_FRAME_WIDTH_MOBILE = 480;
 const FRAME_INTERVAL_PC = 1;
 const FRAME_INTERVAL_MOBILE = 3;
 
+/** Seek video with timeout fallback (mobile Safari seeked event is unreliable) */
+async function seekTo(video: HTMLVideoElement, time: number): Promise<void> {
+  if (Math.abs(video.currentTime - time) < 0.1) return;
+  return new Promise<void>((resolve) => {
+    let resolved = false;
+    const done = () => {
+      if (resolved) return;
+      resolved = true;
+      video.removeEventListener("seeked", done);
+      resolve();
+    };
+    video.addEventListener("seeked", done, { once: true });
+    video.currentTime = time;
+    // Fallback: if seeked doesn't fire within 3s, proceed anyway
+    setTimeout(done, 3000);
+  });
+}
+
 /** Extract a single frame from video at the given time, downscaled */
 async function extractFrame(
   video: HTMLVideoElement,
   time: number
 ): Promise<HTMLCanvasElement> {
-  video.currentTime = time;
-  await new Promise<void>((resolve) => {
-    video.onseeked = () => resolve();
-  });
+  await seekTo(video, time);
 
   const maxWidth = isMobile() ? MAX_FRAME_WIDTH_MOBILE : MAX_FRAME_WIDTH_PC;
   const scale = video.videoWidth > maxWidth
