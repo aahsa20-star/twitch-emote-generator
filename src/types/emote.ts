@@ -4,7 +4,10 @@ export type EmoteSize = (typeof EMOTE_SIZES)[number];
 export const DISCORD_SIZES = [32, 64, 128] as const;
 export type DiscordSize = (typeof DISCORD_SIZES)[number];
 
-export type ExportMode = "twitch" | "discord";
+export const SEVENTV_SIZES = [32, 64, 96, 128] as const;
+export type SeventvSize = (typeof SEVENTV_SIZES)[number];
+
+export type ExportMode = "twitch" | "discord" | "7tv" | "bttv" | "ffz";
 
 export type BgRemovalQuality = "speed" | "quality";
 

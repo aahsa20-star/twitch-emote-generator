@@ -312,19 +312,22 @@ export default function EmoteGenerator() {
         {/* Export mode tabs */}
         <div className="flex w-full mb-4 bg-gray-800 rounded-lg p-0.5">
           {([
-            { mode: "twitch" as ExportMode, label: "Twitch", sizes: "28 / 56 / 112px" },
-            { mode: "discord" as ExportMode, label: "Discord", sizes: "32 / 64 / 128px" },
-          ]).map(({ mode, label, sizes }) => (
+            { mode: "twitch" as ExportMode, label: "Twitch" },
+            { mode: "discord" as ExportMode, label: "Discord" },
+            { mode: "7tv" as ExportMode, label: "7TV" },
+            { mode: "bttv" as ExportMode, label: "BTTV" },
+            { mode: "ffz" as ExportMode, label: "FFZ" },
+          ]).map(({ mode, label }) => (
             <button
               key={mode}
               onClick={() => setExportMode(mode)}
-              className={`flex-1 py-1.5 px-3 rounded-md text-xs font-medium transition-colors ${
+              className={`flex-1 py-1.5 px-1 rounded-md text-[11px] font-medium transition-colors ${
                 exportMode === mode
                   ? "bg-purple-600 text-white"
                   : "text-gray-400 hover:text-gray-200"
               }`}
             >
-              {label} <span className="text-[10px] opacity-70">({sizes})</span>
+              {label}
             </button>
           ))}
         </div>

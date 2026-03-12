@@ -9,6 +9,7 @@ import {
   BgRemovalQuality,
   EMOTE_SIZES,
   DISCORD_SIZES,
+  SEVENTV_SIZES,
   TEXT_PRESETS,
   DEFAULT_BADGE_SETTINGS,
 } from "@/types/emote";
@@ -152,7 +153,10 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
           // Ensure fonts are loaded before Canvas text rendering
           await document.fonts.ready;
 
-          const sizes = exportMode === "discord" ? DISCORD_SIZES : EMOTE_SIZES;
+          const sizes =
+            exportMode === "discord" || exportMode === "ffz" ? DISCORD_SIZES :
+            exportMode === "7tv" ? SEVENTV_SIZES :
+            EMOTE_SIZES; // twitch, bttv
           for (const size of sizes) {
             const canvas = processEmote(bgRemovedCanvas!, size, config, subCanvas ?? undefined);
             const staticDataUrl = canvas.toDataURL("image/png");
@@ -268,7 +272,12 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     if (variants.length === 0) return;
     setStage("exporting");
     try {
-      const zipName = exportMode === "discord" ? "discord_emotes.zip" : "emotes.zip";
+      const zipName =
+        exportMode === "discord" ? "discord_emotes.zip" :
+        exportMode === "7tv" ? "7tv_emotes.zip" :
+        exportMode === "bttv" ? "bttv_emotes.zip" :
+        exportMode === "ffz" ? "ffz_emotes.zip" :
+        "emotes.zip";
       await exportAsZip(variants, zipName);
     } catch (err) {
       console.error("Export failed:", err);

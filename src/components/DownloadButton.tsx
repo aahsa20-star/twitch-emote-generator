@@ -24,7 +24,7 @@ export default function DownloadButton({
   const isReady = stage === "ready";
   const isExporting = stage === "exporting";
 
-  const largestSize = exportMode === "discord" ? 128 : 112;
+  const largestSize = exportMode === "twitch" || exportMode === "bttv" ? 112 : 128;
 
   const handleLargestDownload = useCallback(() => {
     const vLargest = variants.find((v) => v.size === largestSize);

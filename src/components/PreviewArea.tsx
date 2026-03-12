@@ -255,9 +255,13 @@ function BadgePreviewSection({
 
 const SKELETON_SIZES_TWITCH = [112, 56, 28];
 const SKELETON_SIZES_DISCORD = [128, 64, 32];
+const SKELETON_SIZES_SEVENTV = [128, 96, 64, 32];
 
 function SkeletonPreview({ stage, exportMode = "twitch" }: { stage: ProcessingStage; exportMode?: ExportMode }) {
-  const SKELETON_SIZES = exportMode === "discord" ? SKELETON_SIZES_DISCORD : SKELETON_SIZES_TWITCH;
+  const SKELETON_SIZES =
+    exportMode === "7tv" ? SKELETON_SIZES_SEVENTV :
+    exportMode === "discord" || exportMode === "ffz" ? SKELETON_SIZES_DISCORD :
+    SKELETON_SIZES_TWITCH; // twitch, bttv
   const stageLabel =
     stage === "removing-background"
       ? "背景を透過しています..."
