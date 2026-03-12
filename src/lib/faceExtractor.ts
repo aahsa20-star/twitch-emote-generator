@@ -25,7 +25,7 @@ async function getDetector(): Promise<FaceDetector> {
   detectorInstance = await FaceDetector.createFromOptions(vision, {
     baseOptions: { modelAssetPath: MODEL_CDN, delegate },
     runningMode: "IMAGE",
-    minDetectionConfidence: 0.5,
+    minDetectionConfidence: 0.3,
   });
   detectorDelegate = delegate;
   return detectorInstance;
@@ -43,7 +43,7 @@ export interface FaceCandidate {
 }
 
 const MAX_FRAME_WIDTH_PC = 640;
-const MAX_FRAME_WIDTH_MOBILE = 480;
+const MAX_FRAME_WIDTH_MOBILE = 640;
 const FRAME_INTERVAL_PC = 1;
 const FRAME_INTERVAL_MOBILE = 3;
 
@@ -241,7 +241,7 @@ export async function extractFacesFromVideo(
         const bb = det.boundingBox;
         if (!bb) continue;
         const score = det.categories?.[0]?.score ?? 0;
-        if (score < 0.5) continue;
+        if (score < 0.3) continue;
 
         rawCandidates.push({
           time: t,
