@@ -9,9 +9,9 @@
 | GitHub | https://github.com/aahsa20-star/twitch-emote-generator |
 | 技術スタック | Next.js 16 (App Router) + TypeScript + Tailwind CSS v3 |
 | ホスティング | Vercel（GitHub自動デプロイ） |
-| コード規模 | 28ファイル / 約6,235行（src/配下） |
-| コミット数 | 65+ |
-| 最新コミット | improve: テキスト・サブ画像の自由配置化（ゾーン制約撤廃） |
+| コード規模 | 30ファイル / 約6,694行（src/配下） |
+| コミット数 | 73 |
+| 最新コミット | improve: 動画顔抽出のモバイル対応（640pxダウンスケール・逐次処理） |
 
 ## コンセプト
 
@@ -171,7 +171,7 @@ src/
 │   ├── ImageAdjustEditor.tsx    # 画像位置調整（8ハンドルトリミング + ドラッグ + ズーム、レスポンシブキャンバス）
 │   ├── BrushEditor.tsx          # 透過ブラシ微調整（消しゴム/復元、undo、レスポンシブキャンバス）
 │   ├── SubImageUpload.tsx       # サブ画像アップロード（D&D + click、64x64サムネイル）
-│   ├── VideoFaceExtractor.tsx   # 動画顔抽出UI（アップロード+プログレス+候補グリッド選択、PC限定）
+│   ├── VideoFaceExtractor.tsx   # 動画顔抽出UI（アップロード+プログレス+候補グリッド選択、モバイル対応済み）
 │   ├── DragPositionCanvas.tsx   # テキスト・サブ画像ドラッグ配置キャンバス（224px内部解像度、マウス+タッチ対応）
 │   ├── SettingsPanel.tsx        # 設定UI（フチ取り/フレーム/合成/テキスト/アニメーション/速度/バッジ作成 + ドラッグ配置 + 限定ロックUI）
 │   ├── PreviewArea.tsx          # プレビュー表示 + サンプルショーケース + バッジプレビュー（72/36/18px）
@@ -186,7 +186,7 @@ src/
 │   └── useEmoteProcessor.ts     # 処理パイプライン統合フック（ExportMode対応、subCanvas対応、ブラシ編集ステージ管理、速度パラメータ対応）
 ├── lib/
 │   ├── backgroundRemoval.ts     # @imgly/background-removal ラッパー（isnet/isnet_quint8モデル切替）
-│   ├── faceExtractor.ts         # 動画フレーム抽出+MediaPipe顔検出+自動クロップパイプライン
+│   ├── faceExtractor.ts         # 動画フレーム抽出+MediaPipe顔検出+自動クロップパイプライン（640pxダウンスケール+逐次処理）
 │   ├── canvasPipeline.ts        # Canvas描画パイプライン（中心配置/合成/フチ取り/フレーム/テキスト/縮小/バッジ描画）
 │   ├── gifEncoder.ts            # gif.js + Web Worker アニメーション生成（32種、速度可変）
 │   ├── visibilityChecker.ts     # 28px視認性チェック
