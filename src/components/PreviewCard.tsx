@@ -33,18 +33,27 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
       return;
     }
 
+    let cancelled = false;
     const checkSize = variant.size;
     const img = new Image();
     img.onload = () => {
-      const canvas = document.createElement("canvas");
-      canvas.width = checkSize;
-      canvas.height = checkSize;
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      ctx.drawImage(img, 0, 0, checkSize, checkSize);
-      setVisibilityResult(checkVisibility(canvas, hasText, textPosition));
+      if (cancelled) return;
+      try {
+        const canvas = document.createElement("canvas");
+        canvas.width = checkSize;
+        canvas.height = checkSize;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return;
+        ctx.drawImage(img, 0, 0, checkSize, checkSize);
+        setVisibilityResult(checkVisibility(canvas, hasText, textPosition));
+        canvas.width = 0;
+        canvas.height = 0;
+      } catch {
+        // Ignore errors from unmounted state or detached DOM nodes
+      }
     };
     img.src = variant.staticDataUrl;
+    return () => { cancelled = true; };
   }, [variant.staticDataUrl, variant.size, hasText, textPosition]);
 
   const displayUrl = gifUrl || variant.staticDataUrl;

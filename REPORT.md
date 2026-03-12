@@ -9,16 +9,16 @@
 | GitHub | https://github.com/aahsa20-star/twitch-emote-generator |
 | 技術スタック | Next.js 16 (App Router) + TypeScript + Tailwind CSS v3 |
 | ホスティング | Vercel（GitHub自動デプロイ） |
-| コード規模 | 27ファイル / 約5,840行（src/配下） |
-| コミット数 | 62 |
-| 最新コミット | `cfcfa383` feat: サブスクバッジ作成機能を追加 |
+| コード規模 | 26ファイル / 約5,837行（src/配下） |
+| コミット数 | 64 |
+| 最新コミット | `8a58b22` improve: Canvasメモリ最適化・おすすめパターン削減・NotFoundError防止 |
 
 ## コンセプト
 
 **「1枚の画像をアップロードするだけで、Twitch/Discord仕様に準拠したエモートを自動生成するブラウザ完結ツール」**
 
 - サーバーへの画像送信なし（完全クライアントサイド処理）
-- AI背景透過 → ブラシ微調整 → 位置調整 → 2画像合成 → フチ取り → フレーム → テキスト → アニメーション → 3サイズ同時出力
+- AI背景透過 → ブラシ微調整 → 位置調整 → 2画像合成 → フチ取り → フレーム → テキスト → アニメーション → 3サイズ同時出力 → サブスクバッジ生成
 - 技術知識不要、初見で使える
 
 ---
@@ -40,33 +40,21 @@
 - 縁の幅スライダー（1〜20px、デフォルト4px）
 - カスタムボーダーカラー（ColorPickerで任意の色[限定]）
 - エモートフレーム7種（なし / 星 / ハート / ゲーミング / キラキラ / レインボー / ドット）[限定]
- - Canvas API path描画（星・キラキラ）、Bezier曲線（ハート）、グラデーション（ゲーミング・レインボー）、arc（ドット）
- - seeded擬似乱数による決定的なキラキラ配置
+  - Canvas API path描画（星・キラキラ）、Bezier曲線（ハート）、グラデーション（ゲーミング・レインボー）、arc（ドット）
+  - seeded擬似乱数による決定的なキラキラ配置
 - 2画像合成3モード（右下に重ねる / 左下に重ねる / 左右に並べる）[限定]
- - SubImageUploadコンポーネント（D&D対応、64x64サムネイルプレビュー）
- - サブ画像サイズスライダー（20〜60%、デフォルト38%、overlay時のみ表示）
- - 透過済みPNG推奨ヒントテキスト
- - overlay時はshadowBlurによる白フチ付きサブ画像合成
+  - SubImageUploadコンポーネント（D&D対応、64x64サムネイルプレビュー）
+  - サブ画像サイズスライダー（20〜60%、デフォルト38%、overlay時のみ表示）
+  - 透過済みPNG推奨ヒントテキスト
+  - overlay時はshadowBlurによる白フチ付きサブ画像合成
 - テキストプリセット8種（草, GG, ないす, RIP, 尊い, えぐい, なんで, 草生える）
 - 自由入力テキスト
 - フォント9種（日本語5 + 英字2 + 標準2）
 - 文字サイズスライダー（8〜72px、デフォルト20px）
-- 文字色・縁取り色（カラーピッカー、onChange でクロスブラウザ対応）
+- 文字色・縁取り色（カラーピッカー、onChange+200msデバウンスでリアルタイムプレビュー）
 - テキスト縁取り幅スライダー（0〜10px、デフォルト3px、0で非表示）
 - テキスト位置（上 / 中央 / 下）
 - 横位置・縦位置スライダー（-50〜50px、デフォルト0）
-
-### サブスクバッジ作成機能[限定]
-- ON/OFFトグルでエモートと独立して有効化
-- 形状3種（円形 / 四角 / 角丸）
-- 背景色カラーピッカー（デフォルト: #9147FF Twitch紫）
-- 背景透過トグル
-- 内側余白スライダー（0〜20px、デフォルト8px）
-- 輪郭線スライダー（0〜4px、デフォルト0）+ 輪郭線色カラーピッカー
-- 72px / 36px / 18px プレビュー横並び表示 + 個別DLボタン
-- バッジ一括DL（badge.zip）
-- ソース: bgRemovedCanvas（エモート加工前の素の透過画像）
-- renderBadge: save/restoreでclipパス管理、centerAndResizeで画像フィット
 
 ### アニメーション（合計32種）
 
@@ -82,6 +70,17 @@
 - 遅い（80ms/フレーム）/ 普通（50ms/フレーム）/ 速い（25ms/フレーム）
 - アニメーション選択時のみ速度セレクタ表示
 
+### サブスクバッジ作成 [限定]
+- バッジON/OFFトグル（サブスク限定機能）
+- 形状3種（円形 / 四角 / 角丸）
+- 背景色カスタム（デフォルト: Twitchパープル #9147FF）+ 透過トグル
+- 内側余白スライダー（0〜20px、デフォルト8px）
+- 輪郭線スライダー（0〜4px）+ 輪郭線色カスタム
+- 3サイズ同時プレビュー（72 / 36 / 18px）+ 個別DLボタン
+- バッジ一括DL（ZIP、3サイズPNG）
+- ソース画像: bgRemovedCanvas（エモート加工前の素の透過画像、テキスト/フチ/フレーム非適用）
+- Canvas API: clip → 背景 → centerAndResize → restore → stroke で形状描画
+
 ### サブスク限定機能（[限定]）
 - 合言葉認証（サーバーサイドAPI認証、Vercel環境変数で管理、localStorage永続化）
 - 認証APIルート（`/api/auth`、POST、大文字小文字不問、サーバー設定エラーハンドリング）
@@ -94,8 +93,7 @@
 ### 出力・共有
 - Twitch / Discord タブ切り替えUI
 - 最大サイズ単体ダウンロード（Twitch: 112px / Discord: 128px）
-- ZIP一括ダウンロード（emotes.zip / discord_emotes.zip）
-- バッジ一括ダウンロード（badge.zip、バッジ機能ON時のみ表示）
+- ZIP一括ダウンロード（emotes.zip / discord_emotes.zip / badge.zip）
 - モバイル個別DLボタン（各サイズ下に常時表示、タッチデバイス対応）
 - PCホバーオーバーレイDL（マウスオーバーで表示）
 - Xシェアボタン（クリップボードコピー + ツイート画面同時オープン）
@@ -103,7 +101,7 @@
 
 ### UX
 - 画像位置調整エディタ（アップロード直後に表示、8ハンドルトリミング+ドラッグ移動+ズーム、確定/スキップ選択可能、ドラッグ中ハンドルをTwitchパープル#9146FFで16pxにハイライト）
-- おすすめパターン8種（ワンクリック適用）
+- おすすめパターン4種（白フチ/黒フチ/影付き/白フチ+揺れ、ワンクリック適用）
 - 28px視認性チェッカー（警告バッジ表示）
 - アップロード前のサンプル表示（キャッチコピー + 機能バッジ + Canvas生成サンプル4パターン）
 - アップロード前の設定パネル薄表示（opacity-40で全項目がプレビュー可能、操作は画像アップ後に有効化）
@@ -139,7 +137,8 @@
 - shadow多パス方式のテキスト縁取り（幅0〜10px可変）
 - 28px/32pxテキスト自動非表示（視認性確保）
 - GIF 20フレーム / 速度可変ディレイ（25ms〜80ms、滑らかなアニメーション）
-- カラーピッカー: onChange でクロスブラウザ対応（Safari/Windows Chrome/Edge/Firefox 互換）
+- カラーピッカー: onChange + 200msデバウンスでリアルタイムプレビュー（macOS浮遊パネル・Windows/Safari対応）
+- Canvasメモリ管理: 使い捨てcanvasを`width=0;height=0`で即時解放（パイプライン全段+GIFフレーム60枚対応）
 
 ---
 
@@ -148,59 +147,53 @@
 ```
 src/
 ├── app/
-│ ├── api/auth/route.ts # 合言葉認証APIルート（Vercel環境変数照合）
-│ ├── layout.tsx # ルートレイアウト（Google Fonts、OGP/Twitterメタデータ、Umami Analytics）
-│ ├── opengraph-image.tsx # 動的OG画像生成（Edge Runtime、1200x630）
-│ ├── globals.css # グローバルCSS（Inter + Noto Sans JP）
-│ └── page.tsx # メインページ
+│   ├── api/auth/route.ts        # 合言葉認証APIルート（Vercel環境変数照合）
+│   ├── layout.tsx               # ルートレイアウト（Google Fonts、OGP/Twitterメタデータ、Umami Analytics）
+│   ├── opengraph-image.tsx      # 動的OG画像生成（Edge Runtime、1200x630）
+│   ├── globals.css              # グローバルCSS（Inter + Noto Sans JP）
+│   └── page.tsx                 # メインページ
 ├── components/
-│ ├── EmoteGenerator.tsx # メインコンテナ（状態管理 + 合言葉認証 + Twitch/Discord切替）
-│ ├── UploadPanel.tsx # 画像アップロード（D&D + click）
-│ ├── ImageAdjustEditor.tsx # 画像位置調整（8ハンドルトリミング + ドラッグ + ズーム、レスポンシブキャンバス）
-│ ├── BrushEditor.tsx # 透過ブラシ微調整（消しゴム/復元、undo、レスポンシブキャンバス）
-│ ├── SubImageUpload.tsx # サブ画像アップロード（D&D + click、64x64サムネイル）
-│ ├── BadgeSettingsPanel.tsx # バッジ設定UI（形状/背景/余白/輪郭線）[限定]
-│ ├── BadgePreviewCanvas.tsx # バッジプレビュー（useEffect+canvasRef、72/36/18px）[限定]
-│ ├── SettingsPanel.tsx # 設定UI（フチ取り/フレーム/合成/テキスト/アニメーション/速度/バッジ + 限定ロックUI）
-│ ├── PreviewArea.tsx # プレビュー表示 + バッジプレビュー + サンプルショーケース
-│ ├── PreviewCard.tsx # 個別プレビュー（ホバーDLオーバーレイ）
-│ ├── DownloadButton.tsx # 最大サイズ単体DL + ZIP一括DL + バッジZIP DLボタン
-│ ├── ShareButton.tsx # Xシェア + クリップボードコピー
-│ ├── ShareAfterDownloadModal.tsx # DL完了後Xシェア促進モーダル
-│ ├── RecommendedPatterns.tsx # おすすめ8パターン
-│ ├── FloatingMiniPreview.tsx # モバイル専用フローティングプレビュー（90x90px）
-│ └── Footer.tsx # フィードバック導線 + 免責表示 + アクセス解析告知
+│   ├── EmoteGenerator.tsx       # メインコンテナ（状態管理 + 合言葉認証 + Twitch/Discord切替）
+│   ├── UploadPanel.tsx          # 画像アップロード（D&D + click）
+│   ├── ImageAdjustEditor.tsx    # 画像位置調整（8ハンドルトリミング + ドラッグ + ズーム、レスポンシブキャンバス）
+│   ├── BrushEditor.tsx          # 透過ブラシ微調整（消しゴム/復元、undo、レスポンシブキャンバス）
+│   ├── SubImageUpload.tsx       # サブ画像アップロード（D&D + click、64x64サムネイル）
+│   ├── SettingsPanel.tsx        # 設定UI（フチ取り/フレーム/合成/テキスト/アニメーション/速度/バッジ作成 + 限定ロックUI）
+│   ├── PreviewArea.tsx          # プレビュー表示 + サンプルショーケース + バッジプレビュー（72/36/18px）
+│   ├── PreviewCard.tsx          # 個別プレビュー（ホバーDLオーバーレイ）
+│   ├── DownloadButton.tsx       # 最大サイズ単体DL + ZIP一括DL + バッジZIP DLボタン
+│   ├── ShareButton.tsx          # Xシェア + クリップボードコピー
+│   ├── ShareAfterDownloadModal.tsx # DL完了後Xシェア促進モーダル
+│   ├── RecommendedPatterns.tsx  # おすすめ8パターン
+│   ├── FloatingMiniPreview.tsx  # モバイル専用フローティングプレビュー（90x90px）
+│   └── Footer.tsx               # フィードバック導線 + 免責表示 + アクセス解析告知
 ├── hooks/
-│ └── useEmoteProcessor.ts # 処理パイプライン統合フック（BadgeSettings対応、subCanvas対応、ブラシ編集ステージ管理、速度パラメータ対応）
+│   └── useEmoteProcessor.ts     # 処理パイプライン統合フック（ExportMode対応、subCanvas対応、ブラシ編集ステージ管理、速度パラメータ対応）
 ├── lib/
-│ ├── backgroundRemoval.ts # @imgly/background-removal ラッパー（isnet/isnet_quint8モデル切替）
-│ ├── canvasPipeline.ts # Canvas描画パイプライン（中心配置/合成/フチ取り/フレーム/テキスト/縮小 + renderBadge追加）
-│ ├── gifEncoder.ts # gif.js + Web Worker アニメーション生成（32種、速度可変）
-│ ├── visibilityChecker.ts # 28px視認性チェック
-│ └── zipExporter.ts # JSZip ZIP書き出し（動的ファイル名対応）
+│   ├── backgroundRemoval.ts     # @imgly/background-removal ラッパー（isnet/isnet_quint8モデル切替）
+│   ├── canvasPipeline.ts        # Canvas描画パイプライン（中心配置/合成/フチ取り/フレーム/テキスト/縮小/バッジ描画）
+│   ├── gifEncoder.ts            # gif.js + Web Worker アニメーション生成（32種、速度可変）
+│   ├── visibilityChecker.ts     # 28px視認性チェック
+│   └── zipExporter.ts           # JSZip ZIP書き出し（動的ファイル名対応）
 └── types/
-└── emote.ts # 型定義 + 定数（BadgeShape / BadgeSettings追加）
+    └── emote.ts                 # 型定義 + 定数（Twitch/Discordサイズ/フォント/プリセット/速度/バッジ設定等）
 ```
 
 ### 処理パイプライン
 
 ```
 画像アップロード
-→ トリミング＋位置・ズーム調整（ImageAdjustEditor、8ハンドル矩形選択、320x320内部解像度）
-→ AI背景透過（標準isnet_quint8/高精度isnetモード or スキップ）
-→ ブラシ微調整（BrushEditor、消しゴム/復元、スキップ可能）
-→ [bgRemovedCanvas] ← バッジ機能のソース（エモート加工前の素の透過画像）
-→ 224px高解像度キャンバスに中心配置
-→ 2画像合成（overlay-br/bl: サブ画像shadowBlurフチ付き / sidebyside: 左右等分）
-→ フチ取り（shadowBlur方式、カスタム色対応）
-→ フレーム装飾（星/ハート/ゲーミング/キラキラ/レインボー/ドット）
-→ テキストオーバーレイ（shadow多パス方式、≤32pxはスキップ）
-→ multi-step downscale（224→112→56→28 / 224→128→64→32）
-→ PNG/GIF出力（20フレーム / 25〜80msディレイ）
-
-バッジ出力（badgeSettings.enabled時）
-→ [bgRemovedCanvas] → renderBadge（save/restoreクリップ / centerAndResize / 輪郭線）
-→ 72px / 36px / 18px PNG出力 → badge.zip
+  → トリミング＋位置・ズーム調整（ImageAdjustEditor、8ハンドル矩形選択、320x320内部解像度）
+    → AI背景透過（標準isnet_quint8/高精度isnetモード or スキップ）
+      → ブラシ微調整（BrushEditor、消しゴム/復元、スキップ可能）
+        → 224px高解像度キャンバスに中心配置
+        → 2画像合成（overlay-br/bl: サブ画像shadowBlurフチ付き / sidebyside: 左右等分）
+          → フチ取り（shadowBlur方式、カスタム色対応）
+            → フレーム装飾（星/ハート/ゲーミング/キラキラ/レインボー/ドット）
+              → テキストオーバーレイ（shadow多パス方式、≤32pxはスキップ）
+            → multi-step downscale（224→112→56→28 / 224→128→64→32）
+              → PNG/GIF出力（20フレーム / 25〜80msディレイ）
+    → [バッジ分岐] bgRemovedCanvas → clip(形状) → 背景 → centerAndResize(余白付き) → 輪郭線 → 72/36/18px出力
 ```
 
 ---
@@ -228,8 +221,10 @@ src/
 | テキスト未入力でも色・位置UIが表示される | SettingsPanelのhasText条件ガードが不足 | カラーピッカー・位置スライダーをhasText条件で囲む |
 | handleLogoutに存在しないプリセットのチェック | 削除済みプリセット3種(howsitgoing等)のリセット処理が残存 | 死んだコードを削除 |
 | handleExportの不要依存 | useCallbackの依存配列にsourceFileが不要に含まれていた | 依存配列から削除 |
-| カラーピッカーの色変更がプレビューに反映されない（リアルタイム） | ネイティブchange（ピッカー閉じ時のみ）でしか親を更新しなかった | onInput + 200msデバウンスでリアルタイム反映 |
-| 輪郭線カラーピッカーの色変更がバッジプレビューに反映されない | `<input type="color">` の `onInput` がSafari/Windows環境でピッカーを閉じた時のみ発火 | `onInput` → `onChange` に変更（クロスブラウザ互換） |
+| カラーピッカーの色変更がプレビューに反映されない | ネイティブchange（ピッカー閉じ時のみ）でしか親を更新しなかった | onInput + 200msデバウンスでリアルタイム反映 |
+| バッジ輪郭線の色変更が一部ブラウザで効かない | onInput（native inputイベント）がSafari等でカラーピッカーダイアログ閉じ時に発火しない | onChange（React合成イベント、クロスブラウザ対応）に変更 |
+| Canvas メモリリーク（低スペ端末でクラッシュの可能性） | 使い捨てcanvasのピクセルバッファがGPUメモリに残留。GIF生成時は60canvas同時 | `releaseCanvas()`ヘルパーで`width=0;height=0`を全パイプライン出口に追加 |
+| PreviewCard.tsx でアンマウント後にNotFoundError | visibility check用のimg.onloadがコンポーネント解放後に発火 | cancelledフラグ + try/catchで防御 |
 
 ---
 
@@ -247,13 +242,10 @@ src/
 | 点滅速度 | <3回/秒 | ~1回/秒 | OK |
 | ファイル名 | ASCII | emote_XXpx.ext | OK |
 | ZIP互換性 | Mac/Win | DEFLATE圧縮 | OK |
-| バッジPNG 18px | ≤25KB | <1KB | OK |
-| バッジPNG 36px | ≤25KB | <3KB | OK |
-| バッジPNG 72px | ≤25KB | <8KB | OK |
 
 ---
 
-## コミット履歴（62コミット）
+## コミット履歴（64コミット）
 
 ```
 d542fba Initial commit from Create Next App
@@ -317,7 +309,9 @@ f180108 docs: REPORT.md更新（52コミット/4,937行、ジェリー追加で3
 b752751 feat: 2画像合成機能を追加（右下重ね/左下重ね/左右並べ、サブスク限定）
 ec0e201 improve: 2画像合成UX改善（SubImageUpload移動・サブ画像サイズスライダー追加）
 0ace013 copy: 合言葉UIにDiscordサーバー案内リンクを追加
-cfcfa383 feat: サブスクバッジ作成機能を追加（形状/背景/余白/輪郭線・72/36/18px・badge.zip・BadgeSettingsPanel/BadgePreviewCanvas）
+1107ac6 docs: REPORT.md更新（61コミット/5,502行、フレーム7種・2画像合成・Discord案内リンク反映）
+cfcfa38 feat: サブスクバッジ作成機能を追加（円形/四角/角丸、背景色/透過、輪郭線、サブスク限定）
+8a58b22 improve: Canvasメモリ最適化・おすすめパターン削減・NotFoundError防止
 ```
 
 ---
@@ -327,20 +321,31 @@ cfcfa383 feat: サブスクバッジ作成機能を追加（形状/背景/余白
 ### 短期（すぐ実装可能）
 - 7TV / BTTV / FFZ 対応サイズ出力
 - 限定おすすめパターン（サブスク限定アニメ使用）
-- `visibilityChecker.ts` の `setInterval` に `try/catch` 追加（コンソールエラー抑制）
 
-### 中期（フィードバック次第）
+### 中期（次のサイクル）
+- テキスト・サブ画像のドラッグ直接配置（スライダーを補助手段に降格）
+- PCプレビュー拡大表示（クリックでモーダル拡大）
 - ブランドカラープリセット保存（localStorage）
 - テンプレートギャラリー
 - 月替わり限定テンプレート（サブスク特典）
 
-### 長期（需要があれば）
+### 長期（サブスク最上位特典候補）
+- 短尺動画（30秒以内）からの顔自動抽出（`<video>` + MediaPipe Face Detection、ブラウザ完結）
 - バッチ生成（複数画像の一括処理）
 - PWA化（オフライン対応）
 - OAuth連携（Twitch APIでサブスク自動検証）
 
+### やらないと決めたこと
+
+| 機能 | 理由 |
+|------|------|
+| スーパーシンプルモード | UIが2本になると保守コスト倍。デフォルト設定の改善で代替 |
+| テキスト縦書き | Canvas縦書きは1文字ずつ座標計算が必要、コスパ悪い |
+| gifEncoder.ts の分割リファクタ | 動いている。大機能追加前のタイミングで検討 |
+| サーバー処理による長尺動画対応 | 「サーバーに画像を送らない」コンセプトを優先。短尺案で様子見 |
+
 ### 最優先事項
-**ユーザーフィードバックの収集。** 機能はMVP+UX改善+サブスク限定機能+Discord対応+トリミング＋位置調整+背景透過精度改善+ブラシ微調整+セキュリティ強化+アニメーション32種+速度調整+モバイルミニプレビュー+カラーピッカー改善+シェアモーダル+アナリティクス+フレーム7種+2画像合成+Discord案内リンク+サブスクバッジ機能まで完了。実際に使った人の声を聞いてから次の判断をするのが最も効率的。
+**ユーザーフィードバックの収集。** 機能はMVP+UX改善+サブスク限定機能+Discord対応+トリミング＋位置調整+背景透過精度改善+ブラシ微調整+セキュリティ強化+アニメーション32種+速度調整+モバイルミニプレビュー+カラーピッカー改善+シェアモーダル+アナリティクス+フレーム7種+2画像合成+Discord案内リンク+サブスクバッジ作成+Canvasメモリ最適化まで完了。実際に使った人の声を聞いてから次の判断をするのが最も効率的。
 
 ---
 

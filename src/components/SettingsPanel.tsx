@@ -51,8 +51,8 @@ function ColorPicker({
     };
   }, []);
 
-  const handleInput = (e: React.FormEvent<HTMLInputElement>) => {
-    const newColor = (e.target as HTMLInputElement).value;
+  const handleInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newColor = e.target.value;
     setLocal(newColor);
     // Debounce parent update so preview refreshes during drag without excessive re-renders
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -68,7 +68,7 @@ function ColorPicker({
         <input
           type="color"
           value={local}
-          onInput={handleInput}
+          onChange={handleInput}
           className="w-10 h-10 rounded border border-gray-600 bg-transparent cursor-pointer"
         />
         <span className="text-xs text-gray-400 font-mono">{local}</span>

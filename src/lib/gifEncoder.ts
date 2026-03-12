@@ -1070,14 +1070,29 @@ export async function generateGif(
     const totalFrames = 20;
     const frameDelay = SPEED_DELAY[speed];
 
+    const frameCanvases: HTMLCanvasElement[] = [];
     for (let i = 0; i < totalFrames; i++) {
       const frameCanvas = generator(baseCanvas, i, totalFrames);
       gif.addFrame(frameCanvas, { delay: frameDelay, copy: true });
+      frameCanvases.push(frameCanvas);
     }
 
-    gif.on("finished", (blob: Blob) => resolve(blob));
+    gif.on("finished", (blob: Blob) => {
+      // Release all frame canvases after GIF rendering completes
+      for (const fc of frameCanvases) {
+        fc.width = 0;
+        fc.height = 0;
+      }
+      resolve(blob);
+    });
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (gif as any).on("error", (err: Error) => reject(err));
+    (gif as any).on("error", (err: Error) => {
+      for (const fc of frameCanvases) {
+        fc.width = 0;
+        fc.height = 0;
+      }
+      reject(err);
+    });
     gif.render();
   });
 }

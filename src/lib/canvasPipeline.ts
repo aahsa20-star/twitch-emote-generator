@@ -1,5 +1,11 @@
 import { BadgeSettings, BadgeSize, BorderStyle, CompositeMode, EmoteConfig, FrameType, TextConfig, TextPosition, TEXT_PRESETS } from "@/types/emote";
 
+/** Release GPU/system memory held by a canvas that is no longer needed. */
+function releaseCanvas(canvas: HTMLCanvasElement): void {
+  canvas.width = 0;
+  canvas.height = 0;
+}
+
 interface Bounds {
   top: number;
   left: number;
@@ -81,6 +87,7 @@ export function centerAndResize(
     drawHeight
   );
 
+  releaseCanvas(tempCanvas);
   return canvas;
 }
 
@@ -150,6 +157,8 @@ export function applyBorder(
   // Composite: border shadow + original
   ctx.drawImage(big, -pad, -pad);
   ctx.drawImage(canvas, 0, 0);
+  releaseCanvas(silhouette);
+  releaseCanvas(big);
   return result;
 }
 
@@ -279,6 +288,7 @@ export function compositeImages(
     }
     ctx.restore();
     ctx.drawImage(subCentered, x, y);
+    releaseCanvas(subCentered);
 
     return result;
   }
@@ -294,6 +304,8 @@ export function compositeImages(
 
     ctx.drawImage(mainSmall, padding, yOffset);
     ctx.drawImage(subSmall, halfW + padding, yOffset);
+    releaseCanvas(mainSmall);
+    releaseCanvas(subSmall);
 
     return result;
   }
@@ -535,6 +547,7 @@ function downscale(
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = "high";
     ctx.drawImage(current, 0, 0, half.width, half.height);
+    if (current !== source) releaseCanvas(current);
     current = half;
   }
 
@@ -547,6 +560,7 @@ function downscale(
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";
   ctx.drawImage(current, 0, 0, targetSize, targetSize);
+  if (current !== source) releaseCanvas(current);
   return final;
 }
 
@@ -564,18 +578,29 @@ export function processEmote(
 
   // 2. Composite with sub image (if applicable)
   if (config.compositeMode !== "none" && subCanvas) {
+    const prev = canvas;
     canvas = compositeImages(canvas, subCanvas, config.compositeMode, HI_RES, config.subImageScale);
+    if (canvas !== prev) releaseCanvas(prev);
   }
 
   // 3. Apply border at high resolution
-  canvas = applyBorder(canvas, config.border, config.borderWidth, config.borderColor);
+  {
+    const prev = canvas;
+    canvas = applyBorder(canvas, config.border, config.borderWidth, config.borderColor);
+    if (canvas !== prev) releaseCanvas(prev);
+  }
 
   // 4. Apply frame at high resolution
-  canvas = applyFrame(canvas, config.frameType);
+  {
+    const prev = canvas;
+    canvas = applyFrame(canvas, config.frameType);
+    if (canvas !== prev) releaseCanvas(prev);
+  }
 
   // 5. Apply text overlay at high resolution (skip for ≤32px — text is unreadable)
   const textToRender = resolveTextToRender(config);
   if (textToRender && size > 32) {
+    const prev = canvas;
     canvas = applyTextOverlay(canvas, {
       text: textToRender,
       font: config.text.font,
@@ -587,11 +612,14 @@ export function processEmote(
       offsetY: config.textOffsetY,
       outlineWidth: config.textOutlineWidth,
     }, HI_RES);
+    releaseCanvas(prev);
   }
 
   // 6. Downscale to target size (multi-step for quality)
   if (size < HI_RES) {
+    const prev = canvas;
     canvas = downscale(canvas, size);
+    releaseCanvas(prev);
   }
 
   return canvas;
@@ -636,6 +664,7 @@ export function renderBadge(
   if (drawSize > 0) {
     const centered = centerAndResize(sourceCanvas, drawSize);
     ctx.drawImage(centered, pad, pad);
+    releaseCanvas(centered);
   }
 
   ctx.restore(); // release clip

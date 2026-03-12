@@ -15,36 +15,20 @@ const defaultSliders = { borderWidth: 4, borderColor: "#ffffff", frameType: "non
 
 const AUTO_PATTERNS: AutoPattern[] = [
   {
-    label: "1. 白フチ",
+    label: "白フチ",
     config: { border: "white", textPreset: null, text: { ...defaultText }, animation: "none", ...defaultSliders },
   },
   {
-    label: "2. 黒フチ",
+    label: "黒フチ",
     config: { border: "black", textPreset: null, text: { ...defaultText }, animation: "none", ...defaultSliders },
   },
   {
-    label: "3. 白フチ+草",
-    config: { border: "white", textPreset: "kusa", text: { ...defaultText }, animation: "none", ...defaultSliders },
-  },
-  {
-    label: "4. 白フチ+GG",
-    config: { border: "white", textPreset: "gg", text: { ...defaultText }, animation: "none", ...defaultSliders },
-  },
-  {
-    label: "5. 影付き",
+    label: "影付き",
     config: { border: "shadow", textPreset: null, text: { ...defaultText }, animation: "none", ...defaultSliders },
   },
   {
-    label: "6. 白フチ+揺れ",
+    label: "白フチ+揺れ",
     config: { border: "white", textPreset: null, text: { ...defaultText }, animation: "sway", ...defaultSliders },
-  },
-  {
-    label: "7. 草+揺れ",
-    config: { border: "white", textPreset: "kusa", text: { ...defaultText, fillColor: "#ffff00" }, animation: "sway", ...defaultSliders },
-  },
-  {
-    label: "8. 黒フチ+点滅",
-    config: { border: "black", textPreset: null, text: { ...defaultText }, animation: "blink", ...defaultSliders },
   },
 ];
 
@@ -153,7 +137,7 @@ export default function RecommendedPatterns({ bgRemovedCanvas, onApply }: Recomm
           </span>
         )}
       </div>
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
+      <div className="grid grid-cols-4 gap-2 w-full">
         {AUTO_PATTERNS.map((pattern, i) => {
           const preview = previews[i];
           const src = preview?.animatedUrl ?? preview?.staticDataUrl;
