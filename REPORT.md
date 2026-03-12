@@ -164,7 +164,7 @@ src/
 │   ├── DownloadButton.tsx       # 最大サイズ単体DL + ZIP一括DL + バッジZIP DLボタン
 │   ├── ShareButton.tsx          # Xシェア + クリップボードコピー
 │   ├── ShareAfterDownloadModal.tsx # DL完了後Xシェア促進モーダル
-│   ├── RecommendedPatterns.tsx  # おすすめ8パターン
+│   ├── RecommendedPatterns.tsx  # おすすめ4パターン（白フチ/黒フチ/影付き/白フチ+揺れ）
 │   ├── FloatingMiniPreview.tsx  # モバイル専用フローティングプレビュー（90x90px）
 │   └── Footer.tsx               # フィードバック導線 + 免責表示 + アクセス解析告知
 ├── hooks/
