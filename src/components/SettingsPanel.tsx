@@ -222,7 +222,7 @@ export default function SettingsPanel({
                     <input
                       type="range"
                       min={20}
-                      max={60}
+                      max={100}
                       step={1}
                       value={config.subImageScale}
                       onChange={(e) => onConfigChange({ subImageScale: Number(e.target.value) })}
