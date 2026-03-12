@@ -47,21 +47,36 @@ const MAX_FRAME_WIDTH_MOBILE = 480;
 const FRAME_INTERVAL_PC = 1;
 const FRAME_INTERVAL_MOBILE = 3;
 
-/** Seek video with timeout fallback (mobile Safari seeked event is unreliable) */
+/** Seek video and wait until frame data is ready (polling fallback for mobile) */
 async function seekTo(video: HTMLVideoElement, time: number): Promise<void> {
-  if (Math.abs(video.currentTime - time) < 0.1) return;
-  return new Promise<void>((resolve) => {
+  video.currentTime = time;
+  // Wait for seeked event OR poll readyState, whichever comes first
+  await new Promise<void>((resolve) => {
     let resolved = false;
     const done = () => {
       if (resolved) return;
       resolved = true;
-      video.removeEventListener("seeked", done);
+      video.removeEventListener("seeked", onSeeked);
       resolve();
     };
-    video.addEventListener("seeked", done, { once: true });
-    video.currentTime = time;
-    // Fallback: if seeked doesn't fire within 3s, proceed anyway
-    setTimeout(done, 3000);
+    const onSeeked = () => {
+      // HAVE_CURRENT_DATA (2) = frame data available for current time
+      if (video.readyState >= 2) done();
+    };
+    video.addEventListener("seeked", onSeeked);
+
+    // Poll readyState as fallback (50ms intervals, max 5s)
+    let polls = 0;
+    const poll = () => {
+      if (resolved) return;
+      if (video.readyState >= 2 && Math.abs(video.currentTime - time) < 0.5) {
+        done();
+        return;
+      }
+      if (++polls > 100) { done(); return; } // 5s timeout
+      setTimeout(poll, 50);
+    };
+    setTimeout(poll, 100);
   });
 }
 
@@ -180,6 +195,7 @@ export async function extractFacesFromVideo(
   const video = document.createElement("video");
   video.muted = true;
   video.playsInline = true;
+  video.preload = "auto";
   const url = URL.createObjectURL(file);
 
   try {
