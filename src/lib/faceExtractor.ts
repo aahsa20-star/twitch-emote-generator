@@ -11,15 +11,23 @@ const WASM_CDN = "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.32/w
 const MODEL_CDN = "https://storage.googleapis.com/mediapipe-models/face_detector/blaze_face_short_range/float16/1/blaze_face_short_range.tflite";
 
 let detectorInstance: FaceDetector | null = null;
+let detectorDelegate: "GPU" | "CPU" | null = null;
+
+const isMobile = () =>
+  typeof window !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
 async function getDetector(): Promise<FaceDetector> {
-  if (detectorInstance) return detectorInstance;
+  const delegate = isMobile() ? "CPU" : "GPU";
+  if (detectorInstance && detectorDelegate === delegate) return detectorInstance;
+  // Re-create if delegate changed
+  if (detectorInstance) detectorInstance.close();
   const vision = await FilesetResolver.forVisionTasks(WASM_CDN);
   detectorInstance = await FaceDetector.createFromOptions(vision, {
-    baseOptions: { modelAssetPath: MODEL_CDN, delegate: "GPU" },
+    baseOptions: { modelAssetPath: MODEL_CDN, delegate },
     runningMode: "IMAGE",
     minDetectionConfidence: 0.5,
   });
+  detectorDelegate = delegate;
   return detectorInstance;
 }
 
@@ -34,9 +42,12 @@ export interface FaceCandidate {
   croppedCanvas: HTMLCanvasElement;
 }
 
-const MAX_FRAME_WIDTH = 640;
+const MAX_FRAME_WIDTH_PC = 640;
+const MAX_FRAME_WIDTH_MOBILE = 480;
+const FRAME_INTERVAL_PC = 1;
+const FRAME_INTERVAL_MOBILE = 2;
 
-/** Extract a single frame from video at the given time, downscaled to MAX_FRAME_WIDTH */
+/** Extract a single frame from video at the given time, downscaled */
 async function extractFrame(
   video: HTMLVideoElement,
   time: number
@@ -46,8 +57,9 @@ async function extractFrame(
     video.onseeked = () => resolve();
   });
 
-  const scale = video.videoWidth > MAX_FRAME_WIDTH
-    ? MAX_FRAME_WIDTH / video.videoWidth
+  const maxWidth = isMobile() ? MAX_FRAME_WIDTH_MOBILE : MAX_FRAME_WIDTH_PC;
+  const scale = video.videoWidth > maxWidth
+    ? maxWidth / video.videoWidth
     : 1;
   const w = Math.round(video.videoWidth * scale);
   const h = Math.round(video.videoHeight * scale);
@@ -170,7 +182,8 @@ export async function extractFacesFromVideo(
     onProgress(0.05, "顔を検出中...");
     const detector = await getDetector();
     const duration = Math.min(video.duration, 30);
-    const totalFrames = Math.floor(duration);
+    const frameInterval = isMobile() ? FRAME_INTERVAL_MOBILE : FRAME_INTERVAL_PC;
+    const totalFrames = Math.floor(duration / frameInterval);
 
     type RawCandidate = {
       time: number;
@@ -185,7 +198,7 @@ export async function extractFacesFromVideo(
     const rawCandidates: RawCandidate[] = [];
     const usedCanvases = new Set<HTMLCanvasElement>();
 
-    for (let t = 0; t < duration; t += 1) {
+    for (let t = 0; t < duration; t += frameInterval) {
       const frameCanvas = await extractFrame(video, t);
       const result = detector.detect(frameCanvas);
       const detections = result.detections || [];
@@ -217,7 +230,8 @@ export async function extractFacesFromVideo(
         usedCanvases.add(frameCanvas);
       }
 
-      onProgress(0.05 + ((t + 1) / totalFrames) * 0.85, "顔を検出中...");
+      const frameIdx = Math.floor(t / frameInterval) + 1;
+      onProgress(0.05 + (frameIdx / totalFrames) * 0.85, "顔を検出中...");
     }
 
     // Sort by score descending
