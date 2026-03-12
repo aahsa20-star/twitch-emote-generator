@@ -12,6 +12,7 @@ import RecommendedPatterns from "./RecommendedPatterns";
 import ShareButton from "./ShareButton";
 import ShareAfterDownloadModal from "./ShareAfterDownloadModal";
 import FloatingMiniPreview from "./FloatingMiniPreview";
+import VideoFaceExtractor from "./VideoFaceExtractor";
 import { EmoteConfig, ExportMode, BgRemovalQuality, DEFAULT_BADGE_SETTINGS } from "@/types/emote";
 
 const SUBSCRIBER_KEY = "emote-subscriber";
@@ -210,6 +211,12 @@ export default function EmoteGenerator() {
             {authToast}
           </div>
         )}
+
+        {/* Video face extractor (PC only, subscriber feature) */}
+        <VideoFaceExtractor
+          isSubscriber={isSubscriber}
+          onFaceSelected={handleImageSelected}
+        />
 
         {/* Skip background removal */}
         {sourceFile && (
