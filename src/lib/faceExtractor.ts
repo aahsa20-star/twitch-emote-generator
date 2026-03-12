@@ -45,7 +45,7 @@ export interface FaceCandidate {
 const MAX_FRAME_WIDTH_PC = 640;
 const MAX_FRAME_WIDTH_MOBILE = 480;
 const FRAME_INTERVAL_PC = 1;
-const FRAME_INTERVAL_MOBILE = 2;
+const FRAME_INTERVAL_MOBILE = 3;
 
 /** Extract a single frame from video at the given time, downscaled */
 async function extractFrame(
@@ -199,6 +199,8 @@ export async function extractFacesFromVideo(
     const usedCanvases = new Set<HTMLCanvasElement>();
 
     for (let t = 0; t < duration; t += frameInterval) {
+      // Yield to event loop so UI stays responsive (progress bar, cancel, etc.)
+      await new Promise<void>((r) => setTimeout(r, 0));
       const frameCanvas = await extractFrame(video, t);
       const result = detector.detect(frameCanvas);
       const detections = result.detections || [];

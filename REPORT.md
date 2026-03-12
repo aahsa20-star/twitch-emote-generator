@@ -96,7 +96,8 @@
 - 未認証時にDiscordサーバー案内リンク表示（https://discord.gg/CheMXWdj、サブスク限定チャットで合言葉配布）
 - ログアウト時にサブスク限定configを自動リセット（25種アニメーション+フレーム+合成+サブ画像サイズ+バッジ設定）
 - 動画から顔自動抽出（30秒以内の動画→1秒間隔フレーム抽出→MediaPipe FaceDetector→上位5〜8候補→自動クロップ→既存パイプラインへ）[限定]
-  - モバイル対応：640px幅ダウンスケール、逐次フレーム処理（抽出→検出→即解放）によるメモリ安全化
+  - モバイル対応：480px幅ダウンスケール、3秒間隔フレーム抽出、CPU delegate、逐次処理（抽出→検出→即解放）によるメモリ安全化
+  - フレーム間イベントループ返却（setTimeout(0)）によるUIフリーズ防止
   - `@mediapipe/tasks-vision` FaceDetector（CDN遅延ロード、GPU delegate、IMAGE mode）
   - `<video>` seekTo + seeked + canvas.drawImage によるフレーム抽出
   - 顔バウンディングボックス+25%余白で正方形自動クロップ
