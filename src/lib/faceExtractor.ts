@@ -34,32 +34,30 @@ export interface FaceCandidate {
   croppedCanvas: HTMLCanvasElement;
 }
 
-/** Extract frames from video at 1-second intervals */
-async function extractFrames(
+const MAX_FRAME_WIDTH = 640;
+
+/** Extract a single frame from video at the given time, downscaled to MAX_FRAME_WIDTH */
+async function extractFrame(
   video: HTMLVideoElement,
-  onProgress: (pct: number) => void
-): Promise<{ time: number; canvas: HTMLCanvasElement }[]> {
-  const duration = Math.min(video.duration, 30);
-  const totalFrames = Math.floor(duration);
-  const frames: { time: number; canvas: HTMLCanvasElement }[] = [];
+  time: number
+): Promise<HTMLCanvasElement> {
+  video.currentTime = time;
+  await new Promise<void>((resolve) => {
+    video.onseeked = () => resolve();
+  });
 
-  for (let t = 0; t < duration; t += 1) {
-    video.currentTime = t;
-    await new Promise<void>((resolve) => {
-      video.onseeked = () => resolve();
-    });
+  const scale = video.videoWidth > MAX_FRAME_WIDTH
+    ? MAX_FRAME_WIDTH / video.videoWidth
+    : 1;
+  const w = Math.round(video.videoWidth * scale);
+  const h = Math.round(video.videoHeight * scale);
 
-    const canvas = document.createElement("canvas");
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext("2d")!;
-    ctx.drawImage(video, 0, 0);
-    frames.push({ time: t, canvas });
-
-    onProgress(((t + 1) / totalFrames) * 0.5); // frames = first 50%
-  }
-
-  return frames;
+  const canvas = document.createElement("canvas");
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext("2d")!;
+  ctx.drawImage(video, 0, 0, w, h);
+  return canvas;
 }
 
 /** Compute average pixel difference between two same-size canvases (0-255 scale) */
@@ -168,15 +166,11 @@ export async function extractFacesFromVideo(
       throw new Error("30秒以内の動画を選択してください");
     }
 
-    // Extract frames
-    onProgress(0.05, "フレームを抽出中...");
-    const frames = await extractFrames(video, (pct) =>
-      onProgress(pct, "フレームを抽出中...")
-    );
-
-    // Detect faces
-    onProgress(0.5, "顔を検出中...");
+    // Sequential per-frame processing: extract → detect → release if unused
+    onProgress(0.05, "顔を検出中...");
     const detector = await getDetector();
+    const duration = Math.min(video.duration, 30);
+    const totalFrames = Math.floor(duration);
 
     type RawCandidate = {
       time: number;
@@ -189,11 +183,13 @@ export async function extractFacesFromVideo(
     };
 
     const rawCandidates: RawCandidate[] = [];
+    const usedCanvases = new Set<HTMLCanvasElement>();
 
-    for (let i = 0; i < frames.length; i++) {
-      const frame = frames[i];
-      const result = detector.detect(frame.canvas);
+    for (let t = 0; t < duration; t += 1) {
+      const frameCanvas = await extractFrame(video, t);
+      const result = detector.detect(frameCanvas);
       const detections = result.detections || [];
+      let frameUsed = false;
 
       for (const det of detections) {
         const bb = det.boundingBox;
@@ -202,24 +198,33 @@ export async function extractFacesFromVideo(
         if (score < 0.5) continue;
 
         rawCandidates.push({
-          time: frame.time,
+          time: t,
           score,
-          frameCanvas: frame.canvas,
+          frameCanvas,
           faceX: bb.originX,
           faceY: bb.originY,
           faceW: bb.width,
           faceH: bb.height,
         });
+        frameUsed = true;
       }
 
-      onProgress(0.5 + ((i + 1) / frames.length) * 0.4, "顔を検出中...");
+      // Release frame immediately if no face detected
+      if (!frameUsed) {
+        frameCanvas.width = 0;
+        frameCanvas.height = 0;
+      } else {
+        usedCanvases.add(frameCanvas);
+      }
+
+      onProgress(0.05 + ((t + 1) / totalFrames) * 0.85, "顔を検出中...");
     }
 
     // Sort by score descending
     rawCandidates.sort((a, b) => b.score - a.score);
 
     // Deduplicate similar frames
-    onProgress(0.9, "候補を選別中...");
+    onProgress(0.92, "候補を選別中...");
     const candidates: FaceCandidate[] = [];
 
     for (const raw of rawCandidates) {
@@ -254,11 +259,11 @@ export async function extractFacesFromVideo(
       }
     }
 
-    // Cleanup unused frames
-    for (const frame of frames) {
-      if (!candidates.some((c) => c.frameCanvas === frame.canvas)) {
-        frame.canvas.width = 0;
-        frame.canvas.height = 0;
+    // Cleanup unused frame canvases
+    for (const canvas of usedCanvases) {
+      if (!candidates.some((c) => c.frameCanvas === canvas)) {
+        canvas.width = 0;
+        canvas.height = 0;
       }
     }
 

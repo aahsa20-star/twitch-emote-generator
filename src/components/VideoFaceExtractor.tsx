@@ -90,7 +90,7 @@ export default function VideoFaceExtractor({ isSubscriber, onFaceSelected }: Vid
   // Not subscriber: show locked state
   if (!isSubscriber) {
     return (
-      <div className="hidden md:block">
+      <div className="block">
         <div className="bg-gray-800/40 rounded-lg p-3 space-y-1.5">
           <div className="flex items-center gap-2">
             <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
@@ -113,7 +113,7 @@ export default function VideoFaceExtractor({ isSubscriber, onFaceSelected }: Vid
   }
 
   return (
-    <div className="hidden md:block">
+    <div className="block">
       <div className="bg-gray-800/60 rounded-lg p-3 space-y-3">
         <div className="flex items-center justify-between">
           <span className="text-xs text-gray-300 font-medium">動画から顔を抽出 [限定]</span>
@@ -145,6 +145,7 @@ export default function VideoFaceExtractor({ isSubscriber, onFaceSelected }: Vid
               動画をアップロード
             </button>
             <p className="text-[10px] text-gray-500">MP4 / MOV / WEBM 30秒以内 50MB以下</p>
+            <p className="text-[10px] text-yellow-500/80 md:hidden">※スマートフォンでは処理に時間がかかる場合があります</p>
             <input
               ref={inputRef}
               type="file"
