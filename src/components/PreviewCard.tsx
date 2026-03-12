@@ -15,6 +15,8 @@ interface PreviewCardProps {
 export default function PreviewCard({ variant, hasText = false, textPosition = "bottom", bgMode = "checker", onDownloadComplete }: PreviewCardProps) {
   const [gifUrl, setGifUrl] = useState<string | null>(null);
   const [visibilityResult, setVisibilityResult] = useState<VisibilityResult | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const isLargest = variant.size >= 112;
 
   useEffect(() => {
     if (variant.animatedBlob) {
@@ -56,6 +58,14 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
     return () => { cancelled = true; };
   }, [variant.staticDataUrl, variant.size, hasText, textPosition]);
 
+  // ESC to close modal
+  useEffect(() => {
+    if (!modalOpen) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") setModalOpen(false); };
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [modalOpen]);
+
   const displayUrl = gifUrl || variant.staticDataUrl;
 
   const handleDownload = useCallback(() => {
@@ -83,6 +93,14 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
 
   const format = variant.animatedBlob ? "GIF" : "PNG";
 
+  const handleCardClick = useCallback(() => {
+    if (isLargest && window.matchMedia("(min-width: 768px)").matches) {
+      setModalOpen(true);
+    } else {
+      handleDownload();
+    }
+  }, [isLargest, handleDownload]);
+
   return (
     <div className="flex flex-col items-center gap-2">
       <span className="text-xs text-gray-400 font-mono">
@@ -96,7 +114,7 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
           ...(bgMode === "dark" ? { background: "#1a1a2e" } : {}),
           ...(bgMode === "light" ? { background: "#f0f0f0" } : {}),
         }}
-        onClick={handleDownload}
+        onClick={handleCardClick}
       >
         <img
           src={displayUrl}
@@ -105,12 +123,40 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
           height={variant.size}
           style={{ imageRendering: variant.size <= 28 ? "pixelated" : "auto" }}
         />
-        <div className="absolute inset-0 bg-black/60 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center overflow-hidden">
-          <span className="text-[10px] font-semibold text-white bg-purple-600 px-2 py-1 rounded-md whitespace-nowrap">
-            ↓ {variant.size}px {format}
-          </span>
-        </div>
+        {/* PC: largest shows "クリックで拡大", others show download overlay */}
+        {isLargest ? (
+          <div className="hidden md:flex absolute inset-0 bg-black/50 rounded opacity-0 group-hover:opacity-100 transition-opacity items-center justify-center">
+            <span className="text-[10px] text-gray-300">クリックで拡大</span>
+          </div>
+        ) : (
+          <div className="absolute inset-0 bg-black/60 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center overflow-hidden">
+            <span className="text-[10px] font-semibold text-white bg-purple-600 px-2 py-1 rounded-md whitespace-nowrap">
+              ↓ {variant.size}px {format}
+            </span>
+          </div>
+        )}
       </div>
+
+      {/* Enlarged modal (PC only) */}
+      {modalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setModalOpen(false)}>
+          <div className="relative checkerboard rounded-lg p-6" onClick={(e) => e.stopPropagation()}>
+            <img
+              src={displayUrl}
+              alt="enlarged preview"
+              width={variant.size * 2}
+              height={variant.size * 2}
+              style={{ imageRendering: "auto", display: "block" }}
+            />
+            <button
+              onClick={handleDownload}
+              className="mt-3 w-full flex items-center justify-center gap-1 px-3 py-1.5 rounded bg-purple-600 hover:bg-purple-500 text-white text-xs transition-colors"
+            >
+              ↓ {variant.size}px {format} ダウンロード
+            </button>
+          </div>
+        </div>
+      )}
       {/* Mobile-only download button (no hover on touch devices) */}
       <button
         onClick={handleDownload}
