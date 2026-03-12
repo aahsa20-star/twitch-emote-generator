@@ -31,23 +31,11 @@ function getTextCenter(config: EmoteConfig): { x: number; y: number } | null {
   const scale = CANVAS_SIZE / 112;
   const scaledOffsetX = config.textOffsetX * scale;
   const scaledOffsetY = config.textOffsetY * scale;
-  const fontSize = config.fontSize * scale;
 
-  const x = CANVAS_SIZE / 2 + scaledOffsetX;
-  let y: number;
-  switch (config.text.position) {
-    case "top":
-      y = CANVAS_SIZE * 0.04 + scaledOffsetY + fontSize * 0.5;
-      break;
-    case "center":
-      y = CANVAS_SIZE / 2 + scaledOffsetY;
-      break;
-    case "bottom":
-    default:
-      y = CANVAS_SIZE - CANVAS_SIZE * 0.04 + scaledOffsetY - fontSize * 0.5;
-      break;
-  }
-  return { x, y };
+  return {
+    x: CANVAS_SIZE / 2 + scaledOffsetX,
+    y: CANVAS_SIZE / 2 + scaledOffsetY,
+  };
 }
 
 /** Compute sub-image center position in canvas coordinates. */
@@ -60,14 +48,10 @@ function getSubImageCenter(config: EmoteConfig, hasSubCanvas: boolean): { x: num
   const scaledOffsetX = Math.round(config.subImageOffsetX * scale);
   const scaledOffsetY = Math.round(config.subImageOffsetY * scale);
 
-  const baseX = config.compositeMode === "overlay-br"
-    ? Math.round(CANVAS_SIZE * 0.58)
-    : Math.round(CANVAS_SIZE * 0.04);
-  const baseY = Math.round(CANVAS_SIZE * 0.58);
-
+  // Center-based: free placement via offsets
   return {
-    x: baseX + scaledOffsetX + subSize / 2,
-    y: baseY + scaledOffsetY + subSize / 2,
+    x: Math.round(CANVAS_SIZE / 2) + scaledOffsetX,
+    y: Math.round(CANVAS_SIZE / 2) + scaledOffsetY,
     size: subSize,
   };
 }
@@ -238,8 +222,8 @@ export default function DragPositionCanvas({
       const dx112 = (clientX - dragStartRef.current.clientX) * scale * (112 / CANVAS_SIZE);
       const dy112 = (clientY - dragStartRef.current.clientY) * scale * (112 / CANVAS_SIZE);
 
-      const newX = Math.round(Math.max(-50, Math.min(50, dragStartRef.current.startOffsetX + dx112)));
-      const newY = Math.round(Math.max(-50, Math.min(50, dragStartRef.current.startOffsetY + dy112)));
+      const newX = Math.round(Math.max(-56, Math.min(56, dragStartRef.current.startOffsetX + dx112)));
+      const newY = Math.round(Math.max(-56, Math.min(56, dragStartRef.current.startOffsetY + dy112)));
 
       if (dragTarget === "text") {
         onConfigChange({ textOffsetX: newX, textOffsetY: newY });

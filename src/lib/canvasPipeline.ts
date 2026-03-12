@@ -207,24 +207,10 @@ export function applyTextOverlay(
   const scaledOffsetX = offsetX * (canvasSize / 112);
   const scaledOffsetY = offsetY * (canvasSize / 112);
 
-  // Position
+  // Position: always center-based, free placement via offsets
+  ctx.textBaseline = "middle";
   let x = canvasSize / 2 + scaledOffsetX;
-  let y: number;
-  switch (position) {
-    case "top":
-      ctx.textBaseline = "top";
-      y = canvasSize * 0.04 + scaledOffsetY;
-      break;
-    case "center":
-      ctx.textBaseline = "middle";
-      y = canvasSize / 2 + scaledOffsetY;
-      break;
-    case "bottom":
-    default:
-      ctx.textBaseline = "bottom";
-      y = canvasSize - canvasSize * 0.04 + scaledOffsetY;
-      break;
-  }
+  let y = canvasSize / 2 + scaledOffsetY;
 
   // Shadow-based text outline for smooth anti-aliased edges
   const outlineWidth = userOutlineWidth != null
@@ -278,8 +264,9 @@ export function compositeImages(
 
     const scaledOffsetX = Math.round(subOffsetX * (size / 112));
     const scaledOffsetY = Math.round(subOffsetY * (size / 112));
-    const x = (mode === "overlay-br" ? Math.round(size * 0.58) : Math.round(size * 0.04)) + scaledOffsetX;
-    const y = Math.round(size * 0.58) + scaledOffsetY;
+    // Center-based: free placement via offsets
+    const x = Math.round(size / 2 - subSize / 2) + scaledOffsetX;
+    const y = Math.round(size / 2 - subSize / 2) + scaledOffsetY;
 
     // White border via shadowBlur
     ctx.save();

@@ -11,7 +11,6 @@ import {
   ANIMATION_SPEED_OPTIONS,
   TEXT_PRESETS,
   FONT_OPTIONS,
-  TEXT_POSITION_OPTIONS,
   FontCategory,
 } from "@/types/emote";
 import SubImageUpload from "./SubImageUpload";
@@ -182,7 +181,20 @@ export default function SettingsPanel({
             {COMPOSITE_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
-                onClick={() => onConfigChange({ compositeMode: opt.value })}
+                onClick={() => {
+                  const update: Partial<typeof config> = { compositeMode: opt.value };
+                  if (opt.value === "overlay-br") {
+                    update.subImageOffsetX = 20;
+                    update.subImageOffsetY = 20;
+                  } else if (opt.value === "overlay-bl") {
+                    update.subImageOffsetX = -20;
+                    update.subImageOffsetY = 20;
+                  } else {
+                    update.subImageOffsetX = 0;
+                    update.subImageOffsetY = 0;
+                  }
+                  onConfigChange(update);
+                }}
                 className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
                   config.compositeMode === opt.value
                     ? "bg-purple-600 text-white"
@@ -214,32 +226,6 @@ export default function SettingsPanel({
                       step={1}
                       value={config.subImageScale}
                       onChange={(e) => onConfigChange({ subImageScale: Number(e.target.value) })}
-                      className="w-full accent-purple-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-400 block mb-1">
-                      横位置: {config.subImageOffsetX}px
-                    </label>
-                    <input
-                      type="range"
-                      min={-50}
-                      max={50}
-                      value={config.subImageOffsetX}
-                      onChange={(e) => onConfigChange({ subImageOffsetX: Number(e.target.value) })}
-                      className="w-full accent-purple-500"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-400 block mb-1">
-                      縦位置: {config.subImageOffsetY}px
-                    </label>
-                    <input
-                      type="range"
-                      min={-50}
-                      max={50}
-                      value={config.subImageOffsetY}
-                      onChange={(e) => onConfigChange({ subImageOffsetY: Number(e.target.value) })}
                       className="w-full accent-purple-500"
                     />
                   </div>
@@ -365,17 +351,21 @@ export default function SettingsPanel({
           </div>
         )}
 
-        {/* Text position */}
+        {/* Text position shortcuts */}
         {hasText && (
           <div>
             <label className="text-xs text-gray-400 block mb-1">テキスト位置</label>
             <div className="grid grid-cols-3 gap-2">
-              {TEXT_POSITION_OPTIONS.map((opt) => (
+              {([
+                { label: "上", offsetY: -40 },
+                { label: "中央", offsetY: 0 },
+                { label: "下", offsetY: 40 },
+              ] as const).map((opt) => (
                 <button
-                  key={opt.value}
-                  onClick={() => updateText({ position: opt.value })}
+                  key={opt.label}
+                  onClick={() => onConfigChange({ textOffsetX: 0, textOffsetY: opt.offsetY })}
                   className={`px-3 py-1.5 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
-                    config.text.position === opt.value
+                    config.textOffsetY === opt.offsetY && config.textOffsetX === 0
                       ? "bg-purple-600 text-white"
                       : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                   }`}
@@ -397,37 +387,6 @@ export default function SettingsPanel({
           />
         )}
 
-        {/* Text position fine-tune */}
-        {hasText && (
-          <div className="space-y-2">
-            <div>
-              <label className="text-xs text-gray-400 block mb-1">
-                横位置: {config.textOffsetX}px
-              </label>
-              <input
-                type="range"
-                min={-50}
-                max={50}
-                value={config.textOffsetX}
-                onChange={(e) => onConfigChange({ textOffsetX: Number(e.target.value) })}
-                className="w-full accent-purple-500"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-gray-400 block mb-1">
-                縦位置: {config.textOffsetY}px
-              </label>
-              <input
-                type="range"
-                min={-50}
-                max={50}
-                value={config.textOffsetY}
-                onChange={(e) => onConfigChange({ textOffsetY: Number(e.target.value) })}
-                className="w-full accent-purple-500"
-              />
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Animation */}
