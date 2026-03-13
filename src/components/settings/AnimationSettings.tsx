@@ -67,27 +67,33 @@ export default function AnimationSettings({
         </>
       )}
 
-      {/* Animation speed */}
-      {config.animation.type !== "none" && (
-        <div className="mt-3">
-          <label className="text-xs text-gray-400 block mb-1">速度</label>
-          <div className="grid grid-cols-3 gap-2">
-            {ANIMATION_SPEED_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => onConfigChange({ animation: { speed: opt.value } })}
-                className={`px-3 py-1.5 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
-                  config.animation.speed === opt.value
-                    ? "bg-purple-600 text-white"
-                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
+      {/* Animation speed — always rendered to prevent layout shift */}
+      <div
+        className={`mt-3 transition-opacity duration-150 ${
+          config.animation.type !== "none"
+            ? "opacity-100"
+            : "opacity-0 pointer-events-none"
+        }`}
+        aria-hidden={config.animation.type === "none"}
+      >
+        <label className="text-xs text-gray-400 block mb-1">速度</label>
+        <div className="grid grid-cols-3 gap-2">
+          {ANIMATION_SPEED_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => onConfigChange({ animation: { speed: opt.value } })}
+              tabIndex={config.animation.type === "none" ? -1 : 0}
+              className={`px-3 py-1.5 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
+                config.animation.speed === opt.value
+                  ? "bg-purple-600 text-white"
+                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
-      )}
+      </div>
     </div>
   );
 }
