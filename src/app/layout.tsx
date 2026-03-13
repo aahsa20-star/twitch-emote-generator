@@ -75,21 +75,21 @@ const permanentMarker = Permanent_Marker({
 });
 
 export const metadata: Metadata = {
-  title: "Twitch Emote Generator",
+  title: "Twitch Emote Generator｜エモート作成ツール（無料・ブラウザ完結）",
   description:
-    "画像をアップロードするだけでTwitchエモートの複数バリエーションを即座に生成。ブラウザ完結型。",
+    "Twitchエモートの作り方がわからなくても大丈夫。画像をアップロードするだけで背景透過・フチ取り・テキスト入れ・アニメーション・全サイズ書き出しまでブラウザだけで完結。Discord / 7TV / BTTV / FFZにも対応。スタンプ作成・エモート制作が無料でできます。",
   metadataBase: new URL("https://twitch-emote-generator.vercel.app"),
   openGraph: {
-    title: "Twitch Emote Generator",
+    title: "Twitch Emote Generator｜エモート作成ツール（無料・ブラウザ完結）",
     description:
-      "背景透過 → フチ取り → 3サイズ出力まで、ブラウザだけで完結",
+      "背景透過→フチ取り→アニメーション→全サイズ出力まで、ブラウザだけで完結。Twitch / Discord / 7TV / BTTV / FFZ対応。",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Twitch Emote Generator",
+    title: "Twitch Emote Generator｜エモート作成ツール",
     description:
-      "背景透過 → フチ取り → 3サイズ出力まで、ブラウザだけで完結",
+      "背景透過→フチ取り→アニメーション→全サイズ出力まで、ブラウザだけで完結。Twitch / Discord / 7TV / BTTV / FFZ対応。",
   },
 };
 
