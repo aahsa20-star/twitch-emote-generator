@@ -145,6 +145,7 @@
 - ヒーロー見出しのwhitespace-nowrap（「ブラウザだけで完結」の孤立改行防止）
 - フィードバック導線（Google Formリンク、フッターに配置）
 - フッター作者情報（アイコン画像 + Made by Aki + X/YouTube/Discordリンク横一列、next/image + lucide-react使用）
+- 左パネル順序最適化（動画顔抽出を認証UIの上に移動、全ユーザー向け機能を優先表示）
 
 ### デザイン・ブランディング
 - Interフォント導入（英字はInter、日本語はNoto Sans JPにフォールバック）

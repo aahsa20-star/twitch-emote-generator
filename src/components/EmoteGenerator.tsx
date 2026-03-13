@@ -158,6 +158,11 @@ export default function EmoteGenerator() {
           />
         )}
 
+        {/* Video face extractor */}
+        <VideoFaceExtractor
+          onFaceSelected={handleImageSelected}
+        />
+
         {/* Subscriber auth */}
         {isSubscriber ? (
           <div className="flex items-center gap-2">
@@ -229,11 +234,6 @@ export default function EmoteGenerator() {
             {authToast}
           </div>
         )}
-
-        {/* Video face extractor */}
-        <VideoFaceExtractor
-          onFaceSelected={handleImageSelected}
-        />
 
         {/* Skip background removal */}
         {sourceFile && (
