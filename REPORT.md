@@ -99,11 +99,12 @@
 - 未認証時はロック項目がグレーアウト表示
 - 未認証時にDiscordサーバー案内リンク表示（https://discord.gg/CheMXWdj、サブスク限定チャットで合言葉配布）
 - ログアウト時にサブスク限定configを自動リセット（25種アニメーション+フレーム+合成+サブ画像サイズ+バッジ設定）
-- 動画から顔自動抽出（30秒以内の動画→フレーム抽出→MediaPipe FaceDetector→上位5〜8候補→自動クロップ→既存パイプラインへ）[限定]
+- 動画から顔自動抽出（30秒以内の動画→フレーム抽出→MediaPipe FaceDetector→上位5〜8候補→自動クロップ→既存パイプラインへ）**全ユーザー開放済み**
   - PC: seekベース高速抽出（1秒間隔、960pxダウンスケール、GPU delegate）
   - モバイル: 再生ベースキャプチャ（video.play() 2倍速 + requestAnimationFrame、3秒間隔キャプチャ、CPU delegate）
     - モバイルSafariの video.currentTime シーク不安定問題を回避
     - 30秒動画で約15秒のリアルタイム再生待ち、プログレスバーは再生進捗と連動
+    - モバイル処理失敗時にPC利用を促すエラーメッセージ表示
   - 640pxダウンスケール、逐次処理（抽出→検出→即解放）によるメモリ安全化
   - フレーム間イベントループ返却（setTimeout(0)）によるUIフリーズ防止（PC）
   - `@mediapipe/tasks-vision` FaceDetector（CDN遅延ロード、IMAGE mode、minDetectionConfidence 0.3）

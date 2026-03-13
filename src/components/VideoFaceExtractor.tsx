@@ -6,11 +6,10 @@ import { extractFacesFromVideo, canvasToFile, FaceCandidate } from "@/lib/faceEx
 const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
 
 interface VideoFaceExtractorProps {
-  isSubscriber: boolean;
   onFaceSelected: (file: File) => void;
 }
 
-export default function VideoFaceExtractor({ isSubscriber, onFaceSelected }: VideoFaceExtractorProps) {
+export default function VideoFaceExtractor({ onFaceSelected }: VideoFaceExtractorProps) {
   const [stage, setStage] = useState<"idle" | "processing" | "selecting">("idle");
   const [progress, setProgress] = useState(0);
   const [progressLabel, setProgressLabel] = useState("");
@@ -47,7 +46,15 @@ export default function VideoFaceExtractor({ isSubscriber, onFaceSelected }: Vid
       setSelectedIdx(0);
       setStage("selecting");
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "処理中にエラーが発生しました";
+      const raw = err instanceof Error ? err.message : "";
+      let msg: string;
+      if (raw === "MOBILE_PLAYBACK_FAILED" || raw === "MOBILE_NO_RESULTS") {
+        msg = "動画の読み込みに失敗しました。スマートフォンでは端末の性能によって処理できない場合があります。PCのブラウザからお試しください。";
+      } else if (raw) {
+        msg = raw;
+      } else {
+        msg = "動画の読み込みに失敗しました。スマートフォンでは端末の性能によって処理できない場合があります。PCのブラウザからお試しください。";
+      }
       setError(msg);
       setStage("idle");
     }
@@ -87,36 +94,11 @@ export default function VideoFaceExtractor({ isSubscriber, onFaceSelected }: Vid
     setSelectedIdx(null);
   }, [candidates]);
 
-  // Not subscriber: show locked state
-  if (!isSubscriber) {
-    return (
-      <div className="block">
-        <div className="bg-gray-800/40 rounded-lg p-3 space-y-1.5">
-          <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0110 0v4" />
-            </svg>
-            <span className="text-xs text-gray-500">動画から顔を抽出 [限定]</span>
-          </div>
-          <a
-            href="https://discord.gg/CheMXWdj"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[10px] text-purple-400 hover:underline block"
-          >
-            サブスク限定チャットで合言葉を入手
-          </a>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="block">
       <div className="bg-gray-800/60 rounded-lg p-3 space-y-3">
         <div className="flex items-center justify-between">
-          <span className="text-xs text-gray-300 font-medium">動画から顔を抽出 [限定]</span>
+          <span className="text-xs text-gray-300 font-medium">動画から顔を抽出</span>
           {stage === "selecting" && (
             <button
               onClick={handleCancel}

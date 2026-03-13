@@ -208,9 +208,8 @@ export default function EmoteGenerator() {
           </div>
         )}
 
-        {/* Video face extractor (PC only, subscriber feature) */}
+        {/* Video face extractor */}
         <VideoFaceExtractor
-          isSubscriber={isSubscriber}
           onFaceSelected={handleImageSelected}
         />
 

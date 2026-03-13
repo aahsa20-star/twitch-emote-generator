@@ -241,7 +241,7 @@ async function extractFramesSeekBased(
   duration: number,
   detector: FaceDetector,
   onProgress: (pct: number, label: string) => void
-): Promise<{ rawCandidates: RawCandidate[]; usedCanvases: Set<HTMLCanvasElement> }> {
+): Promise<{ rawCandidates: RawCandidate[]; usedCanvases: Set<HTMLCanvasElement>; playbackFailed?: boolean }> {
   const rawCandidates: RawCandidate[] = [];
   const usedCanvases = new Set<HTMLCanvasElement>();
   const totalFrames = Math.floor(duration / FRAME_INTERVAL_PC);
@@ -268,7 +268,7 @@ async function extractFramesPlaybackBased(
   duration: number,
   detector: FaceDetector,
   onProgress: (pct: number, label: string) => void
-): Promise<{ rawCandidates: RawCandidate[]; usedCanvases: Set<HTMLCanvasElement> }> {
+): Promise<{ rawCandidates: RawCandidate[]; usedCanvases: Set<HTMLCanvasElement>; playbackFailed?: boolean }> {
   const rawCandidates: RawCandidate[] = [];
   const usedCanvases = new Set<HTMLCanvasElement>();
 
@@ -331,8 +331,10 @@ async function extractFramesPlaybackBased(
     video.play().then(() => {
       requestAnimationFrame(captureLoop);
     }).catch(() => {
-      // play() can fail if user hasn't interacted yet — fall back
-      finish();
+      // play() can fail on mobile (autoplay restrictions, codec issues, etc.)
+      finished = true;
+      video.pause();
+      resolve({ rawCandidates: [], usedCanvases, playbackFailed: true });
     });
   });
 }
@@ -421,12 +423,23 @@ export async function extractFacesFromVideo(
     const duration = Math.min(video.duration, 30);
 
     // Mobile: playback-based (no seeking), PC: seek-based (fast)
-    const { rawCandidates, usedCanvases } = isMobile()
+    const mobile = isMobile();
+    const result = mobile
       ? await extractFramesPlaybackBased(video, duration, detector, onProgress)
       : await extractFramesSeekBased(video, duration, detector, onProgress);
 
+    // Mobile playback failure (autoplay blocked, codec issue, etc.)
+    if (mobile && result.playbackFailed) {
+      throw new Error("MOBILE_PLAYBACK_FAILED");
+    }
+
     onProgress(0.92, "候補を選別中...");
-    const candidates = deduplicateCandidates(rawCandidates, usedCanvases);
+    const candidates = deduplicateCandidates(result.rawCandidates, result.usedCanvases);
+
+    // Mobile: 0 candidates likely means processing limitation, not "no faces"
+    if (mobile && candidates.length === 0 && result.rawCandidates.length === 0) {
+      throw new Error("MOBILE_NO_RESULTS");
+    }
 
     onProgress(1, "完了");
     return candidates;
