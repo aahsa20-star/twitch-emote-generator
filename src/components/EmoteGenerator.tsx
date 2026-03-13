@@ -304,7 +304,7 @@ export default function EmoteGenerator() {
       </div>
 
       {/* Preview (mobile: order-1, desktop: right column, sticky) */}
-      <div id="preview-area" className="bg-gray-900 rounded-lg p-4 md:p-6 flex flex-col items-center min-h-[300px] md:min-h-[400px] md:overflow-y-auto order-1 md:order-none self-start md:sticky md:top-4 md:max-h-screen">
+      <div id="preview-area" className="bg-gray-900 rounded-lg p-4 md:p-6 flex flex-col items-center min-h-[300px] md:min-h-[400px] md:overflow-y-auto order-1 md:order-none self-start md:sticky md:top-4 md:max-h-screen [contain:layout_style]">
         {/* Export mode tabs */}
         <div className="flex w-full mb-4 bg-gray-800 rounded-lg p-0.5">
           {([
@@ -381,7 +381,7 @@ export default function EmoteGenerator() {
       </div>
 
       {/* Settings + DL/Share (mobile: order-4, desktop: sticky left column with DL inside) */}
-      <div className={`space-y-4 md:space-y-6 order-4 md:order-none self-start md:sticky md:top-4 md:max-h-screen md:overflow-y-auto md:col-start-1 relative z-10 ${!sourceFile ? "opacity-40 pointer-events-none select-none" : ""}`}>
+      <div className={`space-y-4 md:space-y-6 order-4 md:order-none self-start md:sticky md:top-4 md:max-h-screen md:overflow-y-auto md:col-start-1 relative z-10 [contain:layout_style] ${!sourceFile ? "opacity-40 pointer-events-none select-none" : ""}`}>
         {!sourceFile && (
           <p className="text-xs text-gray-400 text-center py-1">画像をアップロードすると設定できます</p>
         )}

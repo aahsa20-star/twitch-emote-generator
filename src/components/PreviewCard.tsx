@@ -22,7 +22,10 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
     if (variant.animatedBlob) {
       const url = URL.createObjectURL(variant.animatedBlob);
       setGifUrl(url);
-      return () => URL.revokeObjectURL(url);
+      return () => {
+        // Delay revoke to prevent flash when switching between blobs
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+      };
     } else {
       setGifUrl(null);
     }
