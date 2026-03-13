@@ -95,8 +95,15 @@ export default function TextSettings({
         </select>
       </div>
 
-      {/* Font size slider */}
-      {hasText && (
+      {/* Text detail settings — always rendered, expand/collapse with transition */}
+      <div
+        className={`space-y-3 transition-all duration-200 ease-in-out ${
+          hasText
+            ? "max-h-[600px] opacity-100"
+            : "max-h-0 opacity-0 overflow-hidden pointer-events-none"
+        }`}
+      >
+        {/* Font size slider */}
         <div>
           <label className="text-xs text-gray-400 block mb-1">
             文字サイズ: {config.text.fontSize}px
@@ -110,10 +117,8 @@ export default function TextSettings({
             className="w-full accent-purple-500"
           />
         </div>
-      )}
 
-      {/* Colors row */}
-      {hasText && (
+        {/* Colors row */}
         <div className="flex gap-4">
           <ColorPicker
             label="文字色"
@@ -126,10 +131,8 @@ export default function TextSettings({
             onChange={(c) => updateText({ strokeColor: c })}
           />
         </div>
-      )}
 
-      {/* Text outline width slider */}
-      {hasText && (
+        {/* Text outline width slider */}
         <div>
           <label className="text-xs text-gray-400 block mb-1">
             縁の幅: {config.text.outlineWidth}px{config.text.outlineWidth === 0 ? "（なし）" : ""}
@@ -143,10 +146,8 @@ export default function TextSettings({
             className="w-full accent-purple-500"
           />
         </div>
-      )}
 
-      {/* Text position shortcuts */}
-      {hasText && (
+        {/* Text position shortcuts */}
         <div>
           <label className="text-xs text-gray-400 block mb-1">テキスト位置</label>
           <div className="grid grid-cols-3 gap-2">
@@ -169,7 +170,7 @@ export default function TextSettings({
             ))}
           </div>
         </div>
-      )}
+      </div>
 
       {/* Drag position canvas (shown when text or sub-image overlay is active) */}
       {bgRemovedCanvas && (

@@ -30,8 +30,15 @@ export default function BadgeSettings({ config, onConfigChange }: BadgeSettingsP
           />
         </button>
       </div>
-      {config.badge.enabled && (
-        <div className="space-y-3">
+      {/* Badge detail settings — always rendered, expand/collapse with transition */}
+      <div
+        className={`transition-all duration-200 ease-in-out ${
+          config.badge.enabled
+            ? "max-h-[800px] opacity-100"
+            : "max-h-0 opacity-0 overflow-hidden pointer-events-none"
+        }`}
+      >
+        <div className="space-y-3 pt-1">
           {/* Shape */}
           <div>
             <label className="text-xs text-gray-400 block mb-1">形状</label>
@@ -119,7 +126,7 @@ export default function BadgeSettings({ config, onConfigChange }: BadgeSettingsP
             )}
           </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

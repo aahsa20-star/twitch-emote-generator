@@ -262,6 +262,7 @@ src/
 | モバイルSafariで動画顔抽出がスタック（14%/19%で停止） | `video.currentTime`シークがモバイルSafariで不安定（seekedイベント未発火、readyState不整合） | モバイルを再生ベースキャプチャに切替（`video.play()` 2x速 + requestAnimationFrame、シーク不要） |
 | PreviewCard.tsx でアンマウント後にNotFoundError | visibility check用のimg.onloadがコンポーネント解放後に発火 | cancelledフラグ + try/catchで防御 |
 | アニメーションボタン切替時にUIがガタつく | 速度セクションの条件レンダリング+processingスピナー瞬間表示+stickyコンテナのreflow伝播 | 速度セクション常時レンダリング+スピナー300ms遅延+contain:layout style+DLボタン固定幅+GIF URL遅延revoke |
+| テキスト入力/バッジON時のレイアウトシフト | 条件レンダリングでセクションが一気にDOM挿入される（TextSettings +200px, BadgeSettings +300px） | max-h + opacity CSS トランジションで展開/折りたたみアニメーション化（DOM常時存在、pointer-events制御） |
 
 ---
 
