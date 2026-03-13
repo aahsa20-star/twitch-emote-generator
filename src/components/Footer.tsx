@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Twitter, Youtube, MessageCircle } from "lucide-react";
 
 export default function Footer() {
@@ -30,16 +31,23 @@ export default function Footer() {
       <p className="text-center text-gray-500">
         本サービスはサービス改善のためUmami Analyticsによるアクセス解析を行っています。取得するデータはIPアドレスを含まない匿名の統計情報のみです。
       </p>
-      <div className="text-center pt-3 border-t border-gray-800">
-        <p className="text-gray-500 mb-2">Made by Aki</p>
-        <div className="flex items-center justify-center gap-4">
-          <a href="https://x.com/akiissamurai" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-gray-300 transition-colors">
+      <div className="flex items-center justify-center gap-4 pt-3 border-t border-gray-800">
+        <Image
+          src="/aki.png"
+          alt="Aki"
+          width={40}
+          height={40}
+          className="rounded-full"
+        />
+        <span className="text-sm text-gray-400">Made by Aki</span>
+        <div className="flex items-center gap-3">
+          <a href="https://x.com/akiissamurai" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
             <Twitter size={16} />
           </a>
-          <a href="https://youtube.com/channel/UCLZJRStlPpH7fAjZjbjP4sQ" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-gray-300 transition-colors">
+          <a href="https://youtube.com/channel/UCLZJRStlPpH7fAjZjbjP4sQ" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
             <Youtube size={16} />
           </a>
-          <a href="https://discord.gg/CheMXWdj" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-gray-300 transition-colors">
+          <a href="https://discord.gg/CheMXWdj" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
             <MessageCircle size={16} />
           </a>
         </div>
