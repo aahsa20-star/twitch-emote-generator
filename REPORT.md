@@ -261,7 +261,7 @@ src/
 | Canvas メモリリーク（低スペ端末でクラッシュの可能性） | 使い捨てcanvasのピクセルバッファがGPUメモリに残留。GIF生成時は60canvas同時 | `releaseCanvas()`ヘルパーで`width=0;height=0`を全パイプライン出口に追加 |
 | モバイルSafariで動画顔抽出がスタック（14%/19%で停止） | `video.currentTime`シークがモバイルSafariで不安定（seekedイベント未発火、readyState不整合） | モバイルを再生ベースキャプチャに切替（`video.play()` 2x速 + requestAnimationFrame、シーク不要） |
 | PreviewCard.tsx でアンマウント後にNotFoundError | visibility check用のimg.onloadがコンポーネント解放後に発火 | cancelledフラグ + try/catchで防御 |
-| アニメーションボタン切替時にUIがガタつく | 速度セクションの条件レンダリング（DOM挿入/削除）でレイアウトシフト発生 | 速度セクションを常時レンダリングし、opacity+pointer-events-noneで表示切替 |
+| アニメーションボタン切替時にUIがガタつく | 速度セクションの条件レンダリング（DOM挿入/削除）+「processing」スピナーの瞬間表示でレイアウトシフト発生 | 速度セクションを常時レンダリングしopacity切替 + processingスピナー表示を300ms遅延（短時間レンダリングではスキップ） |
 
 ---
 

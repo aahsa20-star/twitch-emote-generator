@@ -50,6 +50,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
   const [variants, setVariants] = useState<EmoteVariant[]>([]);
 
   const renderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const stageDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const bgRemovalCancelledRef = useRef(false);
 
   // Load image as canvas (shared helper)
@@ -141,7 +142,12 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
       let cancelled = false;
 
       async function render() {
-        setStage("processing");
+        // Delay showing "processing" spinner by 300ms to avoid layout shift on quick re-renders
+        if (stageDelayRef.current) clearTimeout(stageDelayRef.current);
+        stageDelayRef.current = setTimeout(() => {
+          if (!cancelled) setStage("processing");
+        }, 300);
+
         const newVariants: EmoteVariant[] = [];
 
         try {
@@ -175,12 +181,16 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
           }
 
           if (!cancelled) {
+            if (stageDelayRef.current) clearTimeout(stageDelayRef.current);
             setVariants(newVariants);
             setStage("ready");
           }
         } catch (err) {
           console.error("Rendering failed:", err);
-          if (!cancelled) setStage("ready");
+          if (!cancelled) {
+            if (stageDelayRef.current) clearTimeout(stageDelayRef.current);
+            setStage("ready");
+          }
         }
       }
 
@@ -194,6 +204,9 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     return () => {
       if (renderTimeoutRef.current) {
         clearTimeout(renderTimeoutRef.current);
+      }
+      if (stageDelayRef.current) {
+        clearTimeout(stageDelayRef.current);
       }
     };
   }, [bgRemovedCanvas, config, sourceFile, exportMode, subCanvas]);
