@@ -180,7 +180,13 @@ src/
 │   ├── SubImageUpload.tsx       # サブ画像アップロード（D&D + click、64x64サムネイル）
 │   ├── VideoFaceExtractor.tsx   # 動画顔抽出UI（アップロード+プログレス+候補グリッド選択、モバイル対応済み）
 │   ├── DragPositionCanvas.tsx   # テキスト・サブ画像ドラッグ配置キャンバス（224px内部解像度、マウス+タッチ対応）
-│   ├── SettingsPanel.tsx        # 設定UI（フチ取り/フレーム/合成/テキスト/アニメーション/速度/バッジ作成 + ドラッグ配置 + 限定ロックUI）
+│   ├── SettingsPanel.tsx        # 設定コンテナ（フチ取り/フレームを直接描画、他はサブコンポーネントに委譲）
+│   ├── settings/
+│   │   ├── ColorPicker.tsx      # 共有カラーピッカー（200msデバウンス付き）
+│   │   ├── AnimationSettings.tsx # アニメーション選択・速度・限定アニメ
+│   │   ├── TextSettings.tsx     # テキスト入力・フォント・サイズ・色・位置・ドラッグ配置
+│   │   ├── BadgeSettings.tsx    # バッジ作成トグル・形状・色・余白・輪郭
+│   │   └── SubImageSettings.tsx # 2画像合成・サブ画像アップロード・サイズ
 │   ├── PreviewArea.tsx          # プレビュー表示 + サンプルショーケース + バッジプレビュー（72/36/18px）
 │   ├── PreviewCard.tsx          # 個別プレビュー（ホバーDLオーバーレイ）
 │   ├── DownloadButton.tsx       # 最大サイズ単体DL + ZIP一括DL + バッジZIP DLボタン
