@@ -1,14 +1,49 @@
+"use client";
+
+import { useState } from "react";
+
 interface ShareAfterDownloadModalProps {
   onClose: () => void;
+  imageDataUrl: string | null;
 }
 
-const SHARE_URL =
-  "https://twitter.com/intent/tweet?text=Twitch%20Emote%20Generator%E3%81%A7%E3%82%A8%E3%83%A2%E3%83%BC%E3%83%88%E4%BD%9C%E3%81%A3%E3%81%9F%EF%BC%81%20%40akiissamurai%20%23TwitchEmote%20%23%E3%82%A8%E3%83%A2%E3%83%BC%E3%83%88&url=https%3A%2F%2Ftwitch-emote-generator.vercel.app";
+export default function ShareAfterDownloadModal({ onClose, imageDataUrl }: ShareAfterDownloadModalProps) {
+  const [toast, setToast] = useState(false);
 
-export default function ShareAfterDownloadModal({ onClose }: ShareAfterDownloadModalProps) {
   const handleShare = () => {
-    window.open(SHARE_URL, "_blank", "noopener,noreferrer");
-    onClose();
+    // 1. Open X share window FIRST (must be synchronous for popup blocker)
+    const text = encodeURIComponent(
+      "Twitchエモートが30秒で作れた！ブラウザだけで完結、背景透過も自動 ✨ @akiissamurai #TwitchEmote #配信者グッズ"
+    );
+    const url = encodeURIComponent("https://twitch-emote-generator.vercel.app/");
+    window.open(
+      `https://x.com/intent/tweet?text=${text}&url=${url}`,
+      "_blank",
+      "noopener,noreferrer,width=550,height=420"
+    );
+
+    // 2. Copy 112px image to clipboard (async, runs after popup opens)
+    if (imageDataUrl && navigator.clipboard?.write) {
+      (async () => {
+        try {
+          const res = await fetch(imageDataUrl);
+          const blob = await res.blob();
+          const pngBlob = new Blob([blob], { type: "image/png" });
+          await navigator.clipboard.write([
+            new ClipboardItem({ "image/png": pngBlob }),
+          ]);
+          setToast(true);
+          setTimeout(() => {
+            setToast(false);
+            onClose();
+          }, 3000);
+        } catch {
+          onClose();
+        }
+      })();
+    } else {
+      onClose();
+    }
   };
 
   return (
@@ -36,6 +71,13 @@ export default function ShareAfterDownloadModal({ onClose }: ShareAfterDownloadM
             X（Twitter）でシェアする
           </button>
         </div>
+        {toast && (
+          <div className="mt-3 text-center">
+            <p className="text-purple-400 text-sm animate-fade-in">
+              画像をクリップボードにコピーしました。ツイートに貼り付けてください📋
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );

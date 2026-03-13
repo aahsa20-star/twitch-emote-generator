@@ -12,7 +12,7 @@ export default function ShareButton({ imageDataUrl }: ShareButtonProps) {
   const handleShare = useCallback(() => {
     // 1. Open X share window FIRST (must be synchronous for popup blocker)
     const text = encodeURIComponent(
-      "Twitchエモートを作ったよ！ #TwitchEmote #Twitch配信者 #エモート生成ツール #ダツ皿アキ"
+      "Twitchエモートが30秒で作れた！ブラウザだけで完結、背景透過も自動 ✨ @akiissamurai #TwitchEmote #配信者グッズ"
     );
     const url = encodeURIComponent("https://twitch-emote-generator.vercel.app/");
     window.open(
@@ -22,7 +22,7 @@ export default function ShareButton({ imageDataUrl }: ShareButtonProps) {
     );
 
     // 2. Copy 112px image to clipboard (async, runs after popup opens)
-    if (imageDataUrl) {
+    if (imageDataUrl && navigator.clipboard?.write) {
       (async () => {
         try {
           const res = await fetch(imageDataUrl);
@@ -32,9 +32,9 @@ export default function ShareButton({ imageDataUrl }: ShareButtonProps) {
             new ClipboardItem({ "image/png": pngBlob }),
           ]);
           setToast(true);
-          setTimeout(() => setToast(false), 5000);
+          setTimeout(() => setToast(false), 3000);
         } catch {
-          // Clipboard API not supported or permission denied
+          // Clipboard API permission denied or other error — skip silently
         }
       })();
     }
@@ -54,7 +54,7 @@ export default function ShareButton({ imageDataUrl }: ShareButtonProps) {
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
           <div className="bg-purple-600/90 text-white text-sm px-4 py-2.5 rounded-lg shadow-lg animate-fade-in backdrop-blur-sm">
-            エモート画像をコピーしました。Xの投稿画面で貼り付け（Ctrl+V）できます
+            画像をクリップボードにコピーしました。ツイートに貼り付けてください📋
           </div>
         </div>
       )}

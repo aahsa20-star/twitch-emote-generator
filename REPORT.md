@@ -95,14 +95,17 @@
 - 未認証時はロック項目がグレーアウト表示
 - 未認証時にDiscordサーバー案内リンク表示（https://discord.gg/CheMXWdj、サブスク限定チャットで合言葉配布）
 - ログアウト時にサブスク限定configを自動リセット（25種アニメーション+フレーム+合成+サブ画像サイズ+バッジ設定）
-- 動画から顔自動抽出（30秒以内の動画→1秒間隔フレーム抽出→MediaPipe FaceDetector→上位5〜8候補→自動クロップ→既存パイプラインへ）[限定]
-  - モバイル対応：480px幅ダウンスケール、3秒間隔フレーム抽出、CPU delegate、逐次処理（抽出→検出→即解放）によるメモリ安全化
-  - フレーム間イベントループ返却（setTimeout(0)）によるUIフリーズ防止
-  - `@mediapipe/tasks-vision` FaceDetector（CDN遅延ロード、GPU delegate、IMAGE mode）
-  - `<video>` seekTo + seeked + canvas.drawImage によるフレーム抽出
+- 動画から顔自動抽出（30秒以内の動画→フレーム抽出→MediaPipe FaceDetector→上位5〜8候補→自動クロップ→既存パイプラインへ）[限定]
+  - PC: seekベース高速抽出（1秒間隔、960pxダウンスケール、GPU delegate）
+  - モバイル: 再生ベースキャプチャ（video.play() 2倍速 + requestAnimationFrame、3秒間隔キャプチャ、CPU delegate）
+    - モバイルSafariの video.currentTime シーク不安定問題を回避
+    - 30秒動画で約15秒のリアルタイム再生待ち、プログレスバーは再生進捗と連動
+  - 640pxダウンスケール、逐次処理（抽出→検出→即解放）によるメモリ安全化
+  - フレーム間イベントループ返却（setTimeout(0)）によるUIフリーズ防止（PC）
+  - `@mediapipe/tasks-vision` FaceDetector（CDN遅延ロード、IMAGE mode、minDetectionConfidence 0.3）
   - 顔バウンディングボックス+25%余白で正方形自動クロップ
   - 類似フレーム間引き（64pxダウンスケール全ピクセル差分平均、閾値15未満で除外）
-  - PC（md:以上）のみ対応、ブラウザ完結（動画サーバー送信なし）
+  - ブラウザ完結（動画サーバー送信なし）
   - 対応形式: MP4 / MOV / WEBM、50MB以下
 - 特定商取引法表示は不要と判断（サイト上で直接課金なし、合言葉はDiscord経由の外部配布）
 
@@ -113,8 +116,8 @@
 - モバイル個別DLボタン（各サイズ下に常時表示、タッチデバイス対応）
 - PCホバーオーバーレイDL（マウスオーバーで表示）
 - PC大プレビューモーダル（最大サイズクリックで2倍拡大表示、チェッカーボード背景、ESC/外クリックで閉じる、md:以上のみ）
-- Xシェアボタン（クリップボードコピー + ツイート画面同時オープン）
-- ダウンロード完了後Xシェアモーダル（ShareAfterDownloadModal、一括DL・個別DL・ZIP全対応、@akiissamurai メンション付き、スキップ可能）
+- Xシェアボタン（112pxエモート画像をクリップボード自動コピー + ツイート画面同時オープン、アクション指向シェアテキスト「30秒で作れた！ブラウザだけで完結」、clipboard API非対応時はコピーをスキップ）
+- ダウンロード完了後Xシェアモーダル（ShareAfterDownloadModal、一括DL・個別DL・ZIP全対応、クリップボードコピー+ガイドメッセージ表示、スキップ可能）
 
 ### UX
 - 画像位置調整エディタ（アップロード直後に表示、8ハンドルトリミング+ドラッグ移動+ズーム、確定/スキップ選択可能、ドラッグ中ハンドルをTwitchパープル#9146FFで16pxにハイライト）
@@ -244,6 +247,7 @@ src/
 | カラーピッカーの色変更がプレビューに反映されない | ネイティブchange（ピッカー閉じ時のみ）でしか親を更新しなかった | onInput + 200msデバウンスでリアルタイム反映 |
 | バッジ輪郭線の色変更が一部ブラウザで効かない | onInput（native inputイベント）がSafari等でカラーピッカーダイアログ閉じ時に発火しない | onChange（React合成イベント、クロスブラウザ対応）に変更 |
 | Canvas メモリリーク（低スペ端末でクラッシュの可能性） | 使い捨てcanvasのピクセルバッファがGPUメモリに残留。GIF生成時は60canvas同時 | `releaseCanvas()`ヘルパーで`width=0;height=0`を全パイプライン出口に追加 |
+| モバイルSafariで動画顔抽出がスタック（14%/19%で停止） | `video.currentTime`シークがモバイルSafariで不安定（seekedイベント未発火、readyState不整合） | モバイルを再生ベースキャプチャに切替（`video.play()` 2x速 + requestAnimationFrame、シーク不要） |
 | PreviewCard.tsx でアンマウント後にNotFoundError | visibility check用のimg.onloadがコンポーネント解放後に発火 | cancelledフラグ + try/catchで防御 |
 
 ---

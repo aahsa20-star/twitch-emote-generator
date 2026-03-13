@@ -431,7 +431,7 @@ export default function EmoteGenerator() {
 
       {/* Share after download modal */}
       {showShareModal && (
-        <ShareAfterDownloadModal onClose={() => setShowShareModal(false)} />
+        <ShareAfterDownloadModal onClose={() => setShowShareModal(false)} imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
       )}
     </div>
   );
