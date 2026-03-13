@@ -157,7 +157,9 @@
 - フッターにアクセス解析免責文言を表示
 
 ### 品質最適化
-- 224px高解像度中間キャンバス → multi-step downscale（6段パイプライン: 中心配置→合成→フチ取り→フレーム→テキスト→縮小）
+- PNG: 224px高解像度中間キャンバス → multi-step downscale（6段パイプライン: 中心配置→合成→フチ取り→フレーム→テキスト→縮小）
+- GIF: 256px高解像度フレーム生成 → フレーム毎にmulti-step downscale → 出力サイズでGIFエンコード（アニメーション輪郭のシャープさ向上）
+- USMシャープネス: 28px/56px出力にアンシャープマスク適用（amount=0.6、透過ピクセル境界スキップ）
 - shadowBlur方式のフチ取り（アンチエイリアス改善）
 - shadow多パス方式のテキスト縁取り（幅0〜10px可変）
 - 28px/32pxテキスト自動非表示（視認性確保）
@@ -232,8 +234,8 @@ src/
           → フチ取り（shadowBlur方式、カスタム色対応）
             → フレーム装飾（星/ハート/ゲーミング/キラキラ/レインボー/ドット）
               → テキストオーバーレイ（shadow多パス方式、≤32pxはスキップ）
-            → multi-step downscale（224→112→56→28 / 224→128→64→32）
-              → PNG/GIF出力（20フレーム / 25〜80msディレイ）
+            → multi-step downscale（224→112→56→28 / 224→128→64→32） + USMシャープネス（≤56px）
+              → PNG出力 / GIF出力（256px高解像度フレーム→multi-step downscale→20フレーム / 25〜80msディレイ）
     → [バッジ分岐] bgRemovedCanvas → clip(形状) → 背景 → centerAndResize(余白付き) → 輪郭線 → 72/36/18px出力
 ```
 
@@ -248,7 +250,8 @@ src/
 | フチ取り境界がギザつく | 8方向オフセット描画はアンチエイリアスが効かない | shadowBlur方式に変更 |
 | テキスト縁取りが粗い | strokeTextの標準描画品質の限界 | shadow多パス描画方式に変更 |
 | 28pxでテキストが潰れる | 28pxキャンバスにテキスト描画は物理的に視認不可 | 28pxではテキスト自動非表示 |
-| 小サイズの全体品質が低い | 28px/56pxで直接描画するとフチ・テキストの解像度不足 | 224px高解像度中間キャンバス + multi-step downscale |
+| 小サイズの全体品質が低い | 28px/56pxで直接描画するとフチ・テキストの解像度不足 | 224px高解像度中間キャンバス + multi-step downscale + USMシャープネス（≤56px） |
+| GIFアニメーションの輪郭がぼやける | 出力サイズ（28〜112px）で直接フレーム生成していた | 256px高解像度フレーム生成→フレーム毎にmulti-step downscale |
 | ZIPファイル名が日本語 | Mac/Windows互換性の問題 | ASCII固定（emote_112px.png等） |
 | Vercelでプロジェクト名エラー | 日本語ディレクトリ名がVercel projectに使えない | --name フラグで英字指定 |
 | PC版DL/アニメーション重なり | DL+ShareがSettingsの下で重なる（sticky + 別gridアイテム） | DL+ShareをSettings sticky内に移動、モバイル用は別途md:hidden |

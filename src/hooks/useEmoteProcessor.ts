@@ -15,7 +15,7 @@ import {
   DEFAULT_BADGE_SETTINGS,
 } from "@/types/emote";
 import { removeBackground } from "@/lib/backgroundRemoval";
-import { processEmote } from "@/lib/canvasPipeline";
+import { processEmote, processEmoteWithHiRes } from "@/lib/canvasPipeline";
 import { generateGif } from "@/lib/gifEncoder";
 import { exportAsZip } from "@/lib/zipExporter";
 
@@ -158,14 +158,28 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
             exportMode === "discord" || exportMode === "ffz" ? DISCORD_SIZES :
             exportMode === "7tv" ? SEVENTV_SIZES :
             EMOTE_SIZES; // twitch, bttv
+          // If animation enabled, build a shared hi-res canvas for GIF frame generation
+          const needsAnimation = config.animation.type !== "none";
+          let sharedHiRes: HTMLCanvasElement | null = null;
+          if (needsAnimation) {
+            // Generate a 256px hi-res canvas for animation frames (separate from PNG pipeline)
+            const hiResResult = processEmoteWithHiRes(bgRemovedCanvas!, 256, config, subCanvas ?? undefined);
+            sharedHiRes = hiResResult.hiRes;
+            // Release the downscaled output (we don't need it; PNG uses processEmote at HI_RES=224)
+            if (hiResResult.output !== hiResResult.hiRes) {
+              hiResResult.output.width = 0;
+              hiResResult.output.height = 0;
+            }
+          }
+
           for (const size of sizes) {
             const canvas = processEmote(bgRemovedCanvas!, size, config, subCanvas ?? undefined);
             const staticDataUrl = canvas.toDataURL("image/png");
 
             let animatedBlob: Blob | null = null;
-            if (config.animation.type !== "none") {
+            if (needsAnimation) {
               if (!cancelled) setStage("generating-preview");
-              animatedBlob = await generateGif(canvas, config.animation.type, size, config.animation.speed);
+              animatedBlob = await generateGif(canvas, config.animation.type, size, config.animation.speed, sharedHiRes ?? undefined);
             }
 
             if (cancelled) return;
@@ -178,6 +192,13 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
               animatedBlob,
               filename: `emote_${size}px.${ext}`,
             });
+          }
+
+          // Release shared hi-res canvas after all sizes are generated
+          if (sharedHiRes) {
+            sharedHiRes.width = 0;
+            sharedHiRes.height = 0;
+            sharedHiRes = null;
           }
 
           if (!cancelled) {

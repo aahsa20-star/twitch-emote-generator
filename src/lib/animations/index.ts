@@ -8,6 +8,7 @@
  * 4. Add the animation type to AnimationType in types/emote.ts
  */
 import { AnimationType, AnimationSpeed } from "@/types/emote";
+import { downscale } from "@/lib/canvasPipeline";
 import GIF from "gif.js";
 
 import type { FrameGenerator } from "./types";
@@ -149,16 +150,26 @@ const SPEED_DELAY: Record<AnimationSpeed, number> = {
   fast: 25,
 };
 
+/**
+ * Generate an animated GIF.
+ * When hiResCanvas is provided, frames are generated at hi-res and downscaled
+ * to the output size for sharper animation quality.
+ */
 export async function generateGif(
   baseCanvas: HTMLCanvasElement,
   animationType: AnimationType,
   size: number,
-  speed: AnimationSpeed = "normal"
+  speed: AnimationSpeed = "normal",
+  hiResCanvas?: HTMLCanvasElement
 ): Promise<Blob> {
   const generator = generators[animationType];
   if (!generator) {
     throw new Error(`No animation generator for: ${animationType}`);
   }
+
+  // Use hi-res source if available, otherwise fall back to output-size canvas
+  const sourceCanvas = hiResCanvas ?? baseCanvas;
+  const needsDownscale = sourceCanvas.width > size;
 
   return new Promise((resolve, reject) => {
     const gif = new GIF({
@@ -176,13 +187,24 @@ export async function generateGif(
 
     const frameCanvases: HTMLCanvasElement[] = [];
     for (let i = 0; i < totalFrames; i++) {
-      const frameCanvas = generator(baseCanvas, i, totalFrames);
-      gif.addFrame(frameCanvas, { delay: frameDelay, copy: true });
-      frameCanvases.push(frameCanvas);
+      const hiResFrame = generator(sourceCanvas, i, totalFrames);
+
+      // Downscale frame to output size if generated at hi-res
+      let outputFrame: HTMLCanvasElement;
+      if (needsDownscale) {
+        outputFrame = downscale(hiResFrame, size);
+        // Release hi-res frame immediately to save memory
+        hiResFrame.width = 0;
+        hiResFrame.height = 0;
+      } else {
+        outputFrame = hiResFrame;
+      }
+
+      gif.addFrame(outputFrame, { delay: frameDelay, copy: true });
+      frameCanvases.push(outputFrame);
     }
 
     gif.on("finished", (blob: Blob) => {
-      // Release all frame canvases after GIF rendering completes
       for (const fc of frameCanvases) {
         fc.width = 0;
         fc.height = 0;
