@@ -1,11 +1,11 @@
 "use client";
 
-import { EmoteConfig, COMPOSITE_OPTIONS } from "@/types/emote";
+import { EmoteConfig, PartialEmoteConfig, COMPOSITE_OPTIONS } from "@/types/emote";
 import SubImageUpload from "../SubImageUpload";
 
 interface SubImageSettingsProps {
   config: EmoteConfig;
-  onConfigChange: (partial: Partial<EmoteConfig>) => void;
+  onConfigChange: (partial: PartialEmoteConfig) => void;
   subFile: File | null;
   onSubImageSelected: (file: File) => void;
 }
@@ -24,21 +24,16 @@ export default function SubImageSettings({
           <button
             key={opt.value}
             onClick={() => {
-              const update: Partial<typeof config> = { compositeMode: opt.value };
               if (opt.value === "overlay-br") {
-                update.subImageOffsetX = 20;
-                update.subImageOffsetY = 20;
+                onConfigChange({ subImage: { mode: opt.value, offsetX: 20, offsetY: 20 } });
               } else if (opt.value === "overlay-bl") {
-                update.subImageOffsetX = -20;
-                update.subImageOffsetY = 20;
+                onConfigChange({ subImage: { mode: opt.value, offsetX: -20, offsetY: 20 } });
               } else {
-                update.subImageOffsetX = 0;
-                update.subImageOffsetY = 0;
+                onConfigChange({ subImage: { mode: opt.value, offsetX: 0, offsetY: 0 } });
               }
-              onConfigChange(update);
             }}
             className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
-              config.compositeMode === opt.value
+              config.subImage.mode === opt.value
                 ? "bg-purple-600 text-white"
                 : "bg-gray-700 text-gray-300 hover:bg-gray-600"
             }`}
@@ -48,26 +43,26 @@ export default function SubImageSettings({
           </button>
         ))}
       </div>
-      {config.compositeMode !== "none" && (
+      {config.subImage.mode !== "none" && (
         <div className="mt-3 space-y-2">
           <SubImageUpload
             onSubImageSelected={onSubImageSelected}
             currentFile={subFile}
           />
           <p className="text-[10px] text-gray-500">透過済みPNG推奨。背景ありの場合は透過処理が必要です。</p>
-          {(config.compositeMode === "overlay-br" || config.compositeMode === "overlay-bl") && (
+          {(config.subImage.mode === "overlay-br" || config.subImage.mode === "overlay-bl") && (
             <div className="space-y-2">
               <div>
                 <label className="text-xs text-gray-400 block mb-1">
-                  サブ画像サイズ: {config.subImageScale}%
+                  サブ画像サイズ: {config.subImage.scale}%
                 </label>
                 <input
                   type="range"
                   min={20}
                   max={100}
                   step={1}
-                  value={config.subImageScale}
-                  onChange={(e) => onConfigChange({ subImageScale: Number(e.target.value) })}
+                  value={config.subImage.scale}
+                  onChange={(e) => onConfigChange({ subImage: { scale: Number(e.target.value) } })}
                   className="w-full accent-purple-500"
                 />
               </div>

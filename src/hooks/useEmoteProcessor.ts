@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import {
   EmoteConfig,
+  PartialEmoteConfig,
   EmoteVariant,
   ProcessingStage,
   ExportMode,
@@ -26,29 +27,23 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
   const [bgRemovedBlob, setBgRemovedBlob] = useState<Blob | null>(null);
   const [originalBlob, setOriginalBlob] = useState<Blob | null>(null);
   const [config, setConfig] = useState<EmoteConfig>({
-    border: "none",
-    borderWidth: 4,
-    borderColor: "#ffffff",
-    frameType: "none",
-    compositeMode: "none",
-    subImageScale: 38,
-    subImageOffsetX: 0,
-    subImageOffsetY: 0,
-    textPreset: null,
+    outline: { style: "none", width: 4, color: "#ffffff" },
+    frame: { type: "none" },
+    subImage: { mode: "none", scale: 38, offsetX: 0, offsetY: 0 },
     text: {
+      preset: null,
       customText: "",
       font: "Noto Sans JP",
       fillColor: "#ffffff",
       strokeColor: "#000000",
       position: "bottom",
+      fontSize: 20,
+      offsetX: 0,
+      offsetY: 0,
+      outlineWidth: 3,
     },
-    fontSize: 20,
-    textOffsetX: 0,
-    textOffsetY: 0,
-    textOutlineWidth: 3,
-    animation: "none",
-    animationSpeed: "normal",
-    badgeSettings: { ...DEFAULT_BADGE_SETTINGS },
+    animation: { type: "none", speed: "normal" },
+    badge: { ...DEFAULT_BADGE_SETTINGS },
   });
   const [stage, setStage] = useState<ProcessingStage>("idle");
   const [progress, setProgress] = useState(0);
@@ -162,9 +157,9 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
             const staticDataUrl = canvas.toDataURL("image/png");
 
             let animatedBlob: Blob | null = null;
-            if (config.animation !== "none") {
+            if (config.animation.type !== "none") {
               if (!cancelled) setStage("generating-preview");
-              animatedBlob = await generateGif(canvas, config.animation, size, config.animationSpeed);
+              animatedBlob = await generateGif(canvas, config.animation.type, size, config.animation.speed);
             }
 
             if (cancelled) return;
@@ -285,8 +280,18 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     setStage("ready");
   }, [variants, exportMode]);
 
-  const updateConfig = useCallback((partial: Partial<EmoteConfig>) => {
-    setConfig((prev) => ({ ...prev, ...partial }));
+  const updateConfig = useCallback((partial: PartialEmoteConfig) => {
+    setConfig((prev) => {
+      const next = { ...prev };
+      for (const key of Object.keys(partial) as (keyof EmoteConfig)[]) {
+        const val = partial[key];
+        if (val && typeof val === "object" && !Array.isArray(val)) {
+          // One-level deep merge for grouped config objects
+          (next as Record<string, unknown>)[key] = { ...(prev[key] as unknown as Record<string, unknown>), ...(val as unknown as Record<string, unknown>) };
+        }
+      }
+      return next;
+    });
   }, []);
 
   return {

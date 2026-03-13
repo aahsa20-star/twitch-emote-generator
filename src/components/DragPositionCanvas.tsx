@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { EmoteConfig, TEXT_PRESETS } from "@/types/emote";
+import { EmoteConfig, PartialEmoteConfig, TEXT_PRESETS } from "@/types/emote";
 import { processEmote } from "@/lib/canvasPipeline";
 
 const CANVAS_SIZE = 224; // Matches HI_RES in canvasPipeline
@@ -11,13 +11,13 @@ interface DragPositionCanvasProps {
   bgRemovedCanvas: HTMLCanvasElement;
   config: EmoteConfig;
   subCanvas?: HTMLCanvasElement | null;
-  onConfigChange: (partial: Partial<EmoteConfig>) => void;
+  onConfigChange: (partial: PartialEmoteConfig) => void;
 }
 
 function resolveText(config: EmoteConfig): string | null {
   if (config.text.customText.trim()) return config.text.customText.trim();
-  if (config.textPreset) {
-    const preset = TEXT_PRESETS.find((p) => p.id === config.textPreset);
+  if (config.text.preset) {
+    const preset = TEXT_PRESETS.find((p) => p.id === config.text.preset);
     if (preset) return preset.text;
   }
   return null;
@@ -29,8 +29,8 @@ function getTextCenter(config: EmoteConfig): { x: number; y: number } | null {
   if (!text) return null;
 
   const scale = CANVAS_SIZE / 112;
-  const scaledOffsetX = config.textOffsetX * scale;
-  const scaledOffsetY = config.textOffsetY * scale;
+  const scaledOffsetX = config.text.offsetX * scale;
+  const scaledOffsetY = config.text.offsetY * scale;
 
   return {
     x: CANVAS_SIZE / 2 + scaledOffsetX,
@@ -41,12 +41,12 @@ function getTextCenter(config: EmoteConfig): { x: number; y: number } | null {
 /** Compute sub-image center position in canvas coordinates. */
 function getSubImageCenter(config: EmoteConfig, hasSubCanvas: boolean): { x: number; y: number; size: number } | null {
   if (!hasSubCanvas) return null;
-  if (config.compositeMode !== "overlay-br" && config.compositeMode !== "overlay-bl") return null;
+  if (config.subImage.mode !== "overlay-br" && config.subImage.mode !== "overlay-bl") return null;
 
   const scale = CANVAS_SIZE / 112;
-  const subSize = Math.round(CANVAS_SIZE * config.subImageScale / 100);
-  const scaledOffsetX = Math.round(config.subImageOffsetX * scale);
-  const scaledOffsetY = Math.round(config.subImageOffsetY * scale);
+  const subSize = Math.round(CANVAS_SIZE * config.subImage.scale / 100);
+  const scaledOffsetX = Math.round(config.subImage.offsetX * scale);
+  const scaledOffsetY = Math.round(config.subImage.offsetY * scale);
 
   // Center-based: free placement via offsets
   return {
@@ -73,7 +73,7 @@ export default function DragPositionCanvas({
   });
 
   const hasText = !!resolveText(config);
-  const hasSubOverlay = !!subCanvas && (config.compositeMode === "overlay-br" || config.compositeMode === "overlay-bl");
+  const hasSubOverlay = !!subCanvas && (config.subImage.mode === "overlay-br" || config.subImage.mode === "overlay-bl");
 
   // Render canvas
   useEffect(() => {
@@ -102,7 +102,7 @@ export default function DragPositionCanvas({
     // Draw drag indicators
     const textCenter = getTextCenter(config);
     if (textCenter) {
-      const fontSize = config.fontSize * (CANVAS_SIZE / 112);
+      const fontSize = config.text.fontSize * (CANVAS_SIZE / 112);
       const text = resolveText(config)!;
       const fontFamily = `"${config.text.font}", "Noto Sans JP", sans-serif`;
 
@@ -174,7 +174,7 @@ export default function DragPositionCanvas({
       // Check text
       const textCenter = getTextCenter(config);
       if (textCenter) {
-        const fontSize = config.fontSize * (CANVAS_SIZE / 112);
+        const fontSize = config.text.fontSize * (CANVAS_SIZE / 112);
         // Use generous hit area
         const hitW = Math.max(fontSize * 2, 40);
         const hitH = fontSize + 16;
@@ -202,11 +202,11 @@ export default function DragPositionCanvas({
       dragStartRef.current = {
         clientX,
         clientY,
-        startOffsetX: target === "text" ? config.textOffsetX : config.subImageOffsetX,
-        startOffsetY: target === "text" ? config.textOffsetY : config.subImageOffsetY,
+        startOffsetX: target === "text" ? config.text.offsetX : config.subImage.offsetX,
+        startOffsetY: target === "text" ? config.text.offsetY : config.subImage.offsetY,
       };
     },
-    [getCanvasCoords, hitTest, config.textOffsetX, config.textOffsetY, config.subImageOffsetX, config.subImageOffsetY]
+    [getCanvasCoords, hitTest, config.text.offsetX, config.text.offsetY, config.subImage.offsetX, config.subImage.offsetY]
   );
 
   const handlePointerMove = useCallback(
@@ -226,9 +226,9 @@ export default function DragPositionCanvas({
       const newY = Math.round(Math.max(-56, Math.min(56, dragStartRef.current.startOffsetY + dy112)));
 
       if (dragTarget === "text") {
-        onConfigChange({ textOffsetX: newX, textOffsetY: newY });
+        onConfigChange({ text: { offsetX: newX, offsetY: newY } });
       } else {
-        onConfigChange({ subImageOffsetX: newX, subImageOffsetY: newY });
+        onConfigChange({ subImage: { offsetX: newX, offsetY: newY } });
       }
     },
     [dragTarget, onConfigChange]

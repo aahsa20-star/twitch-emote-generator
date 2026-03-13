@@ -1,4 +1,4 @@
-import { BadgeSettings, BadgeSize, BorderStyle, CompositeMode, EmoteConfig, FrameType, TextConfig, TextPosition, TEXT_PRESETS } from "@/types/emote";
+import { BadgeSettings, BadgeSize, BorderStyle, CompositeMode, EmoteConfig, FrameType, TextPosition, TEXT_PRESETS } from "@/types/emote";
 
 /** Release GPU/system memory held by a canvas that is no longer needed. */
 function releaseCanvas(canvas: HTMLCanvasElement): void {
@@ -517,8 +517,8 @@ function resolveTextToRender(config: EmoteConfig): string | null {
     return config.text.customText.trim();
   }
   // Fall back to preset
-  if (config.textPreset) {
-    const preset = TEXT_PRESETS.find((p) => p.id === config.textPreset);
+  if (config.text.preset) {
+    const preset = TEXT_PRESETS.find((p) => p.id === config.text.preset);
     if (preset) return preset.text;
   }
   return null;
@@ -568,23 +568,23 @@ export function processEmote(
   let canvas = centerAndResize(source, HI_RES);
 
   // 2. Composite with sub image (if applicable)
-  if (config.compositeMode !== "none" && subCanvas) {
+  if (config.subImage.mode !== "none" && subCanvas) {
     const prev = canvas;
-    canvas = compositeImages(canvas, subCanvas, config.compositeMode, HI_RES, config.subImageScale, config.subImageOffsetX, config.subImageOffsetY);
+    canvas = compositeImages(canvas, subCanvas, config.subImage.mode, HI_RES, config.subImage.scale, config.subImage.offsetX, config.subImage.offsetY);
     if (canvas !== prev) releaseCanvas(prev);
   }
 
   // 3. Apply border at high resolution
   {
     const prev = canvas;
-    canvas = applyBorder(canvas, config.border, config.borderWidth, config.borderColor);
+    canvas = applyBorder(canvas, config.outline.style, config.outline.width, config.outline.color);
     if (canvas !== prev) releaseCanvas(prev);
   }
 
   // 4. Apply frame at high resolution
   {
     const prev = canvas;
-    canvas = applyFrame(canvas, config.frameType);
+    canvas = applyFrame(canvas, config.frame.type);
     if (canvas !== prev) releaseCanvas(prev);
   }
 
@@ -598,10 +598,10 @@ export function processEmote(
       fillColor: config.text.fillColor,
       strokeColor: config.text.strokeColor,
       position: config.text.position,
-      userFontSize: config.fontSize,
-      offsetX: config.textOffsetX,
-      offsetY: config.textOffsetY,
-      outlineWidth: config.textOutlineWidth,
+      userFontSize: config.text.fontSize,
+      offsetX: config.text.offsetX,
+      offsetY: config.text.offsetY,
+      outlineWidth: config.text.outlineWidth,
     }, HI_RES);
     releaseCanvas(prev);
   }

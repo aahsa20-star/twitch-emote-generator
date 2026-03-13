@@ -2,6 +2,7 @@
 
 import {
   EmoteConfig,
+  PartialEmoteConfig,
   TextConfig,
   TEXT_PRESETS,
   FONT_OPTIONS,
@@ -12,7 +13,7 @@ import DragPositionCanvas from "../DragPositionCanvas";
 
 interface TextSettingsProps {
   config: EmoteConfig;
-  onConfigChange: (partial: Partial<EmoteConfig>) => void;
+  onConfigChange: (partial: PartialEmoteConfig) => void;
   bgRemovedCanvas?: HTMLCanvasElement | null;
   subCanvas?: HTMLCanvasElement | null;
 }
@@ -27,7 +28,7 @@ export default function TextSettings({
     onConfigChange({ text: { ...config.text, ...partial } });
   };
 
-  const hasText = !!(config.text.customText.trim() || config.textPreset);
+  const hasText = !!(config.text.customText.trim() || config.text.preset);
 
   return (
     <div className="space-y-3">
@@ -38,13 +39,13 @@ export default function TextSettings({
           <button
             key={preset.id}
             onClick={() => {
-              onConfigChange({
-                textPreset: config.textPreset === preset.id ? null : preset.id,
-                text: { ...config.text, customText: "" },
+              updateText({
+                preset: config.text.preset === preset.id ? null : preset.id,
+                customText: "",
               });
             }}
             className={`px-2 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
-              config.textPreset === preset.id && !config.text.customText
+              config.text.preset === preset.id && !config.text.customText
                 ? "bg-purple-600 text-white"
                 : "bg-gray-700 text-gray-300 hover:bg-gray-600"
             }`}
@@ -62,9 +63,9 @@ export default function TextSettings({
         value={config.text.customText}
         onChange={(e) => {
           const val = e.target.value;
-          onConfigChange({
-            text: { ...config.text, customText: val },
-            textPreset: val ? null : config.textPreset,
+          updateText({
+            customText: val,
+            preset: val ? null : config.text.preset,
           });
         }}
         className="w-full px-3 py-2 rounded bg-gray-700 text-gray-100 text-sm placeholder-gray-500 border border-gray-600 focus:border-purple-500 focus:outline-none"
@@ -98,14 +99,14 @@ export default function TextSettings({
       {hasText && (
         <div>
           <label className="text-xs text-gray-400 block mb-1">
-            文字サイズ: {config.fontSize}px
+            文字サイズ: {config.text.fontSize}px
           </label>
           <input
             type="range"
             min={8}
             max={72}
-            value={config.fontSize}
-            onChange={(e) => onConfigChange({ fontSize: Number(e.target.value) })}
+            value={config.text.fontSize}
+            onChange={(e) => updateText({ fontSize: Number(e.target.value) })}
             className="w-full accent-purple-500"
           />
         </div>
@@ -131,14 +132,14 @@ export default function TextSettings({
       {hasText && (
         <div>
           <label className="text-xs text-gray-400 block mb-1">
-            縁の幅: {config.textOutlineWidth}px{config.textOutlineWidth === 0 ? "（なし）" : ""}
+            縁の幅: {config.text.outlineWidth}px{config.text.outlineWidth === 0 ? "（なし）" : ""}
           </label>
           <input
             type="range"
             min={0}
             max={10}
-            value={config.textOutlineWidth}
-            onChange={(e) => onConfigChange({ textOutlineWidth: Number(e.target.value) })}
+            value={config.text.outlineWidth}
+            onChange={(e) => updateText({ outlineWidth: Number(e.target.value) })}
             className="w-full accent-purple-500"
           />
         </div>
@@ -156,9 +157,9 @@ export default function TextSettings({
             ] as const).map((opt) => (
               <button
                 key={opt.label}
-                onClick={() => onConfigChange({ textOffsetX: 0, textOffsetY: opt.offsetY })}
+                onClick={() => updateText({ offsetX: 0, offsetY: opt.offsetY })}
                 className={`px-3 py-1.5 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
-                  config.textOffsetY === opt.offsetY && config.textOffsetX === 0
+                  config.text.offsetY === opt.offsetY && config.text.offsetX === 0
                     ? "bg-purple-600 text-white"
                     : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                 }`}

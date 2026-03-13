@@ -1,5 +1,6 @@
 import {
   EmoteConfig,
+  PartialEmoteConfig,
   BORDER_OPTIONS,
   FRAME_OPTIONS,
 } from "@/types/emote";
@@ -11,7 +12,7 @@ import SubImageSettings from "./settings/SubImageSettings";
 
 interface SettingsPanelProps {
   config: EmoteConfig;
-  onConfigChange: (partial: Partial<EmoteConfig>) => void;
+  onConfigChange: (partial: PartialEmoteConfig) => void;
   disabled: boolean;
   isSubscriber: boolean;
   subFile: File | null;
@@ -41,11 +42,11 @@ export default function SettingsPanel({
             return (
               <button
                 key={opt.value}
-                onClick={() => !locked && onConfigChange({ border: opt.value })}
+                onClick={() => !locked && onConfigChange({ outline: { style: opt.value } })}
                 className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
                   locked
                     ? "bg-gray-800 text-gray-600 cursor-not-allowed"
-                    : config.border === opt.value
+                    : config.outline.style === opt.value
                     ? "bg-purple-600 text-white"
                     : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                 }`}
@@ -56,27 +57,27 @@ export default function SettingsPanel({
             );
           })}
         </div>
-        {config.border !== "none" && (
+        {config.outline.style !== "none" && (
           <div className="mt-2">
             <label className="text-xs text-gray-400 block mb-1">
-              縁の幅: {config.borderWidth}px
+              縁の幅: {config.outline.width}px
             </label>
             <input
               type="range"
               min={1}
               max={20}
-              value={config.borderWidth}
-              onChange={(e) => onConfigChange({ borderWidth: Number(e.target.value) })}
+              value={config.outline.width}
+              onChange={(e) => onConfigChange({ outline: { width: Number(e.target.value) } })}
               className="w-full accent-purple-500"
             />
           </div>
         )}
-        {config.border === "custom" && isSubscriber && (
+        {config.outline.style === "custom" && isSubscriber && (
           <div className="mt-2">
             <ColorPicker
               label="フチの色"
-              value={config.borderColor}
-              onChange={(c) => onConfigChange({ borderColor: c })}
+              value={config.outline.color}
+              onChange={(c) => onConfigChange({ outline: { color: c } })}
             />
           </div>
         )}
@@ -90,9 +91,9 @@ export default function SettingsPanel({
             {FRAME_OPTIONS.map((opt) => (
               <button
                 key={opt.value}
-                onClick={() => onConfigChange({ frameType: opt.value })}
+                onClick={() => onConfigChange({ frame: { type: opt.value } })}
                 className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
-                  config.frameType === opt.value
+                  config.frame.type === opt.value
                     ? "bg-purple-600 text-white"
                     : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                 }`}

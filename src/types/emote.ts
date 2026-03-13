@@ -73,32 +73,53 @@ export interface TextPreset {
 }
 
 export interface TextConfig {
+  preset: string | null;
   customText: string;
   font: string;
   fillColor: string;
   strokeColor: string;
   position: TextPosition;
+  fontSize: number;
+  offsetX: number;
+  offsetY: number;
+  outlineWidth: number;
+}
+
+export interface OutlineConfig {
+  style: BorderStyle;
+  width: number;
+  color: string;
+}
+
+export interface FrameConfig {
+  type: FrameType;
+}
+
+export interface SubImageConfig {
+  mode: CompositeMode;
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+}
+
+export interface AnimationConfig {
+  type: AnimationType;
+  speed: AnimationSpeed;
 }
 
 export interface EmoteConfig {
-  border: BorderStyle;
-  borderWidth: number;
-  borderColor: string;
-  frameType: FrameType;
-  compositeMode: CompositeMode;
-  subImageScale: number;
-  subImageOffsetX: number;
-  subImageOffsetY: number;
-  textPreset: string | null;
+  outline: OutlineConfig;
+  frame: FrameConfig;
+  subImage: SubImageConfig;
   text: TextConfig;
-  fontSize: number;
-  textOffsetX: number;
-  textOffsetY: number;
-  textOutlineWidth: number;
-  animation: AnimationType;
-  animationSpeed: AnimationSpeed;
-  badgeSettings: BadgeSettings;
+  animation: AnimationConfig;
+  badge: BadgeSettings;
 }
+
+/** One-level deep partial: top keys optional, nested object keys also optional. */
+export type PartialEmoteConfig = {
+  [K in keyof EmoteConfig]?: Partial<EmoteConfig[K]>;
+};
 
 export type FontCategory = "標準" | "日本語" | "英字";
 

@@ -10,25 +10,46 @@ interface AutoPattern {
   config: EmoteConfig;
 }
 
-const defaultText = { customText: "", font: "Noto Sans JP", fillColor: "#ffffff", strokeColor: "#000000", position: "bottom" as const };
-const defaultSliders = { borderWidth: 4, borderColor: "#ffffff", frameType: "none" as const, compositeMode: "none" as const, subImageScale: 38, subImageOffsetX: 0, subImageOffsetY: 0, fontSize: 20, textOffsetX: 0, textOffsetY: 0, textOutlineWidth: 3, animationSpeed: "normal" as const, badgeSettings: { ...DEFAULT_BADGE_SETTINGS } };
+const defaultConfig: EmoteConfig = {
+  outline: { style: "none", width: 4, color: "#ffffff" },
+  frame: { type: "none" },
+  subImage: { mode: "none", scale: 38, offsetX: 0, offsetY: 0 },
+  text: {
+    preset: null,
+    customText: "",
+    font: "Noto Sans JP",
+    fillColor: "#ffffff",
+    strokeColor: "#000000",
+    position: "bottom",
+    fontSize: 20,
+    offsetX: 0,
+    offsetY: 0,
+    outlineWidth: 3,
+  },
+  animation: { type: "none", speed: "normal" },
+  badge: { ...DEFAULT_BADGE_SETTINGS },
+};
 
 const AUTO_PATTERNS: AutoPattern[] = [
   {
     label: "白フチ",
-    config: { border: "white", textPreset: null, text: { ...defaultText }, animation: "none", ...defaultSliders },
+    config: { ...defaultConfig, outline: { ...defaultConfig.outline, style: "white" } },
   },
   {
     label: "黒フチ",
-    config: { border: "black", textPreset: null, text: { ...defaultText }, animation: "none", ...defaultSliders },
+    config: { ...defaultConfig, outline: { ...defaultConfig.outline, style: "black" } },
   },
   {
     label: "影付き",
-    config: { border: "shadow", textPreset: null, text: { ...defaultText }, animation: "none", ...defaultSliders },
+    config: { ...defaultConfig, outline: { ...defaultConfig.outline, style: "shadow" } },
   },
   {
     label: "白フチ+揺れ",
-    config: { border: "white", textPreset: null, text: { ...defaultText }, animation: "sway", ...defaultSliders },
+    config: {
+      ...defaultConfig,
+      outline: { ...defaultConfig.outline, style: "white" },
+      animation: { ...defaultConfig.animation, type: "sway" },
+    },
   },
 ];
 
@@ -69,8 +90,8 @@ export default function RecommendedPatterns({ bgRemovedCanvas, onApply }: Recomm
 
           let animatedBlob: Blob | null = null;
           let animatedUrl: string | null = null;
-          if (pattern.config.animation !== "none") {
-            animatedBlob = await generateGif(canvas, pattern.config.animation, 112, pattern.config.animationSpeed);
+          if (pattern.config.animation.type !== "none") {
+            animatedBlob = await generateGif(canvas, pattern.config.animation.type, 112, pattern.config.animation.speed);
             if (cancelled) return;
             animatedUrl = URL.createObjectURL(animatedBlob);
             blobUrlsRef.current.push(animatedUrl);
@@ -102,7 +123,7 @@ export default function RecommendedPatterns({ bgRemovedCanvas, onApply }: Recomm
     const preview = previews[index];
     if (!preview) return;
     const pattern = AUTO_PATTERNS[index];
-    const isAnimated = pattern.config.animation !== "none" && preview.animatedBlob;
+    const isAnimated = pattern.config.animation.type !== "none" && preview.animatedBlob;
 
     let url: string;
     let needsRevoke = false;
@@ -181,7 +202,7 @@ export default function RecommendedPatterns({ bgRemovedCanvas, onApply }: Recomm
                   disabled={!preview}
                   className="text-[10px] px-0.5 py-0.5 min-h-[44px] md:min-h-0 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {pattern.config.animation !== "none" ? "GIF" : "PNG"}
+                  {pattern.config.animation.type !== "none" ? "GIF" : "PNG"}
                 </button>
               </div>
             </div>

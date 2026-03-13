@@ -110,17 +110,13 @@ export default function EmoteGenerator() {
     setIsSubscriber(false);
     try { localStorage.removeItem(SUBSCRIBER_KEY); } catch {}
     // Reset subscriber-only config values to defaults
+    const subscriberAnimations = ["gaming", "glitch", "sparkle", "afterimage", "fastspin", "float", "wobble", "neon", "vhs", "snow", "fire", "matrix", "drunk", "confetti", "hypno", "tv", "earthquake", "party", "flip", "ghost", "glitch2", "spiral", "heartbeat", "spring", "jelly"];
     updateConfig({
-      border: config.border === "custom" ? "none" : config.border,
-      borderColor: "#ffffff",
-      frameType: "none",
-      compositeMode: "none",
-      subImageScale: 38,
-      subImageOffsetX: 0,
-      subImageOffsetY: 0,
-      badgeSettings: { ...DEFAULT_BADGE_SETTINGS },
-      animation: ["gaming", "glitch", "sparkle", "afterimage", "fastspin", "float", "wobble", "neon", "vhs", "snow", "fire", "matrix", "drunk", "confetti", "hypno", "tv", "earthquake", "party", "flip", "ghost", "glitch2", "spiral", "heartbeat", "spring", "jelly"].includes(config.animation) ? "none" : config.animation,
-      textPreset: config.textPreset,
+      outline: { style: config.outline.style === "custom" ? "none" : config.outline.style, color: "#ffffff" },
+      frame: { type: "none" },
+      subImage: { mode: "none", scale: 38, offsetX: 0, offsetY: 0 },
+      badge: { ...DEFAULT_BADGE_SETTINGS },
+      animation: { type: subscriberAnimations.includes(config.animation.type) ? "none" : config.animation.type },
     });
   };
 
@@ -375,11 +371,11 @@ export default function EmoteGenerator() {
         <PreviewArea
           variants={variants}
           stage={stage}
-          hasText={!!(config.text.customText.trim() || config.textPreset)}
+          hasText={!!(config.text.customText.trim() || config.text.preset)}
           textPosition={config.text.position}
           exportMode={exportMode}
           onDownloadComplete={handleDownloadComplete}
-          badgeSettings={config.badgeSettings}
+          badgeSettings={config.badge}
           bgRemovedCanvas={bgRemovedCanvas}
         />
       </div>
@@ -402,7 +398,7 @@ export default function EmoteGenerator() {
         {/* DL + Share inside sticky container (desktop only) */}
         {sourceFile && (
           <div className="hidden md:flex flex-col gap-3">
-            <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} badgeSettings={config.badgeSettings} bgRemovedCanvas={bgRemovedCanvas} />
+            <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} badgeSettings={config.badge} bgRemovedCanvas={bgRemovedCanvas} />
             <ShareButton imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
           </div>
         )}
@@ -421,7 +417,7 @@ export default function EmoteGenerator() {
       {/* DL + Share (mobile only: order-2) */}
       {sourceFile && (
         <div className="space-y-3 order-2 md:hidden self-start">
-          <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} badgeSettings={config.badgeSettings} bgRemovedCanvas={bgRemovedCanvas} />
+          <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} badgeSettings={config.badge} bgRemovedCanvas={bgRemovedCanvas} />
           <ShareButton imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
         </div>
       )}
