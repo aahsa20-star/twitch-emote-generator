@@ -1,5 +1,6 @@
 /**
- * Effect animations: gaming, glitch, sparkle, afterimage, neon, vhs, matrix
+ * Effect animations: gaming, glitch, sparkle, afterimage, neon, vhs, matrix,
+ * hologram, pixelate, kaleidoscope, electric, static
  */
 import type { FrameGenerator } from "./types";
 
@@ -273,6 +274,174 @@ export const createMatrixFrame: FrameGenerator = (baseCanvas, frameIndex, totalF
       ctx.fillText(char, x, y);
       ctx.restore();
     }
+  }
+
+  return canvas;
+};
+
+/** ホログラム: semi-transparent with scanlines and color shift */
+export const createHologramFrame: FrameGenerator = (baseCanvas, frameIndex, totalFrames) => {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const hue = 180 + 30 * Math.sin(t * Math.PI * 2);
+
+  ctx.filter = `hue-rotate(${hue}deg) brightness(1.2)`;
+  ctx.globalAlpha = 0.7 + 0.15 * Math.sin(t * Math.PI * 4);
+  ctx.drawImage(baseCanvas, 0, 0);
+  ctx.filter = "none";
+
+  // Scanlines
+  ctx.globalAlpha = 0.15;
+  const scanlineSpacing = Math.max(2, Math.floor(size / 20));
+  const scanOffset = Math.floor(t * scanlineSpacing * 2) % scanlineSpacing;
+  for (let y = scanOffset; y < size; y += scanlineSpacing) {
+    ctx.fillStyle = "rgba(0, 255, 255, 0.3)";
+    ctx.fillRect(0, y, size, 1);
+  }
+
+  return canvas;
+};
+
+/** ピクセル化: mosaic effect that oscillates */
+export const createPixelateFrame: FrameGenerator = (baseCanvas, frameIndex, totalFrames) => {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  // Pixel size oscillates: 1 (sharp) -> max (blocky) -> 1
+  const maxPixel = Math.max(4, Math.floor(size / 8));
+  const pixelSize = Math.max(1, Math.floor(maxPixel * Math.abs(Math.sin(t * Math.PI))));
+
+  if (pixelSize <= 1) {
+    ctx.drawImage(baseCanvas, 0, 0);
+  } else {
+    // Downsample then upsample
+    const small = Math.ceil(size / pixelSize);
+    ctx.imageSmoothingEnabled = false;
+    const tmpCanvas = document.createElement("canvas");
+    tmpCanvas.width = small;
+    tmpCanvas.height = small;
+    const tmpCtx = tmpCanvas.getContext("2d")!;
+    tmpCtx.imageSmoothingEnabled = true;
+    tmpCtx.drawImage(baseCanvas, 0, 0, small, small);
+    ctx.drawImage(tmpCanvas, 0, 0, size, size);
+    tmpCanvas.width = 0;
+    tmpCanvas.height = 0;
+  }
+
+  return canvas;
+};
+
+/** 万華鏡: rotation with hue cycling */
+export const createKaleidoscopeFrame: FrameGenerator = (baseCanvas, frameIndex, totalFrames) => {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const angle = t * Math.PI * 2;
+  const hue = t * 360;
+
+  ctx.translate(size / 2, size / 2);
+  ctx.rotate(angle * 0.5);
+  ctx.translate(-size / 2, -size / 2);
+  ctx.filter = `hue-rotate(${hue}deg) saturate(1.5)`;
+  ctx.drawImage(baseCanvas, 0, 0);
+  ctx.filter = "none";
+
+  // Draw mirrored overlay
+  ctx.save();
+  ctx.globalAlpha = 0.3;
+  ctx.translate(size, 0);
+  ctx.scale(-1, 1);
+  ctx.drawImage(baseCanvas, 0, 0);
+  ctx.restore();
+
+  return canvas;
+};
+
+/** 電流: electric crackling edge effect */
+export const createElectricFrame: FrameGenerator = (baseCanvas, frameIndex, totalFrames) => {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  // Slight random shake
+  const shakeX = (Math.sin(frameIndex * 17.3) * 2) * (size / 112);
+  const shakeY = (Math.cos(frameIndex * 23.7) * 2) * (size / 112);
+
+  ctx.drawImage(baseCanvas, shakeX, shakeY);
+
+  // Electric arcs around edges
+  ctx.save();
+  ctx.globalAlpha = 0.6 + 0.4 * Math.sin(t * Math.PI * 6);
+  ctx.strokeStyle = `hsl(${200 + 40 * Math.sin(t * Math.PI * 4)}, 100%, 70%)`;
+  ctx.lineWidth = Math.max(1, size * 0.015);
+  ctx.shadowColor = "#00ccff";
+  ctx.shadowBlur = Math.max(3, size * 0.05);
+
+  const segments = 6;
+  for (let i = 0; i < segments; i++) {
+    const seed = frameIndex * 7 + i * 31;
+    const startAngle = (i / segments) * Math.PI * 2;
+    const r = size * 0.42;
+    const cx = size / 2;
+    const cy = size / 2;
+
+    ctx.beginPath();
+    const x1 = cx + Math.cos(startAngle) * r;
+    const y1 = cy + Math.sin(startAngle) * r;
+    ctx.moveTo(x1, y1);
+
+    const jitterX = ((seed * 43) % 20 - 10) * (size / 112);
+    const jitterY = ((seed * 67) % 20 - 10) * (size / 112);
+    const x2 = cx + Math.cos(startAngle + 0.3) * r + jitterX;
+    const y2 = cy + Math.sin(startAngle + 0.3) * r + jitterY;
+    ctx.lineTo(x2, y2);
+    ctx.stroke();
+  }
+  ctx.restore();
+
+  return canvas;
+};
+
+/** 砂嵐: noise overlay that comes and goes */
+export const createStaticFrame: FrameGenerator = (baseCanvas, frameIndex, totalFrames) => {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  ctx.drawImage(baseCanvas, 0, 0);
+
+  const t = frameIndex / totalFrames;
+  const noiseIntensity = Math.abs(Math.sin(t * Math.PI * 2)) * 0.4;
+
+  if (noiseIntensity > 0.02) {
+    const imgData = ctx.getImageData(0, 0, size, size);
+    const seed = frameIndex * 997;
+    for (let i = 0; i < imgData.data.length; i += 4) {
+      if (imgData.data[i + 3] === 0) continue; // Skip transparent
+      const noise = ((seed + i * 7) % 255 - 128) * noiseIntensity;
+      imgData.data[i] = Math.min(255, Math.max(0, imgData.data[i] + noise));
+      imgData.data[i + 1] = Math.min(255, Math.max(0, imgData.data[i + 1] + noise));
+      imgData.data[i + 2] = Math.min(255, Math.max(0, imgData.data[i + 2] + noise));
+    }
+    ctx.putImageData(imgData, 0, 0);
   }
 
   return canvas;

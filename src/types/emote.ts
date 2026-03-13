@@ -61,7 +61,11 @@ export type AnimationType = "none" | "sway" | "shake" | "blink" | "bounce" | "zo
   | "gaming" | "glitch" | "sparkle" | "afterimage" | "fastspin"
   | "float" | "wobble" | "neon" | "vhs" | "snow" | "fire" | "matrix" | "drunk" | "confetti" | "hypno"
   | "tv" | "earthquake" | "party" | "flip" | "ghost" | "glitch2" | "spiral" | "heartbeat" | "spring"
-  | "jelly";
+  | "jelly"
+  | "stretch" | "fall" | "inflate" | "tilt" | "bobbing"
+  | "hologram" | "pixelate" | "kaleidoscope" | "electric" | "static"
+  | "ricochet" | "figure8" | "spiralfall" | "randomwarp" | "stagger"
+  | "angry" | "cry" | "blush" | "surprise" | "sleepy";
 
 export type TextPosition = "top" | "center" | "bottom";
 
@@ -245,6 +249,30 @@ export const ANIMATION_OPTIONS: AnimationOption[] = [
   { value: "heartbeat", label: "鼓動", subscriberOnly: true },
   { value: "spring", label: "バネ", subscriberOnly: true },
   { value: "jelly", label: "ジェリー", subscriberOnly: true },
+  // New basic
+  { value: "stretch", label: "伸び縮み", subscriberOnly: true },
+  { value: "fall", label: "落下", subscriberOnly: true },
+  { value: "inflate", label: "膨らむ", subscriberOnly: true },
+  { value: "tilt", label: "傾く", subscriberOnly: true },
+  { value: "bobbing", label: "浮き沈み", subscriberOnly: true },
+  // New effects
+  { value: "hologram", label: "ホログラム", subscriberOnly: true },
+  { value: "pixelate", label: "ピクセル化", subscriberOnly: true },
+  { value: "kaleidoscope", label: "万華鏡", subscriberOnly: true },
+  { value: "electric", label: "電流", subscriberOnly: true },
+  { value: "static", label: "砂嵐", subscriberOnly: true },
+  // New motion
+  { value: "ricochet", label: "弾む", subscriberOnly: true },
+  { value: "figure8", label: "8の字", subscriberOnly: true },
+  { value: "spiralfall", label: "螺旋落下", subscriberOnly: true },
+  { value: "randomwarp", label: "ランダムワープ", subscriberOnly: true },
+  { value: "stagger", label: "酔い歩き", subscriberOnly: true },
+  // Reactions
+  { value: "angry", label: "怒る", subscriberOnly: true },
+  { value: "cry", label: "泣く", subscriberOnly: true },
+  { value: "blush", label: "照れる", subscriberOnly: true },
+  { value: "surprise", label: "驚く", subscriberOnly: true },
+  { value: "sleepy", label: "眠る", subscriberOnly: true },
 ];
 
 export const ANIMATION_SPEED_OPTIONS: { value: AnimationSpeed; label: string }[] = [

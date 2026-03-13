@@ -21,6 +21,11 @@ import {
   createZoomInFrame,
   createSpinFrame,
   createHeartsFrame,
+  createStretchFrame,
+  createFallFrame,
+  createInflateFrame,
+  createTiltFrame,
+  createBobbingFrame,
 } from "./basic";
 
 // Effect animations
@@ -32,6 +37,11 @@ import {
   createNeonFrame,
   createVhsFrame,
   createMatrixFrame,
+  createHologramFrame,
+  createPixelateFrame,
+  createKaleidoscopeFrame,
+  createElectricFrame,
+  createStaticFrame,
 } from "./effects";
 
 // Motion animations
@@ -54,7 +64,21 @@ import {
   createHeartbeatFrame,
   createSpringFrame,
   createJellyFrame,
+  createRicochetFrame,
+  createFigure8Frame,
+  createSpiralFallFrame,
+  createRandomWarpFrame,
+  createStaggerFrame,
 } from "./motion";
+
+// Reaction animations
+import {
+  createAngryFrame,
+  createCryFrame,
+  createBlushFrame,
+  createSurpriseFrame,
+  createSleepyFrame,
+} from "./reactions";
 
 /** Animation name -> frame generator mapping */
 const generators: Record<string, FrameGenerator> = {
@@ -93,6 +117,30 @@ const generators: Record<string, FrameGenerator> = {
   heartbeat: createHeartbeatFrame,
   spring: createSpringFrame,
   jelly: createJellyFrame,
+  // Basic (new)
+  stretch: createStretchFrame,
+  fall: createFallFrame,
+  inflate: createInflateFrame,
+  tilt: createTiltFrame,
+  bobbing: createBobbingFrame,
+  // Effects (new)
+  hologram: createHologramFrame,
+  pixelate: createPixelateFrame,
+  kaleidoscope: createKaleidoscopeFrame,
+  electric: createElectricFrame,
+  static: createStaticFrame,
+  // Motion (new)
+  ricochet: createRicochetFrame,
+  figure8: createFigure8Frame,
+  spiralfall: createSpiralFallFrame,
+  randomwarp: createRandomWarpFrame,
+  stagger: createStaggerFrame,
+  // Reactions (new)
+  angry: createAngryFrame,
+  cry: createCryFrame,
+  blush: createBlushFrame,
+  surprise: createSurpriseFrame,
+  sleepy: createSleepyFrame,
 };
 
 const SPEED_DELAY: Record<AnimationSpeed, number> = {

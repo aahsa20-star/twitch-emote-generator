@@ -1,7 +1,8 @@
 /**
  * Motion animations: fastspin, float, wobble, drunk, confetti, hypno,
  * snow, fire, tv, earthquake, party, flip, ghost, glitch2,
- * spiral, heartbeat, spring, jelly
+ * spiral, heartbeat, spring, jelly,
+ * ricochet, figure8, spiralfall, randomwarp, stagger
  */
 import type { FrameGenerator } from "./types";
 
@@ -447,6 +448,117 @@ export const createJellyFrame: FrameGenerator = (baseCanvas, frameIndex, totalFr
   ctx.translate(size / 2, size);
   ctx.scale(scaleX, scaleY);
   ctx.translate(-size / 2, -size);
+  ctx.drawImage(baseCanvas, 0, 0);
+  return canvas;
+};
+
+/** 弾む: horizontal movement with bouncing */
+export const createRicochetFrame: FrameGenerator = (baseCanvas, frameIndex, totalFrames) => {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const offsetX = Math.sin(t * Math.PI * 2) * size * 0.08;
+  const bounceY = Math.abs(Math.sin(t * Math.PI * 4)) * size * 0.06;
+
+  ctx.drawImage(baseCanvas, offsetX, -bounceY);
+  return canvas;
+};
+
+/** 8の字: figure-8 path */
+export const createFigure8Frame: FrameGenerator = (baseCanvas, frameIndex, totalFrames) => {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const angle = t * Math.PI * 2;
+  const offsetX = Math.sin(angle) * size * 0.06;
+  const offsetY = Math.sin(angle * 2) * size * 0.04;
+
+  ctx.drawImage(baseCanvas, offsetX, offsetY);
+  return canvas;
+};
+
+/** 螺旋落下: spiral descent */
+export const createSpiralFallFrame: FrameGenerator = (baseCanvas, frameIndex, totalFrames) => {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const angle = t * Math.PI * 4;
+  const radius = size * 0.05;
+  const offsetX = Math.cos(angle) * radius;
+  const fallY = (t * size * 0.15) % (size * 0.15);
+  const rotAngle = t * Math.PI * 2;
+
+  ctx.translate(size / 2 + offsetX, size / 2 + fallY - size * 0.075);
+  ctx.rotate(rotAngle * 0.3);
+  ctx.translate(-size / 2, -size / 2);
+  ctx.drawImage(baseCanvas, 0, 0);
+  return canvas;
+};
+
+/** ランダムワープ: teleport to random positions */
+export const createRandomWarpFrame: FrameGenerator = (baseCanvas, frameIndex, totalFrames) => {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  // Deterministic pseudo-random based on frameIndex
+  const seed = frameIndex * 137;
+  const warpInterval = 4; // Warp every N frames
+
+  if (frameIndex % warpInterval === 0) {
+    // Warp frame: flash effect
+    ctx.globalAlpha = 0.5;
+    ctx.drawImage(baseCanvas, 0, 0);
+    return canvas;
+  }
+
+  const group = Math.floor(frameIndex / warpInterval);
+  const offsetX = ((group * 73 + 11) % 17 - 8) * (size / 112) * 3;
+  const offsetY = ((group * 97 + 23) % 17 - 8) * (size / 112) * 3;
+  const scale = 0.95 + ((seed % 10) / 100);
+
+  const drawSize = size * scale;
+  const ox = (size - drawSize) / 2 + offsetX;
+  const oy = (size - drawSize) / 2 + offsetY;
+
+  ctx.drawImage(baseCanvas, ox, oy, drawSize, drawSize);
+  return canvas;
+};
+
+/** 酔い歩き: random-direction staggering */
+export const createStaggerFrame: FrameGenerator = (baseCanvas, frameIndex, totalFrames) => {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  // Accumulated pseudo-random walk
+  const maxDrift = size * 0.06;
+  const offsetX = Math.sin(t * Math.PI * 3.7 + 1.3) * maxDrift
+    + Math.sin(t * Math.PI * 7.1) * maxDrift * 0.3;
+  const offsetY = Math.cos(t * Math.PI * 2.9 + 0.7) * maxDrift
+    + Math.cos(t * Math.PI * 5.3) * maxDrift * 0.3;
+  const angle = Math.sin(t * Math.PI * 2.3) * (5 * Math.PI / 180);
+
+  ctx.translate(size / 2 + offsetX, size / 2 + offsetY);
+  ctx.rotate(angle);
+  ctx.translate(-size / 2, -size / 2);
   ctx.drawImage(baseCanvas, 0, 0);
   return canvas;
 };

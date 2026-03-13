@@ -1,5 +1,6 @@
 /**
- * Basic animations: sway, shake, blink, bounce, zoomin, spin, hearts
+ * Basic animations: sway, shake, blink, bounce, zoomin, spin, hearts,
+ * stretch, fall, inflate, tilt, bobbing
  */
 import type { FrameGenerator } from "./types";
 
@@ -140,5 +141,113 @@ export const createHeartsFrame: FrameGenerator = (baseCanvas, frameIndex, totalF
     ctx.restore();
   }
 
+  return canvas;
+};
+
+/** 伸び縮み: vertical scale oscillation */
+export const createStretchFrame: FrameGenerator = (baseCanvas, frameIndex, totalFrames) => {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const scaleY = 1 + 0.2 * Math.sin(t * Math.PI * 2);
+  const scaleX = 1 - 0.1 * Math.sin(t * Math.PI * 2);
+
+  ctx.translate(size / 2, size);
+  ctx.scale(scaleX, scaleY);
+  ctx.translate(-size / 2, -size);
+  ctx.drawImage(baseCanvas, 0, 0);
+  return canvas;
+};
+
+/** 落下: drop from top with bounce */
+export const createFallFrame: FrameGenerator = (baseCanvas, frameIndex, totalFrames) => {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  // Parabolic drop with 2 bounces
+  let y: number;
+  if (t < 0.4) {
+    // First drop
+    const p = t / 0.4;
+    y = -size * 0.3 * (1 - p * p);
+  } else if (t < 0.65) {
+    // First bounce
+    const p = (t - 0.4) / 0.25;
+    y = -size * 0.1 * Math.sin(p * Math.PI);
+  } else if (t < 0.85) {
+    // Second bounce (smaller)
+    const p = (t - 0.65) / 0.2;
+    y = -size * 0.04 * Math.sin(p * Math.PI);
+  } else {
+    y = 0;
+  }
+
+  ctx.drawImage(baseCanvas, 0, -y);
+  return canvas;
+};
+
+/** 膨らむ: slowly inflate and deflate */
+export const createInflateFrame: FrameGenerator = (baseCanvas, frameIndex, totalFrames) => {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const scale = 0.9 + 0.15 * (0.5 - 0.5 * Math.cos(t * Math.PI * 2));
+
+  const drawSize = size * scale;
+  const offset = (size - drawSize) / 2;
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(baseCanvas, offset, offset, drawSize, drawSize);
+  return canvas;
+};
+
+/** 傾く: tilt left and right */
+export const createTiltFrame: FrameGenerator = (baseCanvas, frameIndex, totalFrames) => {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const angle = Math.sin(t * Math.PI * 2) * (15 * Math.PI / 180);
+
+  ctx.translate(size / 2, size * 0.8);
+  ctx.rotate(angle);
+  ctx.translate(-size / 2, -size * 0.8);
+  ctx.drawImage(baseCanvas, 0, 0);
+  return canvas;
+};
+
+/** 浮き沈み: slow vertical float with slight scale */
+export const createBobbingFrame: FrameGenerator = (baseCanvas, frameIndex, totalFrames) => {
+  const size = baseCanvas.width;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d")!;
+
+  const t = frameIndex / totalFrames;
+  const offsetY = Math.sin(t * Math.PI * 2) * size * 0.07;
+  const scale = 1 + 0.03 * Math.sin(t * Math.PI * 2);
+
+  const drawSize = size * scale;
+  const offsetX = (size - drawSize) / 2;
+
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(baseCanvas, offsetX, offsetY + (size - drawSize) / 2, drawSize, drawSize);
   return canvas;
 };
