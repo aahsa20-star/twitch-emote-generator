@@ -31,26 +31,35 @@ export default function Footer() {
       <p className="text-center text-gray-500">
         本サービスはサービス改善のためUmami Analyticsによるアクセス解析を行っています。取得するデータはIPアドレスを含まない匿名の統計情報のみです。
       </p>
-      <div className="flex items-center justify-center gap-4 pt-3 border-t border-gray-800">
-        <Image
-          src="/aki.png"
-          alt="Aki"
-          width={40}
-          height={40}
-          className="rounded-full"
-        />
-        <span className="text-sm text-gray-400">Made by Aki</span>
-        <div className="flex items-center gap-3">
-          <a href="https://x.com/akiissamurai" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
-            <Twitter size={16} />
-          </a>
-          <a href="https://youtube.com/channel/UCLZJRStlPpH7fAjZjbjP4sQ" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
-            <Youtube size={16} />
-          </a>
-          <a href="https://discord.gg/CheMXWdj" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
-            <MessageCircle size={16} />
-          </a>
+      <div className="pt-3 border-t border-gray-800 space-y-3">
+        <div className="flex items-center justify-center gap-4">
+          <Image
+            src="/aki.png"
+            alt="Aki"
+            width={40}
+            height={40}
+            className="rounded-full"
+          />
+          <span className="text-sm text-gray-400">Made by Aki</span>
+          <div className="flex items-center gap-3">
+            <a href="https://x.com/akiissamurai" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
+              <Twitter size={16} />
+            </a>
+            <a href="https://youtube.com/channel/UCLZJRStlPpH7fAjZjbjP4sQ" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
+              <Youtube size={16} />
+            </a>
+            <a href="https://discord.gg/CheMXWdj" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
+              <MessageCircle size={16} />
+            </a>
+          </div>
         </div>
+        <p className="text-center text-xs text-gray-500 leading-relaxed">
+          <span className="text-gray-400 italic">{'"'}画像をアップするだけでスタンプが作れるツールが欲しい{'"'}</span>
+          <br />
+          配信中の視聴者の一言がきっかけでした。
+          <br />
+          コードが読めない・書けない・開発経験ゼロのAkiが、AIと2人で1週間で作り上げました。（2026年3月）
+        </p>
       </div>
     </footer>
   );
