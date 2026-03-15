@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Twitch Emote Generator";
+export const alt = "Twitch Emote Generator｜エモート作成ツール（無料・ブラウザ完結）";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -10,58 +10,115 @@ export default function OgImage() {
     (
       <div
         style={{
-          background: "linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #16213e 100%)",
           width: "100%",
           height: "100%",
           display: "flex",
           flexDirection: "column",
-          alignItems: "center",
           justifyContent: "center",
+          alignItems: "center",
+          background: "linear-gradient(135deg, #0f0f17 0%, #1a1a2e 50%, #16132b 100%)",
           fontFamily: "sans-serif",
+          position: "relative",
+          overflow: "hidden",
         }}
       >
+        {/* Purple glow - top right */}
         <div
           style={{
-            fontSize: 64,
-            fontWeight: 700,
+            position: "absolute",
+            top: "-120px",
+            right: "-120px",
+            width: "450px",
+            height: "450px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(145,70,255,0.25) 0%, transparent 70%)",
+            display: "flex",
+          }}
+        />
+        {/* Purple glow - bottom left */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: "-100px",
+            left: "-100px",
+            width: "350px",
+            height: "350px",
+            borderRadius: "50%",
+            background: "radial-gradient(circle, rgba(145,70,255,0.15) 0%, transparent 70%)",
+            display: "flex",
+          }}
+        />
+
+        {/* Title */}
+        <div
+          style={{
+            fontSize: 58,
+            fontWeight: 800,
             color: "#ffffff",
-            marginBottom: 16,
+            letterSpacing: "-1px",
+            zIndex: 1,
+            display: "flex",
           }}
         >
           Twitch Emote Generator
         </div>
+
+        {/* Subtitle */}
         <div
           style={{
-            fontSize: 28,
+            fontSize: 30,
+            fontWeight: 600,
             color: "#a78bfa",
-            marginBottom: 40,
+            marginTop: 16,
+            zIndex: 1,
+            display: "flex",
           }}
         >
-          背景透過 → フチ取り → 3サイズ出力まで、ブラウザだけで完結
+          エモート制作の面倒を全部省く
         </div>
+
+        {/* Feature badges */}
         <div
           style={{
             display: "flex",
-            gap: 16,
+            gap: 12,
+            marginTop: 44,
+            zIndex: 1,
           }}
         >
-          {["背景自動透過", "テキスト入れ", "アニメーション", "ZIP一括DL"].map(
+          {["背景自動透過", "フチ取り", "アニメーション", "全サイズ出力", "ブラウザ完結"].map(
             (label) => (
               <div
                 key={label}
                 style={{
+                  display: "flex",
+                  alignItems: "center",
                   fontSize: 18,
-                  color: "#d1d5db",
-                  padding: "8px 20px",
+                  fontWeight: 500,
+                  color: "#c4b5fd",
+                  padding: "10px 22px",
                   borderRadius: 999,
-                  border: "1px solid #374151",
-                  background: "rgba(31,41,55,0.8)",
+                  border: "1px solid rgba(145,70,255,0.4)",
+                  background: "rgba(145,70,255,0.1)",
                 }}
               >
                 {label}
               </div>
             )
           )}
+        </div>
+
+        {/* Platform line */}
+        <div
+          style={{
+            fontSize: 18,
+            color: "#6b7280",
+            marginTop: 36,
+            zIndex: 1,
+            display: "flex",
+          }}
+        >
+          Twitch / Discord / 7TV / BTTV / FFZ 対応 — 無料
         </div>
       </div>
     ),
