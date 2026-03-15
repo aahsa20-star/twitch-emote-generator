@@ -127,7 +127,7 @@ export default function VideoFaceExtractor({ onFaceSelected }: VideoFaceExtracto
               動画をアップロード
             </button>
             <p className="text-[10px] text-gray-500">MP4 / MOV / WEBM 30秒以内 50MB以下</p>
-            <p className="text-[10px] text-yellow-500/80 md:hidden">※PCでの利用を推奨（スマートフォンでは精度・速度が低下します）</p>
+            <p className="text-[10px] text-yellow-500/80 md:hidden">※PCでの利用を推奨（スマートフォンでは著しく精度・速度が低下します）</p>
             <input
               ref={inputRef}
               type="file"
