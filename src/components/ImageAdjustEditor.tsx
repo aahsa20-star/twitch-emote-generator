@@ -425,19 +425,19 @@ export default function ImageAdjustEditor({ file, onConfirm, onSkip }: ImageAdju
       <div className="flex gap-2">
         <button
           onClick={handleConfirm}
-          className="px-4 py-2 rounded bg-purple-600 text-white text-sm font-medium hover:bg-purple-500 transition-colors min-h-[44px] md:min-h-0"
+          className="px-3 py-2 rounded bg-purple-600 text-white text-sm font-medium hover:bg-purple-500 transition-colors min-h-[44px] md:min-h-0 whitespace-nowrap"
         >
-          この位置で確定
+          確定
         </button>
         <button
           onClick={handleReset}
-          className="px-4 py-2 rounded bg-gray-700 text-gray-300 text-sm hover:bg-gray-600 transition-colors min-h-[44px] md:min-h-0"
+          className="px-3 py-2 rounded bg-gray-700 text-gray-300 text-sm hover:bg-gray-600 transition-colors min-h-[44px] md:min-h-0 whitespace-nowrap"
         >
           リセット
         </button>
         <button
           onClick={onSkip}
-          className="px-4 py-2 rounded bg-gray-700 text-gray-300 text-sm hover:bg-gray-600 transition-colors min-h-[44px] md:min-h-0"
+          className="px-3 py-2 rounded bg-gray-700 text-gray-300 text-sm hover:bg-gray-600 transition-colors min-h-[44px] md:min-h-0 whitespace-nowrap"
         >
           スキップ
         </button>
