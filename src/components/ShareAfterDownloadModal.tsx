@@ -56,7 +56,7 @@ export default function ShareAfterDownloadModal({ onClose, imageDataUrl }: Share
         onClick={(e) => e.stopPropagation()}
       >
         <p className="text-white font-bold text-base mb-1">ダウンロード完了！</p>
-        <p className="text-gray-400 text-sm mb-5">作ったエモートをXでシェアしませんか？するよね？みんなしてますよ？え？無料だったんだよ？わかる？</p>
+        <p className="text-gray-400 text-sm mb-5">え？無料だったんだよ？わかる？わかるよね？ね？</p>
         <div className="flex gap-3 justify-end">
           <button
             onClick={onClose}
