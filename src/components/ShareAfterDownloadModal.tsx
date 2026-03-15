@@ -57,18 +57,18 @@ export default function ShareAfterDownloadModal({ onClose, imageDataUrl }: Share
       >
         <p className="text-white font-bold text-base mb-1">ダウンロード完了！</p>
         <p className="text-gray-400 text-sm mb-5">え？無料だったんだよ？わかる？わかるよね？ね？</p>
-        <div className="flex gap-3 justify-end">
-          <button
-            onClick={onClose}
-            className="text-gray-500 text-sm hover:text-gray-300 transition-colors"
-          >
-            罪悪感はあるが静かに立ち去る
-          </button>
+        <div className="flex flex-col gap-3">
           <button
             onClick={handleShare}
-            className="px-4 py-2 rounded-lg bg-black text-white text-sm font-medium border border-gray-600 hover:bg-gray-800 transition-colors"
+            className="w-full px-4 py-3 rounded-lg bg-black text-white text-sm font-medium border border-gray-600 hover:bg-gray-800 transition-colors"
           >
             X（Twitter）でシェアする（制作者は泣いて喜びます）
+          </button>
+          <button
+            onClick={onClose}
+            className="text-gray-500 text-xs hover:text-gray-300 transition-colors py-1"
+          >
+            罪悪感はあるが静かに立ち去る
           </button>
         </div>
         {toast && (

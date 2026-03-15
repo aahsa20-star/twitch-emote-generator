@@ -102,7 +102,7 @@ export default function VideoFaceExtractor({ onFaceSelected }: VideoFaceExtracto
           {stage === "selecting" && (
             <button
               onClick={handleCancel}
-              className="text-[10px] text-gray-500 hover:text-gray-300 transition-colors"
+              className="text-xs text-gray-500 hover:text-gray-300 transition-colors min-h-[44px] md:min-h-0 px-2 flex items-center"
             >
               キャンセル
             </button>
@@ -126,8 +126,8 @@ export default function VideoFaceExtractor({ onFaceSelected }: VideoFaceExtracto
               </svg>
               動画をアップロード
             </button>
-            <p className="text-[10px] text-gray-500">MP4 / MOV / WEBM 30秒以内 50MB以下</p>
-            <p className="text-[10px] text-yellow-500/80 md:hidden">※PCでの利用を推奨（スマートフォンでは著しく精度・速度が低下します）</p>
+            <p className="text-xs text-gray-500">MP4 / MOV / WEBM 30秒以内 50MB以下</p>
+            <p className="text-xs text-yellow-500/80 md:hidden">※PCでの利用を推奨（スマートフォンでは著しく精度・速度が低下します）</p>
             <input
               ref={inputRef}
               type="file"
@@ -154,14 +154,14 @@ export default function VideoFaceExtractor({ onFaceSelected }: VideoFaceExtracto
                 style={{ width: `${Math.round(progress * 100)}%` }}
               />
             </div>
-            <p className="text-[10px] text-gray-500 text-right">{Math.round(progress * 100)}%</p>
+            <p className="text-xs text-gray-500 text-right">{Math.round(progress * 100)}%</p>
           </div>
         )}
 
         {/* Selecting: candidate grid */}
         {stage === "selecting" && candidates.length > 0 && (
           <div className="space-y-3">
-            <p className="text-[10px] text-gray-400">{candidates.length}件の顔を検出 - 使いたい画像を選択</p>
+            <p className="text-xs text-gray-400">{candidates.length}件の顔を検出 - 使いたい画像を選択</p>
             <div className="grid grid-cols-4 gap-1.5">
               {candidates.map((c, i) => (
                 <button

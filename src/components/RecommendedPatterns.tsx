@@ -158,7 +158,7 @@ export default function RecommendedPatterns({ bgRemovedCanvas, onApply }: Recomm
           </span>
         )}
       </div>
-      <div className="grid grid-cols-4 gap-2 w-full">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
         {AUTO_PATTERNS.map((pattern, i) => {
           const preview = previews[i];
           const src = preview?.animatedUrl ?? preview?.staticDataUrl;

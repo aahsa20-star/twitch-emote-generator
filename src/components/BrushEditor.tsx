@@ -294,7 +294,7 @@ export default function BrushEditor({
       <h3 className="text-sm font-semibold text-purple-300">
         透過の微調整
       </h3>
-      <p className="text-[11px] text-gray-400 text-center -mt-2">
+      <p className="text-xs text-gray-400 text-center -mt-2">
         消しゴムで不要な部分を消したり、復元ブラシで消えすぎた部分を戻せます
       </p>
 

@@ -40,7 +40,7 @@ export default function FloatingMiniPreview({
   return (
     <button
       onClick={handleTap}
-      className="fixed bottom-20 right-4 z-50 w-[90px] h-[90px] rounded-xl shadow-lg border border-gray-600 overflow-hidden active:scale-95 transition-transform md:hidden"
+      className="fixed bottom-20 right-4 z-40 w-[90px] h-[90px] rounded-xl shadow-lg border border-gray-600 overflow-hidden active:scale-95 transition-transform md:hidden"
       style={{
         backgroundImage: `repeating-conic-gradient(#2a2a2a 0% 25%, #3a3a3a 0% 50%)`,
         backgroundSize: `${CHECK * 2}px ${CHECK * 2}px`,
