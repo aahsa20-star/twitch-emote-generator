@@ -157,6 +157,10 @@
 - OGP/Twitterカード対応（動的OG画像生成 + summary_large_image）
 - 免責事項強化（Twitch/Discord商標表示・AS-IS保証免責・AI精度免責）
 
+### SEO
+- Google Search Console verification タグ（metadata.verification.google）
+- sitemap.xml 自動生成（MetadataRoute.Sitemap、weekly更新）
+
 ### アナリティクス
 - Umami Analytics（`next/script` strategy="afterInteractive"でページ読み込みブロックなし）
 - IPアドレス非取得の匿名統計のみ（GDPR準拠、Cookie不使用）
