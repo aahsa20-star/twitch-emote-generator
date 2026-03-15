@@ -56,19 +56,19 @@ export default function ShareAfterDownloadModal({ onClose, imageDataUrl }: Share
         onClick={(e) => e.stopPropagation()}
       >
         <p className="text-white font-bold text-base mb-1">ダウンロード完了！</p>
-        <p className="text-gray-400 text-sm mb-5">作ったエモートをXでシェアしませんか？</p>
+        <p className="text-gray-400 text-sm mb-5">作ったエモートをXでシェアしませんか？するよね？みんなしてますよ？え？無料だったんだよ？わかる？</p>
         <div className="flex gap-3 justify-end">
           <button
             onClick={onClose}
             className="text-gray-500 text-sm hover:text-gray-300 transition-colors"
           >
-            スキップ
+            罪悪感はあるが静かに立ち去る
           </button>
           <button
             onClick={handleShare}
             className="px-4 py-2 rounded-lg bg-black text-white text-sm font-medium border border-gray-600 hover:bg-gray-800 transition-colors"
           >
-            X（Twitter）でシェアする
+            X（Twitter）でシェアする（制作者は泣いて喜びます）
           </button>
         </div>
         {toast && (
