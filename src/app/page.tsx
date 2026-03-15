@@ -14,7 +14,7 @@ export default function Home() {
           エモート制作の面倒を全部省く
         </p>
         <p className="text-xs text-gray-500 mt-2">
-          視聴者の<span className="text-gray-400 italic">{'"'}スタンプが作れるツールが欲しい{'"'}</span>の一言から生まれました。開発経験ゼロのAkiがAIと1週間で。
+          視聴者の<span className="text-gray-400 italic">{'"'}スタンプが作れるツールが欲しい{'"'}</span>の一言から生まれました。
         </p>
       </header>
 
