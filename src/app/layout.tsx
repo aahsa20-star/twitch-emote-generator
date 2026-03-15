@@ -79,6 +79,9 @@ export const metadata: Metadata = {
   description:
     "Twitchエモートの作り方がわからなくても大丈夫。画像をアップロードするだけで背景透過・フチ取り・テキスト入れ・アニメーション・全サイズ書き出しまでブラウザだけで完結。Discord / 7TV / BTTV / FFZにも対応。スタンプ作成・エモート制作が無料でできます。",
   metadataBase: new URL("https://twitch-emote-generator.vercel.app"),
+  verification: {
+    google: "xccOfwL_XFWfigZqCYHxDcXj594lfO70WftcTX-8or8",
+  },
   openGraph: {
     title: "Twitch Emote Generator｜エモート作成ツール（無料・ブラウザ完結）",
     description:
