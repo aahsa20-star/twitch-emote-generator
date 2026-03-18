@@ -145,6 +145,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
       clearTimeout(renderTimeoutRef.current);
     }
 
+    // 150ms debounce: prevents excessive re-renders during drag/scroll adjustments
     renderTimeoutRef.current = setTimeout(() => {
       let cancelled = false;
 

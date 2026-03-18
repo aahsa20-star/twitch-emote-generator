@@ -23,6 +23,38 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
   const isLargest = variant.size >= 112;
   const interactive = isLargest && !!onContentAdjust;
 
+  // Visual-only transform for instant feedback during drag (GPU-accelerated CSS transform)
+  const visualOffsetRef = useRef({ x: 0, y: 0, scale: 1 });
+  const imgRef = useRef<HTMLImageElement>(null);
+  const rafRef = useRef<number | null>(null);
+
+  // Apply CSS transform via requestAnimationFrame
+  const applyVisualTransform = useCallback(() => {
+    if (imgRef.current) {
+      const { x, y, scale } = visualOffsetRef.current;
+      if (x === 0 && y === 0 && scale === 1) {
+        imgRef.current.style.transform = "";
+      } else {
+        imgRef.current.style.transform = `translate(${x}px, ${y}px) scale(${scale})`;
+      }
+    }
+    rafRef.current = null;
+  }, []);
+
+  const scheduleVisualUpdate = useCallback(() => {
+    if (rafRef.current === null) {
+      rafRef.current = requestAnimationFrame(applyVisualTransform);
+    }
+  }, [applyVisualTransform]);
+
+  // Reset visual transform when pipeline completes (variant changes)
+  useEffect(() => {
+    visualOffsetRef.current = { x: 0, y: 0, scale: 1 };
+    if (imgRef.current) {
+      imgRef.current.style.transform = "";
+    }
+  }, [variant.staticDataUrl]);
+
   useEffect(() => {
     if (variant.animatedBlob) {
       const url = URL.createObjectURL(variant.animatedBlob);
@@ -72,6 +104,13 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
   }, [modalOpen]);
+
+  // Cleanup RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafRef.current !== null) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
 
   const displayUrl = gifUrl || variant.staticDataUrl;
 
@@ -124,13 +163,18 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
     if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
       setIsDragging(true);
     }
-    // Normalize: preview display is ~128px, map to -1..1 range
+    // Instant visual feedback via CSS transform
+    visualOffsetRef.current.x += dx;
+    visualOffsetRef.current.y += dy;
+    scheduleVisualUpdate();
+
+    // Send normalized delta to pipeline (debounced)
     const displaySize = Math.max(variant.size + 16, 60);
     const ndx = dx / displaySize * 0.5;
     const ndy = dy / displaySize * 0.5;
     onContentAdjust?.(ndx, ndy, 0);
     dragStartRef.current = { x: e.clientX, y: e.clientY };
-  }, [interactive, onContentAdjust, variant.size]);
+  }, [interactive, onContentAdjust, variant.size, scheduleVisualUpdate]);
 
   const handleMouseUp = useCallback(() => {
     dragStartRef.current = null;
@@ -142,8 +186,12 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
     if (!interactive) return;
     e.preventDefault();
     const delta = e.deltaY > 0 ? -0.05 : 0.05;
+    // Instant visual feedback
+    visualOffsetRef.current.scale = Math.max(0.5, Math.min(2.0, visualOffsetRef.current.scale + delta));
+    scheduleVisualUpdate();
+
     onContentAdjust?.(0, 0, delta);
-  }, [interactive, onContentAdjust]);
+  }, [interactive, onContentAdjust, scheduleVisualUpdate]);
 
   // --- Touch handlers (mobile) ---
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
@@ -165,6 +213,11 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
       const dx = e.touches[0].clientX - dragStartRef.current.x;
       const dy = e.touches[0].clientY - dragStartRef.current.y;
       setIsDragging(true);
+      // Instant visual feedback
+      visualOffsetRef.current.x += dx;
+      visualOffsetRef.current.y += dy;
+      scheduleVisualUpdate();
+
       const displaySize = Math.max(variant.size + 16, 60);
       const ndx = dx / displaySize * 0.5;
       const ndy = dy / displaySize * 0.5;
@@ -176,10 +229,14 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
         e.touches[0].clientY - e.touches[1].clientY
       );
       const delta = (dist - pinchStartRef.current) * 0.005;
+      // Instant visual feedback
+      visualOffsetRef.current.scale = Math.max(0.5, Math.min(2.0, visualOffsetRef.current.scale + delta));
+      scheduleVisualUpdate();
+
       onContentAdjust?.(0, 0, delta);
       pinchStartRef.current = dist;
     }
-  }, [interactive, onContentAdjust, variant.size]);
+  }, [interactive, onContentAdjust, variant.size, scheduleVisualUpdate]);
 
   const handleTouchEnd = useCallback(() => {
     dragStartRef.current = null;
@@ -193,7 +250,7 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
         {variant.size}x{variant.size}
       </span>
       <div
-        className={`group relative rounded flex items-center justify-center ${
+        className={`group relative rounded flex items-center justify-center overflow-hidden ${
           interactive ? (isDragging ? "cursor-grabbing" : "cursor-grab") : "cursor-pointer"
         } ${bgMode === "checker" ? "checkerboard" : ""}`}
         style={{
@@ -214,11 +271,16 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
         onTouchEnd={handleTouchEnd}
       >
         <img
+          ref={imgRef}
           src={displayUrl}
           alt={`${variant.size}px preview`}
           width={variant.size}
           height={variant.size}
-          style={{ imageRendering: variant.size <= 28 ? "pixelated" : "auto", pointerEvents: "none" }}
+          style={{
+            imageRendering: variant.size <= 28 ? "pixelated" : "auto",
+            pointerEvents: "none",
+            willChange: interactive ? "transform" : "auto",
+          }}
           draggable={false}
         />
         {/* PC: largest shows hint or expand, others show download overlay */}
