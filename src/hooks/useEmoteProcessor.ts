@@ -44,6 +44,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     },
     animation: { type: "none", speed: "normal" },
     badge: { ...DEFAULT_BADGE_SETTINGS },
+    padding: 0.05,
   });
   const [stage, setStage] = useState<ProcessingStage>("idle");
   const [progress, setProgress] = useState(0);
@@ -327,6 +328,9 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
         if (val && typeof val === "object" && !Array.isArray(val)) {
           // One-level deep merge for grouped config objects
           (next as Record<string, unknown>)[key] = { ...(prev[key] as unknown as Record<string, unknown>), ...(val as unknown as Record<string, unknown>) };
+        } else if (val !== undefined) {
+          // Primitive values (e.g. padding)
+          (next as Record<string, unknown>)[key] = val;
         }
       }
       return next;

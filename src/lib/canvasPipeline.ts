@@ -640,7 +640,7 @@ export function processEmote(
   subCanvas?: HTMLCanvasElement
 ): HTMLCanvasElement {
   // 1. Center and resize at high resolution
-  let canvas = centerAndResize(source, HI_RES);
+  let canvas = centerAndResize(source, HI_RES, config.padding ?? 0.05);
 
   // 2. Composite with sub image (if applicable)
   if (config.subImage.mode !== "none" && subCanvas) {
@@ -702,7 +702,7 @@ export function processEmoteWithHiRes(
   subCanvas?: HTMLCanvasElement
 ): { output: HTMLCanvasElement; hiRes: HTMLCanvasElement } {
   // 1-5: Same pipeline as processEmote, but at GIF_HI_RES for animation source
-  let hiResCanvas = centerAndResize(source, GIF_HI_RES);
+  let hiResCanvas = centerAndResize(source, GIF_HI_RES, config.padding ?? 0.05);
 
   if (config.subImage.mode !== "none" && subCanvas) {
     const prev = hiResCanvas;

@@ -118,6 +118,8 @@ export interface EmoteConfig {
   text: TextConfig;
   animation: AnimationConfig;
   badge: BadgeSettings;
+  /** Canvas padding ratio (0 = no margin, 0.15 = 15% margin). Default 0.05. */
+  padding: number;
 }
 
 /** One-level deep partial: top keys optional, nested object keys also optional. */

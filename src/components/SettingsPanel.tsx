@@ -83,6 +83,21 @@ export default function SettingsPanel({
         )}
       </div>
 
+      {/* Padding */}
+      <div>
+        <label className="text-xs text-gray-400 block mb-1">
+          余白: {Math.round(config.padding * 100)}%
+        </label>
+        <input
+          type="range"
+          min={0}
+          max={15}
+          value={Math.round(config.padding * 100)}
+          onChange={(e) => onConfigChange({ padding: Number(e.target.value) / 100 })}
+          className="w-full accent-purple-500"
+        />
+      </div>
+
       {/* Frame (subscriber-only) */}
       {isSubscriber && (
         <div>
