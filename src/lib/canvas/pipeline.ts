@@ -1,6 +1,6 @@
 import { EmoteConfig, TEXT_PRESETS } from "@/types/emote";
 import { HI_RES, GIF_HI_RES, USM_MAX_SIZE, releaseCanvas } from "./types";
-import { centerAndResize } from "./backgroundRemoval";
+import { centerAndResize, ContentAdjustment } from "./backgroundRemoval";
 import { applyBorder, applyTextOverlay, compositeImages, applyFrame } from "./drawing";
 
 function resolveTextToRender(config: EmoteConfig): string | null {
@@ -122,8 +122,14 @@ export function processEmote(
   config: EmoteConfig,
   subCanvas?: HTMLCanvasElement
 ): HTMLCanvasElement {
+  // Build content adjustment from config
+  const adjustment: ContentAdjustment | undefined =
+    (config.contentOffsetX || config.contentOffsetY || config.contentScale !== 1.0)
+      ? { offsetX: config.contentOffsetX, offsetY: config.contentOffsetY, scale: config.contentScale }
+      : undefined;
+
   // 1. Center and resize at high resolution
-  let canvas = centerAndResize(source, HI_RES, config.padding ?? 0.05);
+  let canvas = centerAndResize(source, HI_RES, config.padding ?? 0.05, adjustment);
 
   // 2. Composite with sub image (if applicable)
   if (config.subImage.mode !== "none" && subCanvas) {
@@ -184,8 +190,14 @@ export function processEmoteWithHiRes(
   config: EmoteConfig,
   subCanvas?: HTMLCanvasElement
 ): { output: HTMLCanvasElement; hiRes: HTMLCanvasElement } {
+  // Build content adjustment from config
+  const adjustment: ContentAdjustment | undefined =
+    (config.contentOffsetX || config.contentOffsetY || config.contentScale !== 1.0)
+      ? { offsetX: config.contentOffsetX, offsetY: config.contentOffsetY, scale: config.contentScale }
+      : undefined;
+
   // 1-5: Same pipeline as processEmote, but at GIF_HI_RES for animation source
-  let hiResCanvas = centerAndResize(source, GIF_HI_RES, config.padding ?? 0.05);
+  let hiResCanvas = centerAndResize(source, GIF_HI_RES, config.padding ?? 0.05, adjustment);
 
   if (config.subImage.mode !== "none" && subCanvas) {
     const prev = hiResCanvas;

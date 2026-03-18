@@ -1,9 +1,16 @@
 import { findContentBounds, releaseCanvas } from "./types";
 
+export interface ContentAdjustment {
+  offsetX?: number;  // normalized -1 to 1 (fraction of targetSize)
+  offsetY?: number;  // normalized -1 to 1
+  scale?: number;    // multiplier, default 1.0
+}
+
 export function centerAndResize(
   source: HTMLCanvasElement | HTMLImageElement,
   targetSize: number,
-  padding: number = 0.05
+  padding: number = 0.05,
+  adjustment?: ContentAdjustment
 ): HTMLCanvasElement {
   const tempCanvas = document.createElement("canvas");
   const sw = source instanceof HTMLCanvasElement ? source.width : source.naturalWidth;
@@ -27,12 +34,20 @@ export function centerAndResize(
 
   const paddingPx = targetSize * padding;
   const availableSize = targetSize - paddingPx * 2;
-  const scale = availableSize / maxDim;
+  const baseScale = availableSize / maxDim;
 
-  const drawWidth = contentWidth * scale;
-  const drawHeight = contentHeight * scale;
-  const offsetX = (targetSize - drawWidth) / 2;
-  const offsetY = (targetSize - drawHeight) / 2;
+  // Apply user scale adjustment (center-based zoom)
+  const userScale = adjustment?.scale ?? 1.0;
+  const finalScale = baseScale * userScale;
+
+  const drawWidth = contentWidth * finalScale;
+  const drawHeight = contentHeight * finalScale;
+
+  // Center position + user offset
+  const userOffsetXPx = (adjustment?.offsetX ?? 0) * targetSize;
+  const userOffsetYPx = (adjustment?.offsetY ?? 0) * targetSize;
+  const offsetX = (targetSize - drawWidth) / 2 + userOffsetXPx;
+  const offsetY = (targetSize - drawHeight) / 2 + userOffsetYPx;
 
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = "high";

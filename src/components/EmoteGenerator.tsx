@@ -141,6 +141,14 @@ export default function EmoteGenerator() {
     updateConfig(patternConfig);
   };
 
+  const handleContentAdjust = useCallback((dx: number, dy: number, ds: number) => {
+    updateConfig({
+      contentOffsetX: config.contentOffsetX + dx,
+      contentOffsetY: config.contentOffsetY + dy,
+      contentScale: Math.max(0.5, Math.min(2.0, config.contentScale + ds)),
+    } as Partial<EmoteConfig>);
+  }, [config.contentOffsetX, config.contentOffsetY, config.contentScale, updateConfig]);
+
   return (
     <div className="flex-1 grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4 md:gap-6 p-4 md:p-6 max-w-6xl mx-auto w-full">
       {/* Upload + toggle + progress (top-left on desktop, 1st on mobile) */}
@@ -405,6 +413,7 @@ export default function EmoteGenerator() {
           onDownloadComplete={handleDownloadComplete}
           badgeSettings={config.badge}
           bgRemovedCanvas={bgRemovedCanvas}
+          onContentAdjust={handleContentAdjust}
         />
       </div>
 

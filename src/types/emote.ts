@@ -120,6 +120,12 @@ export interface EmoteConfig {
   badge: BadgeSettings;
   /** Canvas padding ratio (0 = no margin, 0.15 = 15% margin). Default 0.05. */
   padding: number;
+  /** Content offset X in normalized units (-1 to 1). Default 0. */
+  contentOffsetX: number;
+  /** Content offset Y in normalized units (-1 to 1). Default 0. */
+  contentOffsetY: number;
+  /** Content scale multiplier (0.5 to 2.0). Default 1.0. */
+  contentScale: number;
 }
 
 /** One-level deep partial: top keys optional, nested object keys also optional. */

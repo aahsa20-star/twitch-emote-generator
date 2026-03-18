@@ -29,6 +29,9 @@ const defaultConfig: EmoteConfig = {
   animation: { type: "none", speed: "normal" },
   badge: { ...DEFAULT_BADGE_SETTINGS },
   padding: 0.05,
+  contentOffsetX: 0,
+  contentOffsetY: 0,
+  contentScale: 1.0,
 };
 
 const AUTO_PATTERNS: AutoPattern[] = [

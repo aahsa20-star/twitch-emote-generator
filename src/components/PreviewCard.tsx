@@ -1,5 +1,5 @@
 import { EmoteVariant, TextPosition } from "@/types/emote";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { checkVisibility, VisibilityResult } from "@/lib/visibilityChecker";
 
 type BgMode = "checker" | "dark" | "light";
@@ -10,20 +10,24 @@ interface PreviewCardProps {
   textPosition?: TextPosition;
   bgMode?: BgMode;
   onDownloadComplete?: () => void;
+  onContentAdjust?: (dx: number, dy: number, ds: number) => void;
 }
 
-export default function PreviewCard({ variant, hasText = false, textPosition = "bottom", bgMode = "checker", onDownloadComplete }: PreviewCardProps) {
+export default function PreviewCard({ variant, hasText = false, textPosition = "bottom", bgMode = "checker", onDownloadComplete, onContentAdjust }: PreviewCardProps) {
   const [gifUrl, setGifUrl] = useState<string | null>(null);
   const [visibilityResult, setVisibilityResult] = useState<VisibilityResult | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const pinchStartRef = useRef<number | null>(null);
   const isLargest = variant.size >= 112;
+  const interactive = isLargest && !!onContentAdjust;
 
   useEffect(() => {
     if (variant.animatedBlob) {
       const url = URL.createObjectURL(variant.animatedBlob);
       setGifUrl(url);
       return () => {
-        // Delay revoke to prevent flash when switching between blobs
         setTimeout(() => URL.revokeObjectURL(url), 100);
       };
     } else {
@@ -97,12 +101,91 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
   const format = variant.animatedBlob ? "GIF" : "PNG";
 
   const handleCardClick = useCallback(() => {
+    if (isDragging) return;
     if (isLargest && window.matchMedia("(min-width: 768px)").matches) {
       setModalOpen(true);
-    } else {
+    } else if (!interactive) {
       handleDownload();
     }
-  }, [isLargest, handleDownload]);
+  }, [isLargest, handleDownload, isDragging, interactive]);
+
+  // --- Drag handlers (PC) ---
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (!interactive) return;
+    e.preventDefault();
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    setIsDragging(false);
+  }, [interactive]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!interactive || !dragStartRef.current) return;
+    const dx = e.clientX - dragStartRef.current.x;
+    const dy = e.clientY - dragStartRef.current.y;
+    if (Math.abs(dx) > 2 || Math.abs(dy) > 2) {
+      setIsDragging(true);
+    }
+    // Normalize: preview display is ~128px, map to -1..1 range
+    const displaySize = Math.max(variant.size + 16, 60);
+    const ndx = dx / displaySize * 0.5;
+    const ndy = dy / displaySize * 0.5;
+    onContentAdjust?.(ndx, ndy, 0);
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+  }, [interactive, onContentAdjust, variant.size]);
+
+  const handleMouseUp = useCallback(() => {
+    dragStartRef.current = null;
+    setTimeout(() => setIsDragging(false), 50);
+  }, []);
+
+  // --- Scroll handler (PC zoom) ---
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    if (!interactive) return;
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? -0.05 : 0.05;
+    onContentAdjust?.(0, 0, delta);
+  }, [interactive, onContentAdjust]);
+
+  // --- Touch handlers (mobile) ---
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    if (!interactive) return;
+    if (e.touches.length === 1) {
+      dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if (e.touches.length === 2) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      pinchStartRef.current = dist;
+    }
+  }, [interactive]);
+
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    if (!interactive) return;
+    if (e.touches.length === 1 && dragStartRef.current && !pinchStartRef.current) {
+      const dx = e.touches[0].clientX - dragStartRef.current.x;
+      const dy = e.touches[0].clientY - dragStartRef.current.y;
+      setIsDragging(true);
+      const displaySize = Math.max(variant.size + 16, 60);
+      const ndx = dx / displaySize * 0.5;
+      const ndy = dy / displaySize * 0.5;
+      onContentAdjust?.(ndx, ndy, 0);
+      dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+    } else if (e.touches.length === 2 && pinchStartRef.current) {
+      const dist = Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY
+      );
+      const delta = (dist - pinchStartRef.current) * 0.005;
+      onContentAdjust?.(0, 0, delta);
+      pinchStartRef.current = dist;
+    }
+  }, [interactive, onContentAdjust, variant.size]);
+
+  const handleTouchEnd = useCallback(() => {
+    dragStartRef.current = null;
+    pinchStartRef.current = null;
+    setTimeout(() => setIsDragging(false), 50);
+  }, []);
 
   return (
     <div className="flex flex-col items-center gap-2">
@@ -110,35 +193,53 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
         {variant.size}x{variant.size}
       </span>
       <div
-        className={`group relative rounded flex items-center justify-center cursor-pointer ${bgMode === "checker" ? "checkerboard" : ""}`}
+        className={`group relative rounded flex items-center justify-center ${
+          interactive ? (isDragging ? "cursor-grabbing" : "cursor-grab") : "cursor-pointer"
+        } ${bgMode === "checker" ? "checkerboard" : ""}`}
         style={{
           width: Math.max(variant.size + 16, 60),
           height: Math.max(variant.size + 16, 60),
           ...(bgMode === "dark" ? { background: "#1a1a2e" } : {}),
           ...(bgMode === "light" ? { background: "#f0f0f0" } : {}),
+          touchAction: interactive ? "none" : "auto",
         }}
         onClick={handleCardClick}
+        onMouseDown={handleMouseDown}
+        onMouseMove={handleMouseMove}
+        onMouseUp={handleMouseUp}
+        onMouseLeave={handleMouseUp}
+        onWheel={handleWheel}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         <img
           src={displayUrl}
           alt={`${variant.size}px preview`}
           width={variant.size}
           height={variant.size}
-          style={{ imageRendering: variant.size <= 28 ? "pixelated" : "auto" }}
+          style={{ imageRendering: variant.size <= 28 ? "pixelated" : "auto", pointerEvents: "none" }}
+          draggable={false}
         />
-        {/* PC: largest shows "クリックで拡大", others show download overlay */}
+        {/* PC: largest shows hint or expand, others show download overlay */}
         {isLargest ? (
           <div className="hidden md:flex absolute inset-0 bg-black/50 rounded opacity-0 group-hover:opacity-100 transition-opacity items-center justify-center">
-            <span className="text-[10px] text-gray-300">クリックで拡大</span>
+            <span className="text-xs text-gray-300">
+              {interactive ? "ドラッグで移動 / スクロールでズーム" : "クリックで拡大"}
+            </span>
           </div>
         ) : (
           <div className="absolute inset-0 bg-black/60 rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center overflow-hidden">
-            <span className="text-[10px] font-semibold text-white bg-purple-600 px-2 py-1 rounded-md whitespace-nowrap">
+            <span className="text-xs font-semibold text-white bg-purple-600 px-2 py-1 rounded-md whitespace-nowrap">
               ↓ {variant.size}px {format}
             </span>
           </div>
         )}
       </div>
+      {/* Hint text for mobile */}
+      {interactive && (
+        <span className="md:hidden text-xs text-gray-500">ドラッグで移動 / ピンチでズーム</span>
+      )}
 
       {/* Enlarged modal (PC only) */}
       {modalOpen && (

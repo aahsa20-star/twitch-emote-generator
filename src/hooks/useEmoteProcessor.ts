@@ -45,6 +45,9 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     animation: { type: "none", speed: "normal" },
     badge: { ...DEFAULT_BADGE_SETTINGS },
     padding: 0.05,
+    contentOffsetX: 0,
+    contentOffsetY: 0,
+    contentScale: 1.0,
   });
   const [stage, setStage] = useState<ProcessingStage>("idle");
   const [progress, setProgress] = useState(0);
