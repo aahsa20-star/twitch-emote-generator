@@ -49,6 +49,11 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
 
   // Reset visual transform when pipeline completes (variant changes)
   useEffect(() => {
+    // Cancel any pending rAF to prevent stale rafRef blocking future schedules
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
     visualOffsetRef.current = { x: 0, y: 0, scale: 1 };
     if (imgRef.current) {
       imgRef.current.style.transform = "";
