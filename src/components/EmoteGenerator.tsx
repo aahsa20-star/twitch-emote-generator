@@ -155,6 +155,15 @@ export default function EmoteGenerator() {
 
   const hasPositionAdjustment = config.contentOffsetX !== 0 || config.contentOffsetY !== 0 || config.contentScale !== 1.0;
 
+  const [adjustToast, setAdjustToast] = useState<string | null>(null);
+
+  const handleReenterAdjust = useCallback(() => {
+    if (!sourceFile) return;
+    setAdjustToast("位置を調整後、透過処理をやり直します（10〜30秒）");
+    setTimeout(() => setAdjustToast(null), 5000);
+    setPendingFile(sourceFile);
+  }, [sourceFile]);
+
   return (
     <div className="flex-1 grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4 md:gap-6 p-4 md:p-6 max-w-6xl mx-auto w-full">
       {/* Upload + toggle + progress (top-left on desktop, 1st on mobile) */}
@@ -253,6 +262,12 @@ export default function EmoteGenerator() {
         {errorMessage && (
           <div className="text-xs px-3 py-2 rounded-lg text-center bg-red-600/30 text-red-300">
             {errorMessage}
+          </div>
+        )}
+        {/* Adjust toast */}
+        {adjustToast && (
+          <div className="text-xs px-3 py-2 rounded-lg text-center bg-yellow-600/30 text-yellow-300">
+            {adjustToast}
           </div>
         )}
 
@@ -378,6 +393,12 @@ export default function EmoteGenerator() {
               className="text-xs px-3 py-1.5 rounded bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors border border-gray-700"
             >
               ↩ 透過を調整する
+            </button>
+            <button
+              onClick={handleReenterAdjust}
+              className="text-xs px-3 py-1.5 rounded bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors border border-gray-700"
+            >
+              ↔ 位置を調整する
             </button>
             {hasPositionAdjustment && (
               <button
