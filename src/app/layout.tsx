@@ -88,6 +88,9 @@ export const metadata: Metadata = {
       "背景透過→フチ取り→アニメーション→全サイズ出力まで、ブラウザだけで完結。Twitch / Discord / 7TV / BTTV / FFZ対応。",
     type: "website",
   },
+  icons: {
+    icon: "/favicon.svg",
+  },
   twitter: {
     card: "summary_large_image",
     title: "Twitch Emote Generator｜エモート作成ツール",
