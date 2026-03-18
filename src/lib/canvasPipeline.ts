@@ -42,7 +42,7 @@ function findContentBounds(imageData: ImageData): Bounds {
 export function centerAndResize(
   source: HTMLCanvasElement | HTMLImageElement,
   targetSize: number,
-  padding: number = 0.08
+  padding: number = 0.05
 ): HTMLCanvasElement {
   const tempCanvas = document.createElement("canvas");
   const sw = source instanceof HTMLCanvasElement ? source.width : source.naturalWidth;

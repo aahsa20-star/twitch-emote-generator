@@ -24,7 +24,7 @@ export function checkVisibility(
     if (data[i] < 10) transparentCount++;
   }
   const transparentRatio = transparentCount / totalPixels;
-  if (transparentRatio >= 0.7) {
+  if (transparentRatio >= 0.82) {
     return { ok: false, message: "余白が多すぎます" };
   }
 
