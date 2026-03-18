@@ -39,7 +39,7 @@ export default function SubImageSettings({
             }`}
           >
             <span className="block font-medium">{opt.label}</span>
-            {opt.desc && <span className="block text-[10px] opacity-70">{opt.desc}</span>}
+            {opt.desc && <span className="block text-xs opacity-70">{opt.desc}</span>}
           </button>
         ))}
       </div>
@@ -49,7 +49,7 @@ export default function SubImageSettings({
             onSubImageSelected={onSubImageSelected}
             currentFile={subFile}
           />
-          <p className="text-[10px] text-gray-500">透過済みPNG推奨。背景ありの場合は透過処理が必要です。</p>
+          <p className="text-xs text-gray-500">透過済みPNG推奨。背景ありの場合は透過処理が必要です。</p>
           {(config.subImage.mode === "overlay-br" || config.subImage.mode === "overlay-bl") && (
             <div className="space-y-2">
               <div>

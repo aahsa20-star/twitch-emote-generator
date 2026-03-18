@@ -143,13 +143,13 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
       {/* Enlarged modal (PC only) */}
       {modalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setModalOpen(false)}>
-          <div className="relative checkerboard rounded-lg p-6" onClick={(e) => e.stopPropagation()}>
+          <div className="relative checkerboard rounded-lg p-6 max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <img
               src={displayUrl}
               alt="enlarged preview"
               width={variant.size * 2}
               height={variant.size * 2}
-              style={{ imageRendering: "auto", display: "block" }}
+              style={{ imageRendering: "auto", display: "block", maxWidth: "80vw", maxHeight: "80vh", objectFit: "contain" }}
             />
             <button
               onClick={handleDownload}

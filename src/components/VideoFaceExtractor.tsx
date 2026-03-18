@@ -119,7 +119,7 @@ export default function VideoFaceExtractor({ onFaceSelected }: VideoFaceExtracto
           <>
             <button
               onClick={() => inputRef.current?.click()}
-              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 rounded bg-purple-600/80 hover:bg-purple-600 text-white text-xs transition-colors"
+              className="w-full flex items-center justify-center gap-2 px-3 py-2.5 min-h-[44px] md:min-h-0 rounded bg-purple-600/80 hover:bg-purple-600 text-white text-xs transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
@@ -162,7 +162,7 @@ export default function VideoFaceExtractor({ onFaceSelected }: VideoFaceExtracto
         {stage === "selecting" && candidates.length > 0 && (
           <div className="space-y-3">
             <p className="text-xs text-gray-400">{candidates.length}件の顔を検出 - 使いたい画像を選択</p>
-            <div className="grid grid-cols-4 gap-1.5">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-1.5">
               {candidates.map((c, i) => (
                 <button
                   key={i}
@@ -192,7 +192,7 @@ export default function VideoFaceExtractor({ onFaceSelected }: VideoFaceExtracto
             <button
               onClick={handleConfirm}
               disabled={selectedIdx === null}
-              className="w-full px-3 py-2 rounded bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs transition-colors"
+              className="w-full px-3 py-2 min-h-[44px] md:min-h-0 rounded bg-purple-600 hover:bg-purple-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-xs transition-colors"
             >
               この画像でエモートを作る
             </button>

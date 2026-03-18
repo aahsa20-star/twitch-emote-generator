@@ -42,13 +42,13 @@ export default function Footer() {
           />
           <span className="text-sm text-gray-400">Made by Aki</span>
           <div className="flex items-center gap-3">
-            <a href="https://x.com/akiissamurai" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
+            <a href="https://x.com/akiissamurai" target="_blank" rel="noopener noreferrer" aria-label="Xでフォロー" className="text-gray-500 hover:text-white transition-colors">
               <Twitter size={16} />
             </a>
-            <a href="https://youtube.com/channel/UCLZJRStlPpH7fAjZjbjP4sQ" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
+            <a href="https://youtube.com/channel/UCLZJRStlPpH7fAjZjbjP4sQ" target="_blank" rel="noopener noreferrer" aria-label="YouTubeチャンネル" className="text-gray-500 hover:text-white transition-colors">
               <Youtube size={16} />
             </a>
-            <a href="https://discord.gg/CheMXWdj" target="_blank" rel="noopener noreferrer" className="text-gray-500 hover:text-white transition-colors">
+            <a href="https://discord.gg/CheMXWdj" target="_blank" rel="noopener noreferrer" aria-label="Discordサーバー" className="text-gray-500 hover:text-white transition-colors">
               <MessageCircle size={16} />
             </a>
           </div>

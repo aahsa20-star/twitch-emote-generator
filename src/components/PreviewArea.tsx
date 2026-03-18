@@ -163,7 +163,7 @@ function SampleShowcase() {
         <div className="w-full space-y-3">
           <div className="flex items-center gap-3">
             <div className="flex-1 border-t border-gray-700" />
-            <span className="text-[10px] text-gray-500 uppercase tracking-widest">Sample</span>
+            <span className="text-xs text-gray-500 uppercase tracking-widest">Sample</span>
             <div className="flex-1 border-t border-gray-700" />
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full">
@@ -181,7 +181,7 @@ function SampleShowcase() {
                     })}
                   </div>
                 )}
-                <span className="text-[10px] text-gray-400">{sample.label}</span>
+                <span className="text-xs text-gray-400">{sample.label}</span>
               </div>
             ))}
           </div>
@@ -239,10 +239,10 @@ function BadgePreviewSection({
                 style={{ width: size, height: size }}
               />
             </div>
-            <span className="text-[10px] text-gray-500">{size}px</span>
+            <span className="text-xs text-gray-500">{size}px</span>
             <button
               onClick={() => handleDownload(size, i)}
-              className="text-[10px] text-purple-400 hover:text-purple-300 transition-colors"
+              className="text-xs text-purple-400 hover:text-purple-300 transition-colors"
             >
               DL
             </button>

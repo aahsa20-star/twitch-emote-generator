@@ -287,7 +287,7 @@ export default function DragPositionCanvas({
         onTouchCancel={handlePointerUp}
       />
       {hasText && hasSubOverlay && (
-        <p className="text-[10px] text-gray-500">
+        <p className="text-xs text-gray-500">
           <span className="text-purple-400">■</span> テキスト
           <span className="text-green-400">■</span> サブ画像
         </p>

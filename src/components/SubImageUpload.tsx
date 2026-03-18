@@ -58,7 +58,7 @@ export default function SubImageUpload({ onSubImageSelected, currentFile }: SubI
             <p className="text-xs text-gray-400 truncate">{currentFile.name}</p>
             <button
               onClick={() => inputRef.current?.click()}
-              className="mt-1 text-xs px-2 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+              className="mt-1 text-xs px-2 py-1 min-h-[44px] md:min-h-0 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
             >
               変更
             </button>
@@ -67,7 +67,7 @@ export default function SubImageUpload({ onSubImageSelected, currentFile }: SubI
       ) : (
         <button
           onClick={() => inputRef.current?.click()}
-          className="w-full py-2 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+          className="w-full py-2 min-h-[44px] md:min-h-0 text-sm text-gray-400 hover:text-gray-200 transition-colors"
         >
           サブ画像をアップロード
         </button>

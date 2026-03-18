@@ -166,10 +166,10 @@ export default function EmoteGenerator() {
         {/* Subscriber auth */}
         {isSubscriber ? (
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-emerald-400/80">サブスク限定 解放済み — 5つの限定機能が利用可能</span>
+            <span className="text-xs text-emerald-400/80">サブスク限定 解放済み — 5つの限定機能が利用可能</span>
             <button
               onClick={handleLogout}
-              className="text-[11px] text-gray-500 hover:text-gray-300 transition-colors"
+              className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
             >
               解除
             </button>
@@ -178,23 +178,23 @@ export default function EmoteGenerator() {
           <div className="bg-gray-800/60 rounded-lg p-3 space-y-2.5">
             <label className="text-xs text-gray-300 font-medium block">サブスク限定機能</label>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-              <span className="text-[11px] text-gray-400 flex items-center gap-1.5">
+              <span className="text-xs text-gray-400 flex items-center gap-1.5">
                 <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
                 限定アニメーション 45種
               </span>
-              <span className="text-[11px] text-gray-400 flex items-center gap-1.5">
+              <span className="text-xs text-gray-400 flex items-center gap-1.5">
                 <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
                 エモートフレーム 6種
               </span>
-              <span className="text-[11px] text-gray-400 flex items-center gap-1.5">
+              <span className="text-xs text-gray-400 flex items-center gap-1.5">
                 <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
                 2画像合成
               </span>
-              <span className="text-[11px] text-gray-400 flex items-center gap-1.5">
+              <span className="text-xs text-gray-400 flex items-center gap-1.5">
                 <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
                 カスタムフチ色
               </span>
-              <span className="text-[11px] text-gray-400 flex items-center gap-1.5">
+              <span className="text-xs text-gray-400 flex items-center gap-1.5">
                 <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
                 サブスクバッジ作成
               </span>
@@ -203,7 +203,7 @@ export default function EmoteGenerator() {
               href="https://discord.gg/CheMXWdj"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[11px] text-purple-400 hover:underline block"
+              className="text-xs text-purple-400 hover:underline block"
             >
               合言葉はダツ皿アキのDiscordサーバーのサブスク限定チャットで配布中
             </a>
@@ -270,7 +270,7 @@ export default function EmoteGenerator() {
                   }`}
                 >
                   <span className="block font-medium">{label}</span>
-                  <span className="block text-[10px] opacity-70">{desc}</span>
+                  <span className="block text-xs opacity-70">{desc}</span>
                 </button>
               ))}
             </div>
@@ -338,7 +338,7 @@ export default function EmoteGenerator() {
             <button
               key={mode}
               onClick={() => setExportMode(mode)}
-              className={`flex-1 py-1.5 px-1 rounded-md text-[11px] font-medium transition-colors ${
+              className={`flex-1 py-1.5 px-1 rounded-md text-xs font-medium transition-colors ${
                 exportMode === mode
                   ? "bg-purple-600 text-white"
                   : "text-gray-400 hover:text-gray-200"

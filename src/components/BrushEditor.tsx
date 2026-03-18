@@ -314,7 +314,7 @@ export default function BrushEditor({
             }`}
           >
             <span className="block font-medium">{label}</span>
-            <span className="block text-[10px] opacity-70">{desc}</span>
+            <span className="block text-xs opacity-70">{desc}</span>
           </button>
         ))}
       </div>
