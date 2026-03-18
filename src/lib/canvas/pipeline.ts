@@ -200,8 +200,12 @@ export function processEmoteWithHiRes(
       ? { offsetX: config.contentOffsetX, offsetY: config.contentOffsetY, scale: config.contentScale }
       : undefined;
 
+  // Reduce padding for small output sizes (same logic as processEmote)
+  const basePaddingHiRes = config.padding ?? 0.05;
+  const effectivePaddingHiRes = size <= 32 ? basePaddingHiRes * 0.4 : size <= 56 ? basePaddingHiRes * 0.7 : basePaddingHiRes;
+
   // 1-5: Same pipeline as processEmote, but at GIF_HI_RES for animation source
-  let hiResCanvas = centerAndResize(source, GIF_HI_RES, config.padding ?? 0.05, adjustment);
+  let hiResCanvas = centerAndResize(source, GIF_HI_RES, effectivePaddingHiRes, adjustment);
 
   if (config.subImage.mode !== "none" && subCanvas) {
     const prev = hiResCanvas;
