@@ -56,6 +56,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
 
   const renderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stageDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const variantsRef = useRef<EmoteVariant[]>([]);
   const bgRemovalCancelledRef = useRef(false);
 
   // Load image as canvas (shared helper)
@@ -86,6 +87,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
 
     async function process() {
       setVariants([]);
+      variantsRef.current = [];
 
       // Store original blob for BrushEditor restore brush
       const origBlob = new Blob([await sourceFile!.arrayBuffer()], {
@@ -150,11 +152,14 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
       let cancelled = false;
 
       async function render() {
-        // Delay showing "processing" spinner by 300ms to avoid layout shift on quick re-renders
+        // Only show "processing" spinner on initial render (no existing variants).
+        // Re-renders from config changes (drag, slider) keep existing preview visible to prevent layout shift.
         if (stageDelayRef.current) clearTimeout(stageDelayRef.current);
-        stageDelayRef.current = setTimeout(() => {
-          if (!cancelled) setStage("processing");
-        }, 300);
+        if (variantsRef.current.length === 0) {
+          stageDelayRef.current = setTimeout(() => {
+            if (!cancelled) setStage("processing");
+          }, 300);
+        }
 
         const newVariants: EmoteVariant[] = [];
 
@@ -212,6 +217,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
           if (!cancelled) {
             if (stageDelayRef.current) clearTimeout(stageDelayRef.current);
             setVariants(newVariants);
+            variantsRef.current = newVariants;
             setStage("ready");
           }
         } catch (err) {
