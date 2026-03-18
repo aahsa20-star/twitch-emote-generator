@@ -128,8 +128,12 @@ export function processEmote(
       ? { offsetX: config.contentOffsetX, offsetY: config.contentOffsetY, scale: config.contentScale }
       : undefined;
 
+  // Reduce padding for small output sizes to minimize whitespace difference
+  const basePadding = config.padding ?? 0.05;
+  const effectivePadding = size <= 32 ? basePadding * 0.4 : size <= 56 ? basePadding * 0.7 : basePadding;
+
   // 1. Center and resize at high resolution
-  let canvas = centerAndResize(source, HI_RES, config.padding ?? 0.05, adjustment);
+  let canvas = centerAndResize(source, HI_RES, effectivePadding, adjustment);
 
   // 2. Composite with sub image (if applicable)
   if (config.subImage.mode !== "none" && subCanvas) {
@@ -138,10 +142,10 @@ export function processEmote(
     if (canvas !== prev) releaseCanvas(prev);
   }
 
-  // 3. Apply border at high resolution
+  // 3. Apply border at high resolution (pass outputSize for proportional scaling)
   {
     const prev = canvas;
-    canvas = applyBorder(canvas, config.outline.style, config.outline.width, config.outline.color);
+    canvas = applyBorder(canvas, config.outline.style, config.outline.width, config.outline.color, size);
     if (canvas !== prev) releaseCanvas(prev);
   }
 
@@ -207,7 +211,7 @@ export function processEmoteWithHiRes(
 
   {
     const prev = hiResCanvas;
-    hiResCanvas = applyBorder(hiResCanvas, config.outline.style, config.outline.width, config.outline.color);
+    hiResCanvas = applyBorder(hiResCanvas, config.outline.style, config.outline.width, config.outline.color, size);
     if (hiResCanvas !== prev) releaseCanvas(prev);
   }
 

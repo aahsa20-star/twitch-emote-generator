@@ -8,11 +8,16 @@ export function applyBorder(
   canvas: HTMLCanvasElement,
   style: BorderStyle,
   userBorderWidth?: number,
-  customBorderColor?: string
+  customBorderColor?: string,
+  outputSize?: number
 ): HTMLCanvasElement {
   if (style === "none") return canvas;
 
   const size = canvas.width;
+  // Scale factor: ratio of output size to canvas size.
+  // When rendering at HI_RES (224px) for a 28px output, scaleFactor = 28/224 = 0.125.
+  // This ensures border width is proportional to the final output, not the intermediate canvas.
+  const scaleFactor = outputSize ? outputSize / size : 1;
   const result = document.createElement("canvas");
   result.width = size;
   result.height = size;
@@ -20,20 +25,23 @@ export function applyBorder(
 
   if (style === "shadow") {
     const shadowScale = userBorderWidth != null ? (userBorderWidth / 4) : 1;
+    const shadowFactor = Math.max(0.5, Math.sqrt(scaleFactor));
     ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
-    ctx.shadowBlur = Math.max(2, size * 0.03 * shadowScale);
-    ctx.shadowOffsetX = Math.max(1, size * 0.015 * shadowScale);
-    ctx.shadowOffsetY = Math.max(1, size * 0.015 * shadowScale);
+    ctx.shadowBlur = Math.max(2, size * 0.03 * shadowScale * shadowFactor);
+    ctx.shadowOffsetX = Math.max(1, size * 0.015 * shadowScale * shadowFactor);
+    ctx.shadowOffsetY = Math.max(1, size * 0.015 * shadowScale * shadowFactor);
     ctx.drawImage(canvas, 0, 0);
     return result;
   }
 
   // Shadow-based smooth border: draw colored silhouette with shadowBlur for anti-aliased edges
   const borderColor = style === "custom" ? (customBorderColor || "#ffffff") : style === "white" ? "#ffffff" : "#000000";
-  // Scale borderWidth: user value is in "display px" at 112px, scale to HI_RES
+  // Scale borderWidth: user value is in "display px" at 112px, scale to canvas size,
+  // then adjust by sqrt(scaleFactor) so small outputs don't get disproportionately thick borders.
+  const borderScaleFactor = Math.max(0.5, Math.sqrt(scaleFactor));
   const borderWidth = userBorderWidth != null
-    ? Math.max(1, Math.round(userBorderWidth * (size / 112)))
-    : Math.max(1, Math.round(size * 0.027));
+    ? Math.max(1, Math.round(userBorderWidth * (size / 112) * borderScaleFactor))
+    : Math.max(1, Math.round(size * 0.027 * borderScaleFactor));
 
   // Create a solid-color silhouette
   const silhouette = document.createElement("canvas");
