@@ -149,6 +149,12 @@ export default function EmoteGenerator() {
     } as Partial<EmoteConfig>);
   }, [config.contentOffsetX, config.contentOffsetY, config.contentScale, updateConfig]);
 
+  const handleResetPosition = useCallback(() => {
+    updateConfig({ contentOffsetX: 0, contentOffsetY: 0, contentScale: 1.0 } as Partial<EmoteConfig>);
+  }, [updateConfig]);
+
+  const hasPositionAdjustment = config.contentOffsetX !== 0 || config.contentOffsetY !== 0 || config.contentScale !== 1.0;
+
   return (
     <div className="flex-1 grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4 md:gap-6 p-4 md:p-6 max-w-6xl mx-auto w-full">
       {/* Upload + toggle + progress (top-left on desktop, 1st on mobile) */}
@@ -366,13 +372,21 @@ export default function EmoteGenerator() {
 
         {/* Retry / skip button above preview */}
         {bgRemovedCanvas && stage === "ready" && (
-          <div className="relative mb-3">
+          <div className="relative mb-3 flex items-center gap-2 flex-wrap">
             <button
               onClick={() => setShowRetryMenu(!showRetryMenu)}
               className="text-xs px-3 py-1.5 rounded bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors border border-gray-700"
             >
               ↩ 透過を調整する
             </button>
+            {hasPositionAdjustment && (
+              <button
+                onClick={handleResetPosition}
+                className="text-xs px-3 py-1.5 rounded bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors border border-gray-700"
+              >
+                ↺ 位置をリセット
+              </button>
+            )}
             {showRetryMenu && (
               <>
                 <div
