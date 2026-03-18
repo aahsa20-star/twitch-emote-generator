@@ -171,6 +171,9 @@
 - IPアドレス非取得の匿名統計のみ（GDPR準拠、Cookie不使用）
 - フッターにアクセス解析免責文言を表示
 
+### コード品質
+- canvasPipeline.ts分割（812行→4ファイル: canvas/types.ts, canvas/backgroundRemoval.ts, canvas/drawing.ts, canvas/pipeline.ts + barrel re-export）
+
 ### 品質最適化
 - PNG: 224px高解像度中間キャンバス → multi-step downscale（6段パイプライン: 中心配置→合成→フチ取り→フレーム→テキスト→縮小）
 - GIF: 256px高解像度フレーム生成 → フレーム毎にmulti-step downscale → 出力サイズでGIFエンコード（アニメーション輪郭のシャープさ向上）
