@@ -48,6 +48,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
   const [stage, setStage] = useState<ProcessingStage>("idle");
   const [progress, setProgress] = useState(0);
   const [variants, setVariants] = useState<EmoteVariant[]>([]);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const renderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stageDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -118,6 +119,8 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
       } catch (err) {
         console.error("Background removal failed:", err);
         if (!cancelled && !bgRemovalCancelledRef.current) {
+          setErrorMessage("背景透過に失敗しました。別の画像をお試しください");
+          setTimeout(() => setErrorMessage(null), 5000);
           setStage("idle");
         }
       }
@@ -310,6 +313,8 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
       await exportAsZip(variants, zipName);
     } catch (err) {
       console.error("Export failed:", err);
+      setErrorMessage("書き出しに失敗しました。もう一度お試しください");
+      setTimeout(() => setErrorMessage(null), 5000);
     }
     setStage("ready");
   }, [variants, exportMode]);
@@ -350,5 +355,6 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     handleBrushConfirm,
     handleBrushSkip,
     fileToCanvas,
+    errorMessage,
   };
 }

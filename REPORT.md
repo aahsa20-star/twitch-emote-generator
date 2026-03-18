@@ -147,6 +147,8 @@
 - フッター作者情報（アイコン画像 + Made by Aki + X/YouTube/Discordリンク横一列、next/image + lucide-react使用）
 - フッター開発ストーリー（視聴者の一言きっかけ・開発経験ゼロ・AIと1週間、イタリック強調）
 - UI品質一括改善（DownloadButton whitespace-nowrap、SubImageUpload/VideoFaceExtractor min-h-44px、顔選択grid-cols-2レスポンシブ、Footer aria-label、text-[10px]/[11px]→text-xs統一、PreviewCardモーダルmax-w制約）
+- ZIP連打防止（exporting中はdisabled + opacity-60で視覚的にも無効化）
+- エラートースト表示（背景透過失敗・ZIP書き出し失敗時にユーザー向けメッセージ表示、5秒で自動消去）
 - ヘッダー開発ストーリー短縮版（1行、初見ユーザー向け離脱防止）
 - シェアモーダル文言のユーモア化（サブテキスト畳みかけ・シェアボタン「制作者は泣いて喜びます」・スキップ「罪悪感はあるが静かに立ち去る」）
 - 左パネル順序最適化（動画顔抽出を認証UIの上に移動、全ユーザー向け機能を優先表示）

@@ -53,6 +53,7 @@ export default function EmoteGenerator() {
     handleBrushConfirm,
     handleBrushSkip,
     fileToCanvas,
+    errorMessage,
   } = useEmoteProcessor(exportMode, subCanvas);
 
   // Convert subFile to subCanvas
@@ -232,6 +233,12 @@ export default function EmoteGenerator() {
             authToast.includes("解放") ? "bg-purple-600/30 text-purple-300" : "bg-red-600/30 text-red-300"
           }`}>
             {authToast}
+          </div>
+        )}
+        {/* Error toast */}
+        {errorMessage && (
+          <div className="text-xs px-3 py-2 rounded-lg text-center bg-red-600/30 text-red-300">
+            {errorMessage}
           </div>
         )}
 

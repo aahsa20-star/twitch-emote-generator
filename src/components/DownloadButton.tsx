@@ -97,12 +97,12 @@ export default function DownloadButton({
       {/* ZIP bulk download */}
       <button
         onClick={async () => { await onExport(); onDownloadComplete?.(); }}
-        disabled={!isReady && !isExporting}
+        disabled={!isReady}
         className={`w-full py-2 px-4 min-h-[44px] md:min-h-0 rounded-lg text-sm transition-colors ${
           isReady
             ? "bg-gray-700 hover:bg-gray-600 text-gray-200 cursor-pointer border border-gray-600"
             : isExporting
-            ? "bg-purple-800 text-purple-300 cursor-wait"
+            ? "bg-purple-800 text-purple-300 cursor-wait opacity-60"
             : "bg-gray-700 text-gray-500 cursor-not-allowed"
         }`}
       >
