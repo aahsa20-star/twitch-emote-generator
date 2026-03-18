@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { EmoteVariant, ProcessingStage } from "@/types/emote";
 
 interface FloatingMiniPreviewProps {
@@ -32,6 +33,18 @@ export default function FloatingMiniPreview({
 
   const largest = variants.reduce((a, b) => (a.size > b.size ? a : b));
 
+  const [gifUrl, setGifUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (largest.animatedBlob) {
+      const url = URL.createObjectURL(largest.animatedBlob);
+      setGifUrl(url);
+      return () => URL.revokeObjectURL(url);
+    }
+    setGifUrl(null);
+  }, [largest.animatedBlob]);
+
+  const displayUrl = gifUrl || largest.staticDataUrl;
+
   const handleTap = () => {
     const el = document.getElementById("preview-area");
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -47,7 +60,7 @@ export default function FloatingMiniPreview({
       }}
     >
       <img
-        src={largest.staticDataUrl}
+        src={displayUrl}
         alt="preview"
         className="w-full h-full object-contain"
       />
