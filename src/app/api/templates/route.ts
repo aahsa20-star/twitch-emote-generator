@@ -78,6 +78,7 @@ export async function POST(req: NextRequest) {
     .insert({
       user_id: session.user.id,
       user_name: session.user.name ?? "Unknown",
+      user_image: session.user.image ?? null,
       title: title.trim(),
       tags,
       config,
