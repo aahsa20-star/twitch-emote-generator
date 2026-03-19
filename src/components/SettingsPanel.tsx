@@ -39,20 +39,23 @@ export default function SettingsPanel({
         <div className="grid grid-cols-2 gap-2">
           {BORDER_OPTIONS.map((opt) => {
             const locked = opt.subscriberOnly && !isSubscriber;
+            const isActiveFromTemplate = locked && config.outline.style === opt.value;
             return (
               <button
                 key={opt.value}
                 onClick={() => !locked && onConfigChange({ outline: { style: opt.value } })}
                 className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
-                  locked
+                  isActiveFromTemplate
+                    ? "bg-purple-900 text-purple-300 border border-purple-500 cursor-not-allowed"
+                    : locked
                     ? "bg-gray-800 text-gray-600 cursor-not-allowed"
                     : config.outline.style === opt.value
                     ? "bg-purple-600 text-white"
                     : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                 }`}
-                title={locked ? "合言葉を入力すると解放されます" : undefined}
+                title={isActiveFromTemplate ? "テンプレートから適用中。変更するには合言葉が必要です" : locked ? "合言葉を入力すると解放されます" : undefined}
               >
-                {opt.label}
+                {isActiveFromTemplate ? `🔒 ${opt.label}` : opt.label}
               </button>
             );
           })}
@@ -79,6 +82,15 @@ export default function SettingsPanel({
               value={config.outline.color}
               onChange={(c) => onConfigChange({ outline: { color: c } })}
             />
+          </div>
+        )}
+        {config.outline.style === "custom" && !isSubscriber && (
+          <div className="mt-2 flex items-center gap-2">
+            <span
+              className="inline-block w-6 h-6 rounded border border-gray-600"
+              style={{ backgroundColor: config.outline.color }}
+            />
+            <span className="text-xs text-gray-400">テンプレートの色を使用中</span>
           </div>
         )}
       </div>
@@ -116,6 +128,14 @@ export default function SettingsPanel({
                 {opt.label}
               </button>
             ))}
+          </div>
+        </div>
+      )}
+      {!isSubscriber && config.frame.type !== "none" && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-300 mb-2">フレーム</h3>
+          <div className="px-3 py-2 rounded text-sm bg-purple-900 text-purple-300 border border-purple-500">
+            🔒 {FRAME_OPTIONS.find((o) => o.value === config.frame.type)?.label ?? config.frame.type} — テンプレートから適用中
           </div>
         </div>
       )}

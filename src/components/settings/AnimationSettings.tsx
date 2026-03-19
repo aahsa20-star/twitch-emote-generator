@@ -46,20 +46,23 @@ export default function AnimationSettings({
           <div className="grid grid-cols-2 gap-2">
             {ANIMATION_OPTIONS.filter((o) => o.subscriberOnly).map((opt) => {
               const locked = !isSubscriber;
+              const isActiveFromTemplate = locked && config.animation.type === opt.value;
               return (
                 <button
                   key={opt.value}
                   onClick={() => !locked && onConfigChange({ animation: { type: opt.value } })}
                   className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors truncate ${
-                    locked
+                    isActiveFromTemplate
+                      ? "bg-purple-900 text-purple-300 border border-purple-500 cursor-not-allowed"
+                      : locked
                       ? "bg-gray-800 text-gray-600 cursor-not-allowed"
                       : config.animation.type === opt.value
                       ? "bg-purple-600 text-white"
                       : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                   }`}
-                  title={locked ? "合言葉を入力すると解放されます" : undefined}
+                  title={isActiveFromTemplate ? "テンプレートから適用中。変更するには合言葉が必要です" : locked ? "合言葉を入力すると解放されます" : undefined}
                 >
-                  {opt.label}
+                  {isActiveFromTemplate ? `🔒 ${opt.label}` : opt.label}
                 </button>
               );
             })}
