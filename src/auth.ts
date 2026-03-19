@@ -8,9 +8,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     jwt({ token, account, profile }) {
       if (account && profile) {
         token.id = profile.sub;
-        token.login = (profile as Record<string, unknown>).login as string | undefined ?? profile.preferred_username;
-        token.name = profile.preferred_username ?? profile.name;
-        token.picture = (profile as Record<string, unknown>).profile_image_url as string | undefined;
+        // Twitch OIDC uses preferred_username for login ID, picture for avatar
+        token.login = profile.preferred_username;
+        token.name = profile.preferred_username;
+        token.picture = profile.picture;
       }
       return token;
     },
