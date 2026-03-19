@@ -9,11 +9,12 @@ import LoginPromptModal from "./LoginPromptModal";
 
 interface GalleryProps {
   onApplyTemplate: (config: EmoteConfig) => void;
+  onGoToCreator: () => void;
 }
 
 type SortMode = "new" | "popular";
 
-export default function Gallery({ onApplyTemplate }: GalleryProps) {
+export default function Gallery({ onApplyTemplate, onGoToCreator }: GalleryProps) {
   const { data: session } = useSession();
   const [templates, setTemplates] = useState<Template[]>([]);
   const [sort, setSort] = useState<SortMode>("new");
@@ -148,9 +149,51 @@ export default function Gallery({ onApplyTemplate }: GalleryProps) {
 
       {/* Template grid */}
       {templates.length === 0 && !loading ? (
-        <div className="text-center py-16">
-          <p className="text-gray-500 text-sm">テンプレートがまだありません</p>
-          <p className="text-gray-600 text-xs mt-1">エモートを作成して最初のテンプレートを投稿しましょう！</p>
+        <div className="py-8 space-y-8">
+          {/* What is a template? */}
+          <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-6 space-y-4">
+            <h2 className="text-white font-bold text-lg">テンプレートとは？</h2>
+            <div className="space-y-2.5">
+              <p className="text-gray-300 text-sm">
+                あなたのエモート設定を共有できる機能です。
+              </p>
+              <p className="text-gray-400 text-sm">
+                画像は共有されません。フチ・アニメーション・テキストなどの設定値だけが共有されます。
+              </p>
+              <p className="text-gray-400 text-sm">
+                他のユーザーがあなたの設定を自分の画像にワンクリックで適用できます。
+              </p>
+            </div>
+          </div>
+
+          {/* How to post */}
+          <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-6">
+            <h3 className="text-white font-bold text-sm mb-4">投稿方法</h3>
+            <div className="space-y-3">
+              {[
+                { step: "1", text: "エモートを作る" },
+                { step: "2", text: "気に入ったら「テンプレートとして投稿」ボタンをクリック" },
+                { step: "3", text: "タイトルとタグをつけて投稿" },
+              ].map(({ step, text }) => (
+                <div key={step} className="flex items-start gap-3">
+                  <span className="flex-shrink-0 w-6 h-6 rounded-full bg-purple-600 text-white text-xs font-bold flex items-center justify-center">
+                    {step}
+                  </span>
+                  <p className="text-gray-300 text-sm pt-0.5">{text}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* CTA */}
+          <div className="text-center">
+            <button
+              onClick={onGoToCreator}
+              className="px-6 py-3 rounded-lg bg-purple-600 text-white text-sm font-medium hover:bg-purple-500 transition-colors"
+            >
+              エモートを作ってテンプレートを投稿する
+            </button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

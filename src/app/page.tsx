@@ -104,7 +104,7 @@ export default function Home() {
           onTemplateApplied={handleTemplateApplied}
         />
       ) : (
-        <Gallery onApplyTemplate={handleApplyTemplate} />
+        <Gallery onApplyTemplate={handleApplyTemplate} onGoToCreator={() => setActiveTab("creator")} />
       )}
 
       <Footer />
