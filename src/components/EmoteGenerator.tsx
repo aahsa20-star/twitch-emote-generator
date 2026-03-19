@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import { useSession } from "next-auth/react";
 import { useEmoteProcessor } from "@/hooks/useEmoteProcessor";
 import UploadPanel from "./UploadPanel";
 import ImageAdjustEditor from "./ImageAdjustEditor";
@@ -13,6 +14,8 @@ import ShareButton from "./ShareButton";
 import ShareAfterDownloadModal from "./ShareAfterDownloadModal";
 import FloatingMiniPreview from "./FloatingMiniPreview";
 import VideoFaceExtractor from "./VideoFaceExtractor";
+import LoginPromptModal from "./LoginPromptModal";
+import PostTemplateModal from "./PostTemplateModal";
 import { EmoteConfig, ExportMode, BgRemovalQuality, DEFAULT_BADGE_SETTINGS } from "@/types/emote";
 
 const SUBSCRIBER_KEY = "emote-subscriber";
@@ -26,7 +29,13 @@ function SpinnerIcon() {
   );
 }
 
-export default function EmoteGenerator() {
+interface EmoteGeneratorProps {
+  templateOverride?: EmoteConfig | null;
+  onTemplateApplied?: () => void;
+}
+
+export default function EmoteGenerator({ templateOverride, onTemplateApplied }: EmoteGeneratorProps) {
+  const { data: session } = useSession();
   const [exportMode, setExportMode] = useState<ExportMode>("twitch");
   const [subFile, setSubFile] = useState<File | null>(null);
   const [subCanvas, setSubCanvas] = useState<HTMLCanvasElement | null>(null);
@@ -74,6 +83,34 @@ export default function EmoteGenerator() {
   const [passphrase, setPassphrase] = useState("");
   const [authToast, setAuthToast] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
+  const [showPostModal, setShowPostModal] = useState(false);
+  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
+  const [templateToast, setTemplateToast] = useState<string | null>(null);
+
+  // Apply template override from gallery
+  useEffect(() => {
+    if (templateOverride) {
+      updateConfig(templateOverride);
+      setTemplateToast("テンプレートを適用しました");
+      setTimeout(() => setTemplateToast(null), 3000);
+      onTemplateApplied?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateOverride]);
+
+  const handlePostTemplate = () => {
+    if (!session?.user) {
+      setShowLoginPrompt(true);
+      return;
+    }
+    setShowPostModal(true);
+  };
+
+  const handlePostSuccess = () => {
+    setShowPostModal(false);
+    setTemplateToast("テンプレートを投稿しました");
+    setTimeout(() => setTemplateToast(null), 3000);
+  };
 
   const handleDownloadComplete = () => setShowShareModal(true);
 
@@ -268,6 +305,12 @@ export default function EmoteGenerator() {
         {adjustToast && (
           <div className="text-xs px-3 py-2 rounded-lg text-center bg-yellow-600/30 text-yellow-300">
             {adjustToast}
+          </div>
+        )}
+        {/* Template toast */}
+        {templateToast && (
+          <div className="text-xs px-3 py-2 rounded-lg text-center bg-purple-600/30 text-purple-300 animate-fade-in">
+            {templateToast}
           </div>
         )}
 
@@ -467,11 +510,19 @@ export default function EmoteGenerator() {
           bgRemovedCanvas={bgRemovedCanvas}
           subCanvas={subCanvas}
         />
-        {/* DL + Share inside sticky container (desktop only) */}
+        {/* DL + Share + Post Template inside sticky container (desktop only) */}
         {sourceFile && (
           <div className="hidden md:flex flex-col gap-3">
             <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} badgeSettings={config.badge} bgRemovedCanvas={bgRemovedCanvas} />
             <ShareButton imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
+            {stage === "ready" && (
+              <button
+                onClick={handlePostTemplate}
+                className="w-full px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-gray-200 transition-colors border border-gray-700 hover:border-gray-500"
+              >
+                テンプレートとして投稿
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -486,11 +537,19 @@ export default function EmoteGenerator() {
         </div>
       )}
 
-      {/* DL + Share (mobile only: order-2) */}
+      {/* DL + Share + Post Template (mobile only: order-2) */}
       {sourceFile && (
         <div className="space-y-3 order-2 md:hidden self-start">
           <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} badgeSettings={config.badge} bgRemovedCanvas={bgRemovedCanvas} />
           <ShareButton imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
+          {stage === "ready" && (
+            <button
+              onClick={handlePostTemplate}
+              className="w-full px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-gray-200 transition-colors border border-gray-700 hover:border-gray-500"
+            >
+              テンプレートとして投稿
+            </button>
+          )}
         </div>
       )}
 
@@ -500,6 +559,20 @@ export default function EmoteGenerator() {
       {/* Share after download modal */}
       {showShareModal && (
         <ShareAfterDownloadModal onClose={() => setShowShareModal(false)} imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
+      )}
+
+      {/* Post template modal */}
+      {showPostModal && (
+        <PostTemplateModal
+          config={config}
+          onClose={() => setShowPostModal(false)}
+          onSuccess={handlePostSuccess}
+        />
+      )}
+
+      {/* Login prompt modal */}
+      {showLoginPrompt && (
+        <LoginPromptModal onClose={() => setShowLoginPrompt(false)} />
       )}
     </div>
   );

@@ -288,3 +288,22 @@ export const ANIMATION_SPEED_OPTIONS: { value: AnimationSpeed; label: string }[]
   { value: "normal", label: "普通" },
   { value: "fast", label: "速い" },
 ];
+
+// --- Template Gallery types ---
+
+export const TEMPLATE_TAGS = [
+  "ゲーミング", "かわいい", "シンプル", "面白い", "クール", "その他",
+] as const;
+export type TemplateTag = (typeof TEMPLATE_TAGS)[number];
+
+export interface Template {
+  id: string;
+  user_id: string;
+  user_name: string;
+  title: string;
+  tags: string[];
+  config: EmoteConfig;
+  likes_count: number;
+  created_at: string;
+  liked_by_me?: boolean;
+}

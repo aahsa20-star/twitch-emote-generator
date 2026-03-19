@@ -12,6 +12,7 @@ import {
   Boogaloo,
   Permanent_Marker,
 } from "next/font/google";
+import AuthProvider from "@/components/providers/AuthProvider";
 import "./globals.css";
 
 const inter = Inter({
@@ -120,7 +121,9 @@ export default function RootLayout({
   return (
     <html lang="ja" className="dark">
       <body className={`${fontVars} font-sans antialiased`}>
+        <AuthProvider>
         {children}
+        </AuthProvider>
         <Script
           defer
           src="https://cloud.umami.is/script.js"
