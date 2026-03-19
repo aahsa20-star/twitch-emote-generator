@@ -307,9 +307,9 @@ export default function EmoteGenerator({ templateOverride, onTemplateApplied }: 
             {adjustToast}
           </div>
         )}
-        {/* Template toast */}
+        {/* Template toast (fixed top for mobile visibility) */}
         {templateToast && (
-          <div className="text-xs px-3 py-2 rounded-lg text-center bg-purple-600/30 text-purple-300 animate-fade-in">
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 text-xs px-4 py-2.5 rounded-lg text-center bg-purple-600 text-white shadow-lg animate-fade-in">
             {templateToast}
           </div>
         )}
