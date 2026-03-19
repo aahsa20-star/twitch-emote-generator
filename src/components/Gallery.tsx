@@ -315,7 +315,7 @@ function TemplateCard({ template, onApply, onLike, onDelete, currentUserId }: Te
       {/* Header */}
       <div>
         <h3 className="text-sm font-bold text-gray-100 truncate">{template.title}</h3>
-        <p className="text-xs text-gray-500 mt-0.5">by {template.user_name}</p>
+        <p className="text-xs text-gray-500 mt-0.5">by <a href={`https://twitch.tv/${template.user_name}`} target="_blank" rel="noopener noreferrer" className="hover:text-purple-400 transition-colors">{template.user_name}</a></p>
       </div>
 
       {/* Tags */}
