@@ -5,6 +5,7 @@ import { useState } from "react";
 interface ShareAfterDownloadModalProps {
   onClose: () => void;
   imageDataUrl: string | null;
+  templateCredit?: { userName: string; userLogin?: string | null } | null;
 }
 
 const STAGES = [
@@ -34,7 +35,7 @@ const STAGES = [
   },
 ];
 
-export default function ShareAfterDownloadModal({ onClose, imageDataUrl }: ShareAfterDownloadModalProps) {
+export default function ShareAfterDownloadModal({ onClose, imageDataUrl, templateCredit }: ShareAfterDownloadModalProps) {
   const [toast, setToast] = useState(false);
   const [stage, setStage] = useState(0);
 
@@ -42,8 +43,11 @@ export default function ShareAfterDownloadModal({ onClose, imageDataUrl }: Share
   const isLastStage = stage >= STAGES.length - 1;
 
   const handleShare = () => {
+    const creditText = templateCredit
+      ? `（${templateCredit.userName}さんのテンプレートを使用）`
+      : "";
     const text = encodeURIComponent(
-      "Twitchエモートが30秒で作れた！ブラウザだけで完結、背景透過も自動 @akiissamurai #TwitchEmote #配信者グッズ"
+      `Twitchエモートが30秒で作れた！ブラウザだけで完結、背景透過も自動${creditText} @akiissamurai #TwitchEmote #配信者グッズ`
     );
     const url = encodeURIComponent("https://twitch-emote-generator.vercel.app/");
     window.open(
@@ -101,6 +105,28 @@ export default function ShareAfterDownloadModal({ onClose, imageDataUrl }: Share
           >
             X（Twitter）でシェアする
           </button>
+
+          {/* Template credit */}
+          {templateCredit && (
+            <div className="px-3 py-2 rounded-lg bg-purple-600/10 border border-purple-500/20">
+              <p className="text-xs text-purple-300">
+                📝 {templateCredit.userName}さんのテンプレートを使用しました
+                {templateCredit.userLogin && (
+                  <>
+                    {" — "}
+                    <a
+                      href={`https://twitch.tv/${templateCredit.userLogin}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="underline hover:text-purple-200"
+                    >
+                      Twitchチャンネル
+                    </a>
+                  </>
+                )}
+              </p>
+            </div>
+          )}
 
           {/* Follow section */}
           <div className="pt-3 border-t border-gray-700">

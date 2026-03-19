@@ -34,9 +34,14 @@ export default function PopularTemplates({ onApply }: PopularTemplatesProps) {
             className="bg-gray-800/60 border border-gray-700 rounded-lg p-3"
           >
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-medium text-gray-200 truncate">
-                {t.title}
-              </span>
+              <div className="flex items-center gap-1.5 truncate">
+                <span className="text-sm font-medium text-gray-200 truncate">
+                  {t.title}
+                </span>
+                {t.likes_count >= 5 && (
+                  <span className="shrink-0 text-[10px] bg-yellow-600/20 text-yellow-400 border border-yellow-500/30 rounded px-1 py-0.5">🏆</span>
+                )}
+              </div>
               <span className="text-xs text-gray-500 ml-2 shrink-0">
                 ♥ {t.likes_count}
               </span>

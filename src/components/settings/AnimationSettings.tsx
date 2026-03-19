@@ -11,12 +11,16 @@ interface AnimationSettingsProps {
   config: EmoteConfig;
   onConfigChange: (partial: PartialEmoteConfig) => void;
   isSubscriber: boolean;
+  isLoggedIn: boolean;
+  onLoginRequired?: () => void;
 }
 
 export default function AnimationSettings({
   config,
   onConfigChange,
   isSubscriber,
+  isLoggedIn,
+  onLoginRequired,
 }: AnimationSettingsProps) {
   return (
     <div>
@@ -24,7 +28,7 @@ export default function AnimationSettings({
         アニメーション
       </h3>
       <div className="grid grid-cols-2 gap-2">
-        {ANIMATION_OPTIONS.filter((o) => !o.subscriberOnly).map((opt) => (
+        {ANIMATION_OPTIONS.filter((o) => !o.subscriberOnly && !o.loginOnly).map((opt) => (
           <button
             key={opt.value}
             onClick={() => onConfigChange({ animation: { type: opt.value } })}
@@ -38,6 +42,43 @@ export default function AnimationSettings({
           </button>
         ))}
       </div>
+
+      {/* Login-only animations */}
+      {ANIMATION_OPTIONS.some((o) => o.loginOnly) && (
+        <>
+          <p className="text-xs text-gray-500 mt-3 mb-1">ログイン限定</p>
+          <div className="grid grid-cols-2 gap-2">
+            {ANIMATION_OPTIONS.filter((o) => o.loginOnly).map((opt) => {
+              const unlocked = isLoggedIn || isSubscriber;
+              const isActiveFromTemplate = !unlocked && config.animation.type === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => {
+                    if (unlocked) {
+                      onConfigChange({ animation: { type: opt.value } });
+                    } else {
+                      onLoginRequired?.();
+                    }
+                  }}
+                  className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors truncate ${
+                    isActiveFromTemplate
+                      ? "bg-purple-900 text-purple-300 border border-purple-500 cursor-not-allowed"
+                      : unlocked && config.animation.type === opt.value
+                      ? "bg-purple-600 text-white"
+                      : unlocked
+                      ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                      : "bg-gray-800 text-gray-600 cursor-not-allowed"
+                  }`}
+                  title={isActiveFromTemplate ? "テンプレートから適用中。ログインすると変更できます" : !unlocked ? "Twitchログインで解放" : undefined}
+                >
+                  {isActiveFromTemplate ? `🔒 ${opt.label}` : opt.label}
+                </button>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {/* Subscriber-only animations */}
       {ANIMATION_OPTIONS.some((o) => o.subscriberOnly) && (

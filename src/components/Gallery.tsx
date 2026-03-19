@@ -8,7 +8,7 @@ import { configToSummary } from "@/lib/templateUtils";
 import LoginPromptModal from "./LoginPromptModal";
 
 interface GalleryProps {
-  onApplyTemplate: (config: EmoteConfig) => void;
+  onApplyTemplate: (config: EmoteConfig, credit?: { userName: string; userLogin?: string | null }) => void;
   onGoToCreator: () => void;
 }
 
@@ -301,7 +301,7 @@ export default function Gallery({ onApplyTemplate, onGoToCreator }: GalleryProps
 
 interface TemplateCardProps {
   template: Template;
-  onApply: (config: EmoteConfig) => void;
+  onApply: (config: EmoteConfig, credit?: { userName: string; userLogin?: string | null }) => void;
   onLike: (templateId: string) => void;
   onDelete: (templateId: string) => void;
   currentUserId?: string;
@@ -314,7 +314,12 @@ function TemplateCard({ template, onApply, onLike, onDelete, currentUserId }: Te
     <div className="bg-gray-800/60 border border-gray-700 rounded-xl p-4 flex flex-col gap-3">
       {/* Header */}
       <div>
-        <h3 className="text-sm font-bold text-gray-100 truncate">{template.title}</h3>
+        <div className="flex items-center gap-1.5">
+          <h3 className="text-sm font-bold text-gray-100 truncate">{template.title}</h3>
+          {template.likes_count >= 5 && (
+            <span className="shrink-0 text-xs bg-yellow-600/20 text-yellow-400 border border-yellow-500/30 rounded px-1.5 py-0.5">🏆 殿堂入り</span>
+          )}
+        </div>
         <div className="flex items-center gap-1.5 mt-0.5">
           {template.user_image && (
             <a href={`https://twitch.tv/${template.user_login ?? template.user_name}`} target="_blank" rel="noopener noreferrer">
@@ -343,7 +348,7 @@ function TemplateCard({ template, onApply, onLike, onDelete, currentUserId }: Te
       {/* Actions */}
       <div className="flex items-center gap-2 mt-auto pt-2 border-t border-gray-700">
         <button
-          onClick={() => onApply(template.config)}
+          onClick={() => onApply(template.config, { userName: template.user_name, userLogin: template.user_login })}
           className="flex-1 px-3 py-2 rounded-lg bg-purple-600 text-white text-xs font-medium hover:bg-purple-500 transition-colors whitespace-nowrap"
         >
           このテンプレートを使う

@@ -8,12 +8,19 @@ import { EmoteConfig } from "@/types/emote";
 
 type ActiveTab = "creator" | "gallery";
 
+interface TemplateCredit {
+  userName: string;
+  userLogin?: string | null;
+}
+
 export default function Home() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("creator");
   const [templateOverride, setTemplateOverride] = useState<EmoteConfig | null>(null);
+  const [templateCredit, setTemplateCredit] = useState<TemplateCredit | null>(null);
 
-  const handleApplyTemplate = (config: EmoteConfig) => {
+  const handleApplyTemplate = (config: EmoteConfig, credit?: TemplateCredit) => {
     setTemplateOverride(config);
+    setTemplateCredit(credit ?? null);
     setActiveTab("creator");
   };
 
@@ -65,6 +72,7 @@ export default function Home() {
       {activeTab === "creator" ? (
         <EmoteGenerator
           templateOverride={templateOverride}
+          templateCredit={templateCredit}
           onTemplateApplied={handleTemplateApplied}
         />
       ) : (

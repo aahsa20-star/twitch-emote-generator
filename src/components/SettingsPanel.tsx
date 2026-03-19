@@ -15,6 +15,8 @@ interface SettingsPanelProps {
   onConfigChange: (partial: PartialEmoteConfig) => void;
   disabled: boolean;
   isSubscriber: boolean;
+  isLoggedIn: boolean;
+  onLoginRequired?: () => void;
   subFile: File | null;
   onSubImageSelected: (file: File) => void;
   bgRemovedCanvas?: HTMLCanvasElement | null;
@@ -26,6 +28,8 @@ export default function SettingsPanel({
   onConfigChange,
   disabled,
   isSubscriber,
+  isLoggedIn,
+  onLoginRequired,
   subFile,
   onSubImageSelected,
   bgRemovedCanvas,
@@ -163,6 +167,8 @@ export default function SettingsPanel({
         config={config}
         onConfigChange={onConfigChange}
         isSubscriber={isSubscriber}
+        isLoggedIn={isLoggedIn}
+        onLoginRequired={onLoginRequired}
       />
 
       {/* Badge (subscriber-only) */}

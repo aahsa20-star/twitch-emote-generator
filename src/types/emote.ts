@@ -221,6 +221,7 @@ export interface AnimationOption {
   value: AnimationType;
   label: string;
   subscriberOnly?: boolean;
+  loginOnly?: boolean;
 }
 
 export const ANIMATION_OPTIONS: AnimationOption[] = [
@@ -232,14 +233,14 @@ export const ANIMATION_OPTIONS: AnimationOption[] = [
   { value: "zoomin", label: "ズームイン" },
   { value: "spin", label: "回転" },
   { value: "hearts", label: "ハートぷかぷか" },
-  { value: "gaming", label: "ゲーミング", subscriberOnly: true },
-  { value: "glitch", label: "グリッチ", subscriberOnly: true },
+  { value: "gaming", label: "ゲーミング", loginOnly: true },
+  { value: "glitch", label: "グリッチ", loginOnly: true },
   { value: "sparkle", label: "キラキラ", subscriberOnly: true },
   { value: "afterimage", label: "残像", subscriberOnly: true },
   { value: "fastspin", label: "高速回転", subscriberOnly: true },
   { value: "float", label: "ふわふわ", subscriberOnly: true },
   { value: "wobble", label: "ぐにゃぐにゃ", subscriberOnly: true },
-  { value: "neon", label: "ネオン", subscriberOnly: true },
+  { value: "neon", label: "ネオン", loginOnly: true },
   { value: "vhs", label: "VHS", subscriberOnly: true },
   { value: "snow", label: "雪", subscriberOnly: true },
   { value: "fire", label: "炎", subscriberOnly: true },

@@ -30,12 +30,18 @@ function SpinnerIcon() {
   );
 }
 
+interface TemplateCredit {
+  userName: string;
+  userLogin?: string | null;
+}
+
 interface EmoteGeneratorProps {
   templateOverride?: EmoteConfig | null;
+  templateCredit?: TemplateCredit | null;
   onTemplateApplied?: () => void;
 }
 
-export default function EmoteGenerator({ templateOverride, onTemplateApplied }: EmoteGeneratorProps) {
+export default function EmoteGenerator({ templateOverride, templateCredit, onTemplateApplied }: EmoteGeneratorProps) {
   const { data: session } = useSession();
   const [exportMode, setExportMode] = useState<ExportMode>("twitch");
   const [subFile, setSubFile] = useState<File | null>(null);
@@ -149,7 +155,7 @@ export default function EmoteGenerator({ templateOverride, onTemplateApplied }: 
     setIsSubscriber(false);
     try { localStorage.removeItem(SUBSCRIBER_KEY); } catch {}
     // Reset subscriber-only config values to defaults
-    const subscriberAnimations = ["gaming", "glitch", "sparkle", "afterimage", "fastspin", "float", "wobble", "neon", "vhs", "snow", "fire", "matrix", "drunk", "confetti", "hypno", "tv", "earthquake", "party", "flip", "ghost", "glitch2", "spiral", "heartbeat", "spring", "jelly"];
+    const subscriberAnimations = ["sparkle", "afterimage", "fastspin", "float", "wobble", "vhs", "snow", "fire", "matrix", "drunk", "confetti", "hypno", "tv", "earthquake", "party", "flip", "ghost", "glitch2", "spiral", "heartbeat", "spring", "jelly"];
     updateConfig({
       outline: { style: config.outline.style === "custom" ? "none" : config.outline.style, color: "#ffffff" },
       frame: { type: "none" },
@@ -506,6 +512,8 @@ export default function EmoteGenerator({ templateOverride, onTemplateApplied }: 
           onConfigChange={updateConfig}
           disabled={!sourceFile || stage === "removing-background"}
           isSubscriber={isSubscriber}
+          isLoggedIn={!!session}
+          onLoginRequired={() => setShowLoginPrompt(true)}
           subFile={subFile}
           onSubImageSelected={handleSubImageSelected}
           bgRemovedCanvas={bgRemovedCanvas}
@@ -560,7 +568,7 @@ export default function EmoteGenerator({ templateOverride, onTemplateApplied }: 
 
       {/* Share after download modal */}
       {showShareModal && (
-        <ShareAfterDownloadModal onClose={() => setShowShareModal(false)} imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
+        <ShareAfterDownloadModal onClose={() => setShowShareModal(false)} imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} templateCredit={templateCredit} />
       )}
 
       {/* Post template modal */}
