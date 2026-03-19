@@ -202,7 +202,7 @@ export default function EmoteGenerator({ templateOverride, onTemplateApplied }: 
   }, [sourceFile]);
 
   return (
-    <div className="flex-1 grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4 md:gap-6 p-4 md:p-6 max-w-6xl mx-auto w-full">
+    <div className="flex-1 grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4 md:gap-6 p-4 md:p-6 max-w-6xl mx-auto w-full overflow-x-hidden">
       {/* Upload + toggle + progress (top-left on desktop, 1st on mobile) */}
       <div className="space-y-4 md:space-y-6 order-1 md:order-none self-start">
         <UploadPanel
@@ -496,7 +496,7 @@ export default function EmoteGenerator({ templateOverride, onTemplateApplied }: 
       </div>
 
       {/* Settings + DL/Share (mobile: order-4, desktop: sticky left column with DL inside) */}
-      <div className={`space-y-4 md:space-y-6 order-4 md:order-none self-start md:sticky md:top-4 md:max-h-screen md:overflow-y-auto md:col-start-1 relative z-10 [contain:layout_style] ${!sourceFile ? "opacity-40 pointer-events-none select-none" : ""}`}>
+      <div className={`space-y-4 md:space-y-6 order-4 md:order-none self-start md:sticky md:top-4 md:max-h-screen md:overflow-y-auto md:col-start-1 relative z-10 [contain:layout_style] overflow-x-hidden ${!sourceFile ? "opacity-40 pointer-events-none select-none" : ""}`}>
         {!sourceFile && (
           <p className="text-xs text-gray-400 text-center py-1">画像をアップロードすると設定できます</p>
         )}
