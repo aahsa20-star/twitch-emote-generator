@@ -108,8 +108,8 @@ export default function EmoteGenerator({ templateOverride, onTemplateApplied }: 
 
   const handlePostSuccess = () => {
     setShowPostModal(false);
-    setTemplateToast("テンプレートを投稿しました");
-    setTimeout(() => setTemplateToast(null), 3000);
+    setTemplateToast("🎉 テンプレートを投稿しました！ギャラリーで公開中");
+    setTimeout(() => setTemplateToast(null), 4000);
   };
 
   const handleDownloadComplete = () => setShowShareModal(true);
@@ -309,7 +309,7 @@ export default function EmoteGenerator({ templateOverride, onTemplateApplied }: 
         )}
         {/* Template toast (fixed top for mobile visibility) */}
         {templateToast && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 text-xs px-4 py-2.5 rounded-lg text-center bg-purple-600 text-white shadow-lg animate-fade-in">
+          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 text-sm px-5 py-3 rounded-lg text-center bg-green-600 text-white shadow-lg animate-fade-in font-medium">
             {templateToast}
           </div>
         )}
