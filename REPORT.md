@@ -181,6 +181,7 @@
 - Auth.js v5 + Twitch Helix API連携（OIDCのclaims指定バグ回避、access_tokenでHelix API直接呼出してlogin/display_name/profile_image_url取得）
 - DB: Supabase（templates/likesテーブル、user_image/user_loginカラム追加、service_role keyでRLSバイパス、遅延初期化）
 - テンプレート経由の限定設定UI（未認証ユーザーがテンプレートで限定アニメ・カスタムフチ・フレームを適用した場合、紫枠+鍵アイコンで「適用中・変更不可」を明示。サブスク認証後は即座にロック解除）
+- 人気テンプレート表示（エモート作成画面のおすすめパターン下に、いいね数上位3件のテンプレートカードを表示。投稿者アイコン・Twitchリンク・設定サマリー・ワンクリック適用。0件時は非表示）
 - 既存機能との完全分離（エモート作成・DL・サブスク認証は影響なし）
 
 ### デザイン・ブランディング

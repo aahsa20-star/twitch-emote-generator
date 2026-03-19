@@ -10,11 +10,18 @@ export async function GET(req: NextRequest) {
   const sort = searchParams.get("sort") ?? "new";
   const tag = searchParams.get("tag");
   const page = Math.max(0, parseInt(searchParams.get("page") ?? "0", 10));
+  const limitParam = searchParams.get("limit");
+  const limit = limitParam ? Math.min(Math.max(1, parseInt(limitParam, 10)), PAGE_SIZE) : null;
 
   let query = getSupabase()
     .from("templates")
-    .select("*")
-    .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    .select("*");
+
+  if (limit) {
+    query = query.range(0, limit - 1);
+  } else {
+    query = query.range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+  }
 
   if (sort === "popular") {
     query = query.order("likes_count", { ascending: false }).order("created_at", { ascending: false });

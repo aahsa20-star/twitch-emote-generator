@@ -10,6 +10,7 @@ import SettingsPanel from "./SettingsPanel";
 import PreviewArea from "./PreviewArea";
 import DownloadButton from "./DownloadButton";
 import RecommendedPatterns from "./RecommendedPatterns";
+import PopularTemplates from "./PopularTemplates";
 import ShareButton from "./ShareButton";
 import ShareAfterDownloadModal from "./ShareAfterDownloadModal";
 import FloatingMiniPreview from "./FloatingMiniPreview";
@@ -534,6 +535,7 @@ export default function EmoteGenerator({ templateOverride, onTemplateApplied }: 
             bgRemovedCanvas={bgRemovedCanvas}
             onApply={handleApplyPattern}
           />
+          <PopularTemplates onApply={handleApplyPattern} />
         </div>
       )}
 
