@@ -147,6 +147,14 @@ export default function Gallery({ onApplyTemplate, onGoToCreator }: GalleryProps
         )}
       </div>
 
+      {/* Description (always visible when templates exist) */}
+      {templates.length > 0 && (
+        <p className="text-xs text-gray-500 mb-4">
+          他のユーザーの設定をワンクリックで自分のエモートに適用できます。
+          {!session?.user && " ログインすると投稿・いいねができます。"}
+        </p>
+      )}
+
       {/* Sort tabs */}
       <div className="flex gap-2 mb-4">
         {([["new", "新着"], ["popular", "人気"]] as const).map(([value, label]) => (
