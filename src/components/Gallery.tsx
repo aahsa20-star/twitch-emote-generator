@@ -344,7 +344,7 @@ function TemplateCard({ template, onApply, onLike, onDelete, currentUserId }: Te
       <div className="flex items-center gap-2 mt-auto pt-2 border-t border-gray-700">
         <button
           onClick={() => onApply(template.config)}
-          className="flex-1 px-3 py-2 rounded-lg bg-purple-600 text-white text-xs font-medium hover:bg-purple-500 transition-colors"
+          className="flex-1 px-3 py-2 rounded-lg bg-purple-600 text-white text-xs font-medium hover:bg-purple-500 transition-colors whitespace-nowrap"
         >
           このテンプレートを使う
         </button>
