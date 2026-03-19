@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSession, signIn, signOut } from "next-auth/react";
-import { Heart } from "lucide-react";
+import { Heart, Trash2 } from "lucide-react";
 import { Template, EmoteConfig, TEMPLATE_TAGS } from "@/types/emote";
 import { configToSummary } from "@/lib/templateUtils";
 import LoginPromptModal from "./LoginPromptModal";
@@ -98,6 +98,19 @@ export default function Gallery({ onApplyTemplate, onGoToCreator }: GalleryProps
           };
         })
       );
+    }
+  };
+
+  const handleDelete = async (templateId: string) => {
+    if (!confirm("このテンプレートを削除しますか？")) return;
+
+    try {
+      const res = await fetch(`/api/templates/${templateId}`, { method: "DELETE" });
+      if (res.ok) {
+        setTemplates((prev) => prev.filter((t) => t.id !== templateId));
+      }
+    } catch {
+      // ignore
     }
   };
 
@@ -245,6 +258,8 @@ export default function Gallery({ onApplyTemplate, onGoToCreator }: GalleryProps
               template={template}
               onApply={onApplyTemplate}
               onLike={handleLike}
+              onDelete={handleDelete}
+              currentUserId={session?.user?.id}
             />
           ))}
         </div>
@@ -280,9 +295,11 @@ interface TemplateCardProps {
   template: Template;
   onApply: (config: EmoteConfig) => void;
   onLike: (templateId: string) => void;
+  onDelete: (templateId: string) => void;
+  currentUserId?: string;
 }
 
-function TemplateCard({ template, onApply, onLike }: TemplateCardProps) {
+function TemplateCard({ template, onApply, onLike, onDelete, currentUserId }: TemplateCardProps) {
   const summary = configToSummary(template.config);
 
   return (
@@ -327,6 +344,15 @@ function TemplateCard({ template, onApply, onLike }: TemplateCardProps) {
           <Heart className="w-3.5 h-3.5" fill={template.liked_by_me ? "currentColor" : "none"} />
           {template.likes_count}
         </button>
+        {currentUserId === template.user_id && (
+          <button
+            onClick={() => onDelete(template.id)}
+            className="px-2 py-2 rounded-lg text-xs text-gray-500 hover:text-red-400 transition-colors"
+            title="削除"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
       </div>
     </div>
   );
