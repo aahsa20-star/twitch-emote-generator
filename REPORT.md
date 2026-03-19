@@ -9,9 +9,9 @@
 | GitHub | https://github.com/aahsa20-star/twitch-emote-generator |
 | 技術スタック | Next.js 16 (App Router) + TypeScript + Tailwind CSS v3 |
 | ホスティング | Vercel（GitHub自動デプロイ） |
-| コード規模 | 40ファイル / 約8,000行（src/配下） |
-| コミット数 | 84 |
-| 最新コミット | fix: モバイルでアニメーション設定が横に見切れる問題を修正 |
+| コード規模 | 57ファイル / 約9,500行（src/配下） |
+| コミット数 | 149 |
+| 最新コミット | fix: auth.tsの型エラーを修正（Twitch Helix APIでユーザー情報取得） |
 | DB | Supabase（templates/likesテーブル） |
 | 認証 | Auth.js v5 + Twitch OAuth |
 
@@ -175,9 +175,11 @@
 - 空状態UI（テンプレートとは何か・できること・投稿方法ステップ表示・CTAボタン）
 - テンプレート説明文常時表示（カード一覧上部に1行説明、未ログイン時はログイン案内も追加）
 - 設定サマリー自動生成（configToSummary: フチ・アニメーション・テキスト・フレームを日本語要約）
-- 投稿者名Twitchリンク（テンプレートカードの投稿者名がtwitch.tv/{user_name}へのリンク、新タブ、ホバー時パープル）
-- 投稿者Twitchアイコン表示（投稿時にセッションからプロフィール画像URLをDBに保存、カードで24px円形表示、nullの場合はアイコンなし）
-- DB: Supabase（templates/likesテーブル、service_role keyでRLSバイパス、遅延初期化）
+- 投稿者名Twitchリンク（テンプレートカードの投稿者名がtwitch.tv/{user_login}へのリンク、新タブ、ホバー時パープル）
+- 投稿者Twitchアイコン表示（投稿時にHelix APIからプロフィール画像URLをDBに保存、カードで24px円形表示、nullの場合はアイコンなし）
+- 投稿成功トースト通知（画面上部固定表示、モバイルでも確実に視認可能）
+- Auth.js v5 + Twitch Helix API連携（OIDCのclaims指定バグ回避、access_tokenでHelix API直接呼出してlogin/display_name/profile_image_url取得）
+- DB: Supabase（templates/likesテーブル、user_image/user_loginカラム追加、service_role keyでRLSバイパス、遅延初期化）
 - 既存機能との完全分離（エモート作成・DL・サブスク認証は影響なし）
 
 ### デザイン・ブランディング
@@ -329,6 +331,10 @@ src/
 | PreviewCard.tsx でアンマウント後にNotFoundError | visibility check用のimg.onloadがコンポーネント解放後に発火 | cancelledフラグ + try/catchで防御 |
 | アニメーションボタン切替時にUIがガタつく | 速度セクションの条件レンダリング+processingスピナー瞬間表示+stickyコンテナのreflow伝播 | 速度セクション常時レンダリング+スピナー300ms遅延+contain:layout style+DLボタン固定幅+GIF URL遅延revoke |
 | テキスト入力/バッジON時のレイアウトシフト | 条件レンダリングでセクションが一気にDOM挿入される（TextSettings +200px, BadgeSettings +300px） | max-h + opacity CSS トランジションで展開/折りたたみアニメーション化（DOM常時存在、pointer-events制御） |
+| Auth.js v5でTwitchプロフィール画像/ログインIDがセッションに入らない | Auth.js v5のTwitch OIDCプロバイダーはclaims指定を正しく処理しない（既知バグ）、profileオブジェクトにpicture/preferred_usernameが含まれない | OIDCに頼らずaccount.access_tokenでTwitch Helix APIを直接呼出してlogin/display_name/profile_image_urlを取得する方式に変更 |
+| Supabase templatesテーブルにINSERTできない（permission denied） | PostgreSQLのテーブル権限がservice_roleに付与されていなかった（RLS DISABLEDでも権限不足） | `GRANT ALL ON public.templates TO service_role` で明示的に権限付与 |
+| auth.tsの型エラーでVercelビルド全失敗 | `session.user as Record<string, unknown>` のキャストがTypeScriptに拒否される（AdapterUser & User型との不整合） | `as unknown as Record<string, unknown>` と二段階キャストに変更 |
+| モバイルでアニメーション設定ボタンが右に見切れる | サブスク解放後にアニメーション45種のグリッドが画面幅をはみ出す | overflow-x-hidden + truncateで横スクロール防止 |
 
 ---
 
@@ -349,7 +355,7 @@ src/
 
 ---
 
-## コミット履歴（64コミット）
+## コミット履歴（149コミット、主要のみ抜粋）
 
 ```
 d542fba Initial commit from Create Next App
@@ -427,6 +433,11 @@ e16c230 fix: Supabaseクライアントにauth設定を追加してservice_role 
 7a3016b feat: テンプレート削除機能を追加
 cdee7b7 feat: ギャラリーにテンプレート説明文を常時表示
 2df1a90 fix: モバイルでアニメーション設定が横に見切れる問題を修正
+2d6d532 feat: テンプレート投稿者名をTwitchチャンネルへのリンクに変更
+ae656a8 feat: テンプレートカードに投稿者Twitchアイコンを追加
+813f0c9 fix: テンプレート投稿トーストを画面上部固定に変更
+b8c4e76 fix: Twitchリンクを英語ログインID(user_login)ベースに修正
+35e6fc2 fix: auth.tsの型エラーを修正 + Twitch Helix APIでユーザー情報取得
 ```
 
 ---
