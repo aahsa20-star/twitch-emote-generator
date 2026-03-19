@@ -300,6 +300,7 @@ export interface Template {
   id: string;
   user_id: string;
   user_name: string;
+  user_login?: string | null;
   user_image?: string | null;
   title: string;
   tags: string[];
