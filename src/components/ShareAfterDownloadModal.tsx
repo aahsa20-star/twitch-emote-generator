@@ -15,22 +15,22 @@ const STAGES = [
     skipText: "罪悪感はあるが静かに立ち去る",
   },
   {
-    title: "もっと思いっきりシェアしてみて",
-    subtitle: "きちんとフォローすること、それも技術のうち",
-    followText: "",
+    title: "ダウンロード完了！",
+    subtitle: "もっと思いっきりシェアしてみて",
+    followText: "きちんとフォローすること、それも技術のうち",
     skipText: "聞こえないフリをして立ち去る",
   },
   {
-    title: "俺思いっきりシェアしろって言ったんだよ？ナメてない？",
-    subtitle: "こういうフォローが抜きのフォロー。力抜いて相手に効かなきゃ意味がない",
-    followText: "",
+    title: "ダウンロード完了！",
+    subtitle: "俺思いっきりシェアしろって言ったんだよ？ナメてない？",
+    followText: "こういうフォローが抜きのフォロー。力抜いて相手に効かなきゃ意味がない",
     skipText: "般若の顔を見る覚悟で立ち去る",
   },
   {
-    title: "俺が思いっきりシェアしろって言ったら思いっきりシェアしないと。ナメてんのか？それが思いっきりか！ああ゛？",
-    subtitle: "これを自分たちでやって欲しいの、自分でアドレナリンをあげていく",
-    followText: "元ネタは佐山サトル氏シューティング合宿",
-    skipText: "",
+    title: "ダウンロード完了！",
+    subtitle: "俺が思いっきりシェアしろって言ったら思いっきりシェアしないと。ナメてんのか？それが思いっきりか！ああ゛？",
+    followText: "これを自分たちでやって欲しいの、自分でアドレナリンをあげていく",
+    skipText: "元ネタは佐山サトル氏シューティング合宿、わかりました（閉じる）",
   },
 ];
 
@@ -138,21 +138,12 @@ export default function ShareAfterDownloadModal({ onClose, imageDataUrl }: Share
             </div>
           </div>
 
-          {current.skipText ? (
-            <button
-              onClick={handleSkip}
-              className="text-gray-500 text-xs hover:text-gray-300 transition-colors py-1"
-            >
-              {current.skipText}
-            </button>
-          ) : (
-            <button
-              onClick={onClose}
-              className="text-gray-500 text-xs hover:text-gray-300 transition-colors py-1"
-            >
-              ...わかりました（閉じる）
-            </button>
-          )}
+          <button
+            onClick={handleSkip}
+            className="text-gray-500 text-xs hover:text-gray-300 transition-colors py-1"
+          >
+            {current.skipText}
+          </button>
         </div>
         {toast && (
           <div className="mt-3 text-center">
