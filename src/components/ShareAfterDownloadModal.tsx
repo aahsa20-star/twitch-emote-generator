@@ -7,13 +7,43 @@ interface ShareAfterDownloadModalProps {
   imageDataUrl: string | null;
 }
 
+const STAGES = [
+  {
+    title: "ダウンロード完了！",
+    subtitle: "Xでシェアする、それも技術のうち",
+    followText: "このツールを作った人をフォローすると泣いて喜びます",
+    skipText: "罪悪感はあるが静かに立ち去る",
+  },
+  {
+    title: "もっと思いっきりシェアしてみて",
+    subtitle: "きちんとフォローすること、それも技術のうち",
+    followText: "",
+    skipText: "聞こえないフリをして立ち去る",
+  },
+  {
+    title: "俺思いっきりシェアしろって言ったんだよ？ナメてない？",
+    subtitle: "こういうフォローが抜きのフォロー。力抜いて相手に効かなきゃ意味がない",
+    followText: "",
+    skipText: "般若の顔を見る覚悟で立ち去る",
+  },
+  {
+    title: "俺が思いっきりシェアしろって言ったら思いっきりシェアしないと。ナメてんのか？それが思いっきりか！ああ゛？",
+    subtitle: "これを自分たちでやって欲しいの、自分でアドレナリンをあげていく",
+    followText: "元ネタは佐山サトル氏シューティング合宿",
+    skipText: "",
+  },
+];
+
 export default function ShareAfterDownloadModal({ onClose, imageDataUrl }: ShareAfterDownloadModalProps) {
   const [toast, setToast] = useState(false);
+  const [stage, setStage] = useState(0);
+
+  const current = STAGES[stage];
+  const isLastStage = stage >= STAGES.length - 1;
 
   const handleShare = () => {
-    // 1. Open X share window FIRST (must be synchronous for popup blocker)
     const text = encodeURIComponent(
-      "Twitchエモートが30秒で作れた！ブラウザだけで完結、背景透過も自動 ✨ @akiissamurai #TwitchEmote #配信者グッズ"
+      "Twitchエモートが30秒で作れた！ブラウザだけで完結、背景透過も自動 @akiissamurai #TwitchEmote #配信者グッズ"
     );
     const url = encodeURIComponent("https://twitch-emote-generator.vercel.app/");
     window.open(
@@ -22,7 +52,6 @@ export default function ShareAfterDownloadModal({ onClose, imageDataUrl }: Share
       "noopener,noreferrer,width=550,height=420"
     );
 
-    // 2. Copy 112px image to clipboard (async, runs after popup opens)
     if (imageDataUrl && navigator.clipboard?.write) {
       (async () => {
         try {
@@ -46,27 +75,38 @@ export default function ShareAfterDownloadModal({ onClose, imageDataUrl }: Share
     }
   };
 
+  const handleSkip = () => {
+    if (isLastStage) {
+      onClose();
+    } else {
+      setStage((s) => s + 1);
+    }
+  };
+
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
-      onClick={onClose}
+      onClick={isLastStage ? onClose : undefined}
     >
       <div
         className="bg-gray-900 border border-gray-700 rounded-xl p-6 max-w-sm w-full mx-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="text-white font-bold text-base mb-1">ダウンロード完了！</p>
-        <p className="text-gray-400 text-sm mb-5">え？無料だったんだよ？わかる？わかるよね？ね？</p>
+        <p className="text-white font-bold text-base mb-1">{current.title}</p>
+        <p className="text-gray-400 text-sm mb-5">{current.subtitle}</p>
         <div className="flex flex-col gap-3">
           <button
             onClick={handleShare}
             className="w-full px-4 py-3 rounded-lg bg-black text-white text-sm font-medium border border-gray-600 hover:bg-gray-800 transition-colors"
           >
-            X（Twitter）でシェアする（制作者は泣いて喜びます）
+            X（Twitter）でシェアする
           </button>
+
           {/* Follow section */}
           <div className="pt-3 border-t border-gray-700">
-            <p className="text-gray-400 text-xs mb-3">俺がフォローしろって言ったら本気でフォローしないと</p>
+            {current.followText && (
+              <p className="text-gray-400 text-xs mb-3">{current.followText}</p>
+            )}
             <div className="flex gap-2">
               <a
                 href="https://x.com/akiissamurai"
@@ -98,17 +138,26 @@ export default function ShareAfterDownloadModal({ onClose, imageDataUrl }: Share
             </div>
           </div>
 
-          <button
-            onClick={onClose}
-            className="text-gray-500 text-xs hover:text-gray-300 transition-colors py-1"
-          >
-            罪悪感はあるが静かに立ち去る
-          </button>
+          {current.skipText ? (
+            <button
+              onClick={handleSkip}
+              className="text-gray-500 text-xs hover:text-gray-300 transition-colors py-1"
+            >
+              {current.skipText}
+            </button>
+          ) : (
+            <button
+              onClick={onClose}
+              className="text-gray-500 text-xs hover:text-gray-300 transition-colors py-1"
+            >
+              ...わかりました（閉じる）
+            </button>
+          )}
         </div>
         {toast && (
           <div className="mt-3 text-center">
             <p className="text-purple-400 text-sm animate-fade-in">
-              画像をクリップボードにコピーしました。ツイートに貼り付けてください📋
+              画像をクリップボードにコピーしました。ツイートに貼り付けてください
             </p>
           </div>
         )}
