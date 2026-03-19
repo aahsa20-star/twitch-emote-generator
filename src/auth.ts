@@ -2,33 +2,28 @@ import NextAuth from "next-auth";
 import Twitch from "next-auth/providers/twitch";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  providers: [
-    Twitch({
-      authorization: {
-        params: {
-          scope: "openid user:read:email",
-          claims: {
-            id_token: {
-              picture: null,
-              preferred_username: null,
-            },
-            userinfo: {
-              picture: null,
-              preferred_username: null,
-            },
-          },
-        },
-      },
-    }),
-  ],
+  providers: [Twitch],
   session: { strategy: "jwt" },
   callbacks: {
-    jwt({ token, account, profile }) {
-      if (account && profile) {
-        token.id = profile.sub;
-        token.login = profile.preferred_username;
-        token.name = profile.preferred_username;
-        token.picture = profile.picture;
+    async jwt({ token, account }) {
+      if (account) {
+        // Twitch Helix APIから直接ユーザー情報を取得
+        const res = await fetch("https://api.twitch.tv/helix/users", {
+          headers: {
+            Authorization: `Bearer ${account.access_token}`,
+            "Client-Id": process.env.AUTH_TWITCH_ID!,
+          },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          const user = data.data?.[0];
+          if (user) {
+            token.id = user.id;
+            token.login = user.login;
+            token.name = user.display_name;
+            token.picture = user.profile_image_url;
+          }
+        }
       }
       return token;
     },
