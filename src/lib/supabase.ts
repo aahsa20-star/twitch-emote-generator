@@ -10,7 +10,12 @@ export function getSupabase(): SupabaseClient {
     if (!url || !key) {
       throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set");
     }
-    _supabase = createClient(url, key);
+    _supabase = createClient(url, key, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    });
   }
   return _supabase;
 }
