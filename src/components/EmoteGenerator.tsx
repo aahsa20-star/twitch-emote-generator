@@ -375,7 +375,7 @@ export default function EmoteGenerator({ templateOverride, onTemplateApplied }: 
               </p>
               <button
                 onClick={cancelBgRemoval}
-                className="text-xs px-2 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
+                className="text-xs px-2 py-1 rounded bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors whitespace-nowrap"
               >
                 キャンセル
               </button>
