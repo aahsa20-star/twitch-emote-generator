@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react";
+import { useSession, signIn, signOut } from "next-auth/react";
 import { Heart } from "lucide-react";
 import { Template, EmoteConfig, TEMPLATE_TAGS } from "@/types/emote";
 import { configToSummary } from "@/lib/templateUtils";
@@ -103,6 +103,37 @@ export default function Gallery({ onApplyTemplate, onGoToCreator }: GalleryProps
 
   return (
     <div className="max-w-4xl mx-auto w-full px-4 py-6">
+      {/* Login status */}
+      <div className="mb-6 flex items-center justify-between bg-gray-800/40 border border-gray-700 rounded-lg px-4 py-3">
+        {session?.user ? (
+          <div className="flex items-center gap-2">
+            {session.user.image && (
+              <img src={session.user.image} alt="" className="w-7 h-7 rounded-full" />
+            )}
+            <span className="text-sm text-gray-300">{session.user.name}</span>
+            <button
+              onClick={() => signOut()}
+              className="text-xs text-gray-500 hover:text-gray-300 transition-colors ml-2"
+            >
+              ログアウト
+            </button>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3 flex-wrap">
+            <button
+              onClick={() => signIn("twitch")}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-medium hover:bg-purple-500 transition-colors whitespace-nowrap"
+            >
+              <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z" />
+              </svg>
+              Twitchでログイン
+            </button>
+            <span className="text-xs text-gray-500">ログインすると投稿・いいねができます</span>
+          </div>
+        )}
+      </div>
+
       {/* Sort tabs */}
       <div className="flex gap-2 mb-4">
         {([["new", "新着"], ["popular", "人気"]] as const).map(([value, label]) => (
@@ -164,6 +195,17 @@ export default function Gallery({ onApplyTemplate, onGoToCreator }: GalleryProps
                 他のユーザーがあなたの設定を自分の画像にワンクリックで適用できます。
               </p>
             </div>
+          </div>
+
+          {/* What you can do */}
+          <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-6 space-y-2.5">
+            <h3 className="text-white font-bold text-sm mb-3">できること</h3>
+            <p className="text-gray-300 text-sm">
+              ログインなしでもエモート作成・テンプレート閲覧・適用は無料で使えます。
+            </p>
+            <p className="text-gray-400 text-sm">
+              Twitchログインするとテンプレートの投稿といいねができます。
+            </p>
           </div>
 
           {/* How to post */}

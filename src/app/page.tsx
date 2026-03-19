@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useSession, signIn, signOut } from "next-auth/react";
 import EmoteGenerator from "@/components/EmoteGenerator";
 import Gallery from "@/components/Gallery";
 import Footer from "@/components/Footer";
@@ -10,7 +9,6 @@ import { EmoteConfig } from "@/types/emote";
 type ActiveTab = "creator" | "gallery";
 
 export default function Home() {
-  const { data: session } = useSession();
   const [activeTab, setActiveTab] = useState<ActiveTab>("creator");
   const [templateOverride, setTemplateOverride] = useState<EmoteConfig | null>(null);
 
@@ -26,47 +24,13 @@ export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="py-4 px-6 border-b border-gray-800">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-gray-100">
-              Twitch Emote Generator
-            </h1>
-            <p className="text-sm text-gray-400 mt-1">
-              エモート制作の面倒を全部省く
-            </p>
-          </div>
-
-          {/* Twitch login */}
-          <div className="flex items-center gap-3">
-            {session?.user ? (
-              <div className="flex items-center gap-2">
-                {session.user.image && (
-                  <img
-                    src={session.user.image}
-                    alt=""
-                    className="w-7 h-7 rounded-full"
-                  />
-                )}
-                <span className="text-sm text-gray-300 hidden sm:inline">{session.user.name}</span>
-                <button
-                  onClick={() => signOut()}
-                  className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-                >
-                  ログアウト
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={() => signIn("twitch")}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-medium hover:bg-purple-500 transition-colors whitespace-nowrap"
-              >
-                <svg className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M11.571 4.714h1.715v5.143H11.57zm4.715 0H18v5.143h-1.714zM6 0L1.714 4.286v15.428h5.143V24l4.286-4.286h3.428L22.286 12V0zm14.571 11.143l-3.428 3.428h-3.429l-3 3v-3H6.857V1.714h13.714z" />
-                </svg>
-                Twitchでログイン
-              </button>
-            )}
-          </div>
+        <div>
+          <h1 className="text-xl font-bold text-gray-100">
+            Twitch Emote Generator
+          </h1>
+          <p className="text-sm text-gray-400 mt-1">
+            エモート制作の面倒を全部省く
+          </p>
         </div>
 
         <p className="text-xs text-gray-500 mt-2">
