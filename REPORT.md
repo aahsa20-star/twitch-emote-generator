@@ -234,7 +234,7 @@
 - Interフォント導入（英字はInter、日本語はNoto Sans JPにフォールバック）
 - 絵文字全削除（テキスト＋CSSのみのミニマルUI）
 - OGP/Twitterカード対応（動的OG画像生成 + summary_large_image）
-- 免責事項強化（Twitch/Discord商標表示・AS-IS保証免責・AI精度免責）
+- 免責事項強化（Twitch/Discord商標表示・AS-IS保証免責・AI精度免責・AI生成コード著作権・投稿者情報公開同意・コンテンツ利用許諾）
 
 ### SEO
 - Google Search Console verification タグ（metadata.verification.google）
