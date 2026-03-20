@@ -169,6 +169,7 @@ export default function SettingsPanel({
         isSubscriber={isSubscriber}
         isLoggedIn={isLoggedIn}
         onLoginRequired={onLoginRequired}
+        bgRemovedCanvas={bgRemovedCanvas}
       />
 
       {/* Badge (subscriber-only) */}
