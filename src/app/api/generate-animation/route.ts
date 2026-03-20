@@ -72,6 +72,28 @@ ctx.drawImage(baseCanvas, 0, 0);
 ctx.filter = "none";
 return canvas;`;
 
+export async function GET() {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return NextResponse.json({ error: "ログインが必要です" }, { status: 401 });
+  }
+
+  const supabase = getSupabase();
+  const today = new Date().toISOString().slice(0, 10);
+
+  const { count, error } = await supabase
+    .from("ai_animation_logs")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", session.user.id)
+    .gte("created_at", `${today}T00:00:00Z`);
+
+  if (error) {
+    return NextResponse.json({ error: "サーバーエラー" }, { status: 500 });
+  }
+
+  return NextResponse.json({ remaining: DAILY_LIMIT - (count ?? 0) });
+}
+
 export async function POST(req: NextRequest) {
   // Auth check
   const session = await auth();

@@ -4,9 +4,12 @@ import { useState, useCallback, useEffect } from "react";
 import {
   EmoteConfig,
   PartialEmoteConfig,
+  AnimationType,
   ANIMATION_OPTIONS,
   ANIMATION_SPEED_OPTIONS,
 } from "@/types/emote";
+
+const DAILY_LIMIT = 5;
 
 interface AnimationSettingsProps {
   config: EmoteConfig;
@@ -31,6 +34,9 @@ export default function AnimationSettings({
   const [aiError, setAiError] = useState<string | null>(null);
   const [aiPreviewUrl, setAiPreviewUrl] = useState<string | null>(null);
   const [aiStatus, setAiStatus] = useState<string | null>(null);
+  const [aiGeneratedCode, setAiGeneratedCode] = useState<string | null>(null);
+  const [aiRemaining, setAiRemaining] = useState<number | null>(null);
+  const [aiRemainingLoading, setAiRemainingLoading] = useState(false);
 
   // Clean up object URL on unmount or when preview changes
   useEffect(() => {
@@ -39,6 +45,20 @@ export default function AnimationSettings({
     };
   }, [aiPreviewUrl]);
 
+  // Fetch remaining count when AI panel opens (logged in only)
+  useEffect(() => {
+    if (showAiPanel && isLoggedIn && aiRemaining === null && !aiRemainingLoading) {
+      setAiRemainingLoading(true);
+      fetch("/api/generate-animation")
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data) setAiRemaining(data.remaining);
+        })
+        .catch(() => {})
+        .finally(() => setAiRemainingLoading(false));
+    }
+  }, [showAiPanel, isLoggedIn, aiRemaining, aiRemainingLoading]);
+
   const handleAiGenerate = useCallback(async () => {
     if (!aiDescription.trim() || !bgRemovedCanvas) return;
 
@@ -46,10 +66,11 @@ export default function AnimationSettings({
     setAiError(null);
     if (aiPreviewUrl) URL.revokeObjectURL(aiPreviewUrl);
     setAiPreviewUrl(null);
+    setAiGeneratedCode(null);
 
     try {
       // Step 1: Call API to generate code
-      setAiStatus("AIがコードを生成中...");
+      setAiStatus("AIが考え中...");
       const res = await fetch("/api/generate-animation", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -58,10 +79,16 @@ export default function AnimationSettings({
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({ error: "エラーが発生しました" }));
-        throw new Error(data.error || `HTTP ${res.status}`);
+        if (res.status === 429) {
+          throw new Error("本日の生成回数（5回）を超えました。明日また試してください");
+        } else if (res.status === 401) {
+          throw new Error("ログインが必要です");
+        }
+        throw new Error(data.error || "生成に失敗しました。もう一度お試しください");
       }
 
       const { code } = await res.json();
+      setAiGeneratedCode(code);
 
       // Step 2: Extract 256x256 ImageData from bgRemovedCanvas
       setAiStatus("フレームを生成中...");
@@ -71,6 +98,8 @@ export default function AnimationSettings({
       const extractCtx = extractCanvas.getContext("2d")!;
       extractCtx.drawImage(bgRemovedCanvas, 0, 0, 256, 256);
       const baseImageData = extractCtx.getImageData(0, 0, 256, 256);
+      extractCanvas.width = 0;
+      extractCanvas.height = 0;
 
       // Step 3: Generate all frames in sandbox
       const { generateAllFrames, framesToGif } = await import("@/lib/animationSandbox");
@@ -82,17 +111,45 @@ export default function AnimationSettings({
       const url = URL.createObjectURL(gifBlob);
       setAiPreviewUrl(url);
       setAiStatus(null);
+
+      // Decrement remaining count
+      setAiRemaining((prev) => (prev !== null ? prev - 1 : null));
     } catch (err) {
-      setAiError(err instanceof Error ? err.message : "不明なエラー");
+      if (err instanceof Error && err.message.includes("アニメーションの実行")) {
+        setAiError("アニメーションの実行に失敗しました。別の説明で試してください");
+      } else {
+        setAiError(err instanceof Error ? err.message : "生成に失敗しました。もう一度お試しください");
+      }
       setAiStatus(null);
     } finally {
       setAiLoading(false);
     }
   }, [aiDescription, bgRemovedCanvas, aiPreviewUrl]);
 
+  const handleAiApply = useCallback(() => {
+    if (!aiGeneratedCode) return;
+    onConfigChange({
+      animation: {
+        type: "ai-custom" as AnimationType,
+        speed: config.animation.speed,
+        aiAnimationCode: aiGeneratedCode,
+      },
+    });
+  }, [aiGeneratedCode, config.animation.speed, onConfigChange]);
+
   const handleAiToggle = useCallback(() => {
     setShowAiPanel((v) => !v);
   }, []);
+
+  // Helper: select a normal animation (clears aiAnimationCode)
+  const selectAnimation = useCallback(
+    (type: AnimationType) => {
+      onConfigChange({ animation: { type, aiAnimationCode: undefined } });
+    },
+    [onConfigChange]
+  );
+
+  const isAiCustomActive = config.animation.type === "ai-custom";
 
   return (
     <div>
@@ -103,7 +160,7 @@ export default function AnimationSettings({
         {ANIMATION_OPTIONS.filter((o) => !o.subscriberOnly && !o.loginOnly).map((opt) => (
           <button
             key={opt.value}
-            onClick={() => onConfigChange({ animation: { type: opt.value } })}
+            onClick={() => selectAnimation(opt.value)}
             className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors truncate ${
               config.animation.type === opt.value
                 ? "bg-purple-600 text-white"
@@ -128,7 +185,7 @@ export default function AnimationSettings({
                   key={opt.value}
                   onClick={() => {
                     if (unlocked) {
-                      onConfigChange({ animation: { type: opt.value } });
+                      selectAnimation(opt.value);
                     } else {
                       onLoginRequired?.();
                     }
@@ -163,7 +220,7 @@ export default function AnimationSettings({
               return (
                 <button
                   key={opt.value}
-                  onClick={() => !locked && onConfigChange({ animation: { type: opt.value } })}
+                  onClick={() => !locked && selectAnimation(opt.value)}
                   className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors truncate ${
                     isActiveFromTemplate
                       ? "bg-purple-900 text-purple-300 border border-purple-500 cursor-not-allowed"
@@ -188,12 +245,14 @@ export default function AnimationSettings({
         <button
           onClick={handleAiToggle}
           className={`w-full px-3 py-2 rounded text-sm transition-colors border ${
-            showAiPanel
+            isAiCustomActive
+              ? "border-cyan-400 bg-cyan-600/30 text-cyan-200"
+              : showAiPanel
               ? "border-cyan-500 bg-cyan-600/20 text-cyan-300"
               : "border-gray-600 bg-gray-800 text-gray-400 hover:border-cyan-500/50 hover:text-cyan-400"
           }`}
         >
-          AIで作る（ベータ）
+          {isAiCustomActive ? "AIアニメーション適用中" : "AIで作る（ベータ）"}
         </button>
 
         {showAiPanel && (
@@ -215,6 +274,14 @@ export default function AnimationSettings({
               </div>
             ) : (
               <>
+                {isAiCustomActive && (
+                  <div className="flex items-center gap-1.5 text-xs text-cyan-400 bg-cyan-600/10 px-2 py-1 rounded">
+                    <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                    </svg>
+                    AI生成アニメーション適用中
+                  </div>
+                )}
                 <p className="text-xs text-gray-400">
                   アニメーションの動きを説明してください（日本語OK）
                 </p>
@@ -226,18 +293,27 @@ export default function AnimationSettings({
                   rows={2}
                   className="w-full px-2 py-1.5 rounded bg-gray-700 text-gray-100 text-sm placeholder-gray-500 border border-gray-600 focus:border-cyan-500 focus:outline-none resize-none"
                 />
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleAiGenerate}
-                    disabled={aiLoading || !aiDescription.trim() || !bgRemovedCanvas}
-                    className="px-3 py-1.5 rounded bg-cyan-600 text-white text-sm hover:bg-cyan-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {aiLoading ? "生成中..." : "生成する"}
-                  </button>
+                <div className="flex items-center justify-between">
                   <span className="text-xs text-gray-500">
                     {aiDescription.length}/200
                   </span>
+                  {aiRemaining !== null && (
+                    <span className={`text-xs ${aiRemaining > 0 ? "text-gray-500" : "text-red-400"}`}>
+                      残り {aiRemaining}/{DAILY_LIMIT} 回（本日）
+                    </span>
+                  )}
                 </div>
+                <button
+                  onClick={handleAiGenerate}
+                  disabled={aiLoading || !aiDescription.trim() || !bgRemovedCanvas || aiRemaining === 0}
+                  className="w-full px-3 py-1.5 rounded bg-cyan-600 text-white text-sm hover:bg-cyan-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {aiLoading
+                    ? "生成中..."
+                    : aiPreviewUrl
+                    ? `再生成${aiRemaining !== null ? `（残り${aiRemaining}回）` : ""}`
+                    : "生成する"}
+                </button>
                 {!bgRemovedCanvas && (
                   <p className="text-xs text-yellow-400">
                     先に画像をアップロードしてください
@@ -266,6 +342,25 @@ export default function AnimationSettings({
                   alt="AI生成アニメーション"
                   className="w-32 h-32 rounded border border-gray-600 bg-gray-900"
                 />
+                <div className="flex flex-col gap-1.5 w-full">
+                  <button
+                    onClick={handleAiApply}
+                    className={`w-full px-3 py-2 rounded text-sm font-medium transition-colors ${
+                      isAiCustomActive
+                        ? "bg-cyan-700 text-cyan-200 cursor-default"
+                        : "bg-cyan-600 text-white hover:bg-cyan-500"
+                    }`}
+                  >
+                    {isAiCustomActive ? "適用済み" : "このアニメーションを使う"}
+                  </button>
+                  <button
+                    disabled
+                    className="w-full px-3 py-1.5 rounded text-sm bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
+                    title="この機能は準備中です"
+                  >
+                    公開する（準備中）
+                  </button>
+                </div>
               </div>
             )}
           </div>

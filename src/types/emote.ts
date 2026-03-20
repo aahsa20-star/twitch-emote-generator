@@ -65,7 +65,8 @@ export type AnimationType = "none" | "sway" | "shake" | "blink" | "bounce" | "zo
   | "stretch" | "fall" | "inflate" | "tilt" | "bobbing"
   | "hologram" | "pixelate" | "kaleidoscope" | "electric" | "static"
   | "ricochet" | "figure8" | "spiralfall" | "randomwarp" | "stagger"
-  | "angry" | "cry" | "blush" | "surprise" | "sleepy";
+  | "angry" | "cry" | "blush" | "surprise" | "sleepy"
+  | "ai-custom";
 
 export type TextPosition = "top" | "center" | "bottom";
 
@@ -109,6 +110,8 @@ export interface SubImageConfig {
 export interface AnimationConfig {
   type: AnimationType;
   speed: AnimationSpeed;
+  /** AI生成コード文字列（type === "ai-custom" 時のみ使用） */
+  aiAnimationCode?: string;
 }
 
 export interface EmoteConfig {

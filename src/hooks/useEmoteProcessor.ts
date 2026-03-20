@@ -192,7 +192,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
             let animatedBlob: Blob | null = null;
             if (needsAnimation) {
               if (!cancelled) setStage("generating-preview");
-              animatedBlob = await generateGif(canvas, config.animation.type, size, config.animation.speed, sharedHiRes ?? undefined);
+              animatedBlob = await generateGif(canvas, config.animation.type, size, config.animation.speed, sharedHiRes ?? undefined, config.animation.aiAnimationCode);
             }
 
             if (cancelled) return;

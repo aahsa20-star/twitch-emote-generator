@@ -80,6 +80,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid config" }, { status: 400 });
   }
 
+  // Remove AI-generated animation code from templates (security + storage)
+  if (config.animation?.aiAnimationCode) {
+    delete config.animation.aiAnimationCode;
+  }
+
   const { data, error } = await getSupabase()
     .from("templates")
     .insert({

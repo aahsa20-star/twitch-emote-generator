@@ -160,8 +160,78 @@ export async function generateGif(
   animationType: AnimationType,
   size: number,
   speed: AnimationSpeed = "normal",
-  hiResCanvas?: HTMLCanvasElement
+  hiResCanvas?: HTMLCanvasElement,
+  aiAnimationCode?: string
 ): Promise<Blob> {
+  // AI-custom: use iframe sandbox for frame generation
+  if (animationType === "ai-custom" && aiAnimationCode) {
+    const { generateAllFrames } = await import("@/lib/animationSandbox");
+    const sourceCanvas = hiResCanvas ?? baseCanvas;
+
+    // Extract 256×256 ImageData for sandbox
+    const extractCanvas = document.createElement("canvas");
+    extractCanvas.width = 256;
+    extractCanvas.height = 256;
+    const extractCtx = extractCanvas.getContext("2d")!;
+    extractCtx.drawImage(sourceCanvas, 0, 0, 256, 256);
+    const baseImageData = extractCtx.getImageData(0, 0, 256, 256);
+    extractCanvas.width = 0;
+    extractCanvas.height = 0;
+
+    const totalFrames = 20;
+    const frameDelay = SPEED_DELAY[speed];
+    const frames = await generateAllFrames(aiAnimationCode, baseImageData, totalFrames);
+
+    return new Promise((resolve, reject) => {
+      const gif = new GIF({
+        workers: 2,
+        quality: 10,
+        width: size,
+        height: size,
+        workerScript: "/gif.worker.js",
+        transparent: 0x00000000 as unknown as string,
+        repeat: 0,
+      });
+
+      const frameCanvases: HTMLCanvasElement[] = [];
+      for (const frame of frames) {
+        const fc = document.createElement("canvas");
+        fc.width = 256;
+        fc.height = 256;
+        fc.getContext("2d")!.putImageData(frame, 0, 0);
+
+        let outputFrame: HTMLCanvasElement;
+        if (size < 256) {
+          outputFrame = downscale(fc, size);
+          fc.width = 0;
+          fc.height = 0;
+        } else {
+          outputFrame = fc;
+        }
+
+        gif.addFrame(outputFrame, { delay: frameDelay, copy: true });
+        frameCanvases.push(outputFrame);
+      }
+
+      gif.on("finished", (blob: Blob) => {
+        for (const c of frameCanvases) {
+          c.width = 0;
+          c.height = 0;
+        }
+        resolve(blob);
+      });
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (gif as any).on("error", (err: Error) => {
+        for (const c of frameCanvases) {
+          c.width = 0;
+          c.height = 0;
+        }
+        reject(err);
+      });
+      gif.render();
+    });
+  }
+
   const generator = generators[animationType];
   if (!generator) {
     throw new Error(`No animation generator for: ${animationType}`);

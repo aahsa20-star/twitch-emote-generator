@@ -11,7 +11,7 @@
 | ホスティング | Vercel（GitHub自動デプロイ） |
 | コード規模 | 57ファイル / 約9,500行（src/配下） |
 | コミット数 | 157+ |
-| 最新コミット | feat: AIアニメーション生成Phase 1完了 |
+| 最新コミット | feat: AIアニメーション生成Phase 2完了（プレビューUI+パイプライン統合） |
 | DB | Supabase（templates/likes/ai_animation_logsテーブル） |
 | 認証 | Auth.js v5 + Twitch OAuth |
 
@@ -200,6 +200,17 @@
 - 未ログイン時UX改善（AIパネルは常時開閉可能、インラインでログイン案内+画像消失警告を表示、リダイレクトによる画像消失を事前に防止）
 - Phase 1は技術検証のみ（保存・公開機能なし、AnimationSettings内にインラインプレビュー）
 - Phase 1完了（動きの改善確認済み）
+
+### AIアニメーション生成（Phase 2: プレビューUI）
+- 「このアニメーションを使う」ボタン（AI生成アニメーションを既存GIFパイプラインに即時適用）
+- `AnimationType` に `"ai-custom"` 追加、`AnimationConfig.aiAnimationCode` でコード文字列を保持
+- `generateGif` に ai-custom 分岐追加（sandbox経由フレーム生成→downscale→gif.jsエンコード、既存50種アニメーション影響なし）
+- 残り回数表示（GET `/api/generate-animation` で残り回数取得、ログイン時のみfetch）
+- 再生成ボタン（「再生成（残りN回）」でレート制限消費を明示）
+- エラー表示改善（429→レート制限超過、401→未認証、iframe失敗→別説明で再試行の案内）
+- 「公開する（準備中）」ボタン（disabled表示のみ、Phase 3で有効化）
+- AI適用中のハイライト表示（「AIアニメーション適用中」ステータス + ボタンの色変更）
+- テンプレート投稿時にaiAnimationCodeを自動除外（API側でdelete、セキュリティ+ストレージ節約）
 
 ### デザイン・ブランディング
 - Interフォント導入（英字はInter、日本語はNoto Sans JPにフォールバック）
@@ -467,7 +478,8 @@ b2fe06e fix: 透過中キャンセルボタンの2行折れを修正
 6396615 feat: エモート作成画面に人気テンプレート上位3件を表示
 f635164 feat: ログイン限定アニメ・殿堂入りバッジ・テンプレートクレジット追加
 5dbdfdc chore: package-lock.json再生成（npm再インストール）
-xxxxxxx feat: AIアニメーション生成Phase 1完了（iframe sandbox+Anthropic API+プロンプト改善+未ログインUX改善）
+6f921a3 feat: AIアニメーション生成Phase 1完了（iframe sandbox+Anthropic API+プロンプト改善+未ログインUX改善）
+xxxxxxx feat: AIアニメーション生成Phase 2完了（プレビューUI+パイプライン統合+残り回数表示）
 ```
 
 ---
@@ -475,7 +487,7 @@ xxxxxxx feat: AIアニメーション生成Phase 1完了（iframe sandbox+Anthro
 ## 今後の展望
 
 ### 短期（すぐ実装可能）
-- AIアニメーション Phase 2: プレビューUI改善+生成コードのSupabase保存+ギャラリー公開+動的ロード
+- AIアニメーション Phase 2.5: 生成コードのSupabase保存+ギャラリー公開+動的ロード
 - AIアニメーション Phase 3: 審査フロー+管理者承認パイプライン
 - テンプレートギャラリー Phase 2: サムネイルプレビュー生成（投稿時にブラウザでプレビュー画像生成→Supabase Storage保存）
 - テンプレートギャラリー Phase 3: 通報機能（不適切テンプレートの通報→管理者通知）
