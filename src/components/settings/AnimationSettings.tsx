@@ -8,8 +8,23 @@ import {
   ANIMATION_OPTIONS,
   ANIMATION_SPEED_OPTIONS,
 } from "@/types/emote";
+import PublishAnimationModal from "@/components/PublishAnimationModal";
 
 const DAILY_LIMIT = 5;
+
+interface CustomAnimation {
+  id: string;
+  user_id: string;
+  user_name: string;
+  user_login: string;
+  user_image: string | null;
+  name: string;
+  description: string;
+  code: string;
+  likes_count: number;
+  liked_by_me?: boolean;
+  created_at: string;
+}
 
 interface AnimationSettingsProps {
   config: EmoteConfig;
@@ -38,6 +53,17 @@ export default function AnimationSettings({
   const [aiRemaining, setAiRemaining] = useState<number | null>(null);
   const [aiRemainingLoading, setAiRemainingLoading] = useState(false);
 
+  // Publish modal
+  const [showPublishModal, setShowPublishModal] = useState(false);
+  const [publishToast, setPublishToast] = useState(false);
+
+  // Community animations
+  const [communityAnimations, setCommunityAnimations] = useState<CustomAnimation[]>([]);
+  const [communityLoading, setCommunityLoading] = useState(false);
+  const [communityOffset, setCommunityOffset] = useState(0);
+  const [communityHasMore, setCommunityHasMore] = useState(true);
+  const [communityLoaded, setCommunityLoaded] = useState(false);
+
   // Clean up object URL on unmount or when preview changes
   useEffect(() => {
     return () => {
@@ -58,6 +84,72 @@ export default function AnimationSettings({
         .finally(() => setAiRemainingLoading(false));
     }
   }, [showAiPanel, isLoggedIn, aiRemaining, aiRemainingLoading]);
+
+  // Fetch community animations when logged in (once)
+  useEffect(() => {
+    if (isLoggedIn && !communityLoaded) {
+      setCommunityLoaded(true);
+      setCommunityLoading(true);
+      fetch("/api/custom-animations?sort=popular&limit=20&offset=0")
+        .then((r) => (r.ok ? r.json() : []))
+        .then((data: CustomAnimation[]) => {
+          setCommunityAnimations(data);
+          setCommunityOffset(data.length);
+          setCommunityHasMore(data.length >= 20);
+        })
+        .catch(() => {})
+        .finally(() => setCommunityLoading(false));
+    }
+  }, [isLoggedIn, communityLoaded]);
+
+  const loadMoreCommunity = useCallback(async () => {
+    if (communityLoading || !communityHasMore) return;
+    setCommunityLoading(true);
+    try {
+      const res = await fetch(`/api/custom-animations?sort=popular&limit=20&offset=${communityOffset}`);
+      if (res.ok) {
+        const data: CustomAnimation[] = await res.json();
+        setCommunityAnimations((prev) => [...prev, ...data]);
+        setCommunityOffset((prev) => prev + data.length);
+        setCommunityHasMore(data.length >= 20);
+      }
+    } catch {}
+    setCommunityLoading(false);
+  }, [communityLoading, communityHasMore, communityOffset]);
+
+  const handleCommunityLike = useCallback(async (animationId: string) => {
+    const res = await fetch(`/api/custom-animations/${animationId}/like`, { method: "POST" });
+    if (res.ok) {
+      const { liked, likes_count } = await res.json();
+      setCommunityAnimations((prev) =>
+        prev.map((a) => (a.id === animationId ? { ...a, liked_by_me: liked, likes_count } : a))
+      );
+    }
+  }, []);
+
+  const handleCommunityReport = useCallback(async (animationId: string) => {
+    if (!confirm("このアニメーションを通報しますか？")) return;
+    const res = await fetch(`/api/custom-animations/${animationId}/report`, { method: "POST" });
+    if (res.ok) {
+      setCommunityAnimations((prev) => prev.filter((a) => a.id !== animationId));
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.error || "通報に失敗しました");
+    }
+  }, []);
+
+  const handleCommunityUse = useCallback(
+    (animation: CustomAnimation) => {
+      onConfigChange({
+        animation: {
+          type: "ai-custom" as AnimationType,
+          speed: config.animation.speed,
+          aiAnimationCode: animation.code,
+        },
+      });
+    },
+    [config.animation.speed, onConfigChange]
+  );
 
   const handleAiGenerate = useCallback(async () => {
     if (!aiDescription.trim() || !bgRemovedCanvas) return;
@@ -141,6 +233,14 @@ export default function AnimationSettings({
     setShowAiPanel((v) => !v);
   }, []);
 
+  const handlePublishSuccess = useCallback(() => {
+    setShowPublishModal(false);
+    setPublishToast(true);
+    setTimeout(() => setPublishToast(false), 4000);
+    // Refresh community list
+    setCommunityLoaded(false);
+  }, []);
+
   // Helper: select a normal animation (clears aiAnimationCode)
   const selectAnimation = useCallback(
     (type: AnimationType) => {
@@ -153,6 +253,13 @@ export default function AnimationSettings({
 
   return (
     <div>
+      {/* Publish toast */}
+      {publishToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-cyan-600/90 text-white px-4 py-2.5 rounded-lg text-sm font-medium shadow-lg animate-fade-in">
+          公開しました! みんなのアニメーションに追加されました
+        </div>
+      )}
+
       <h3 className="text-sm font-semibold text-gray-300 mb-2">
         アニメーション
       </h3>
@@ -354,11 +461,10 @@ export default function AnimationSettings({
                     {isAiCustomActive ? "適用済み" : "このアニメーションを使う"}
                   </button>
                   <button
-                    disabled
-                    className="w-full px-3 py-1.5 rounded text-sm bg-gray-700 text-gray-500 cursor-not-allowed opacity-50"
-                    title="この機能は準備中です"
+                    onClick={() => setShowPublishModal(true)}
+                    className="w-full px-3 py-1.5 rounded text-sm bg-gray-700 text-gray-300 hover:bg-gray-600 transition-colors"
                   >
-                    公開する（準備中）
+                    公開する
                   </button>
                 </div>
               </div>
@@ -366,6 +472,76 @@ export default function AnimationSettings({
           </div>
         )}
       </div>
+
+      {/* Community Animations — logged in only */}
+      {isLoggedIn && communityAnimations.length > 0 && (
+        <div className="mt-4">
+          <p className="text-xs text-gray-500 mb-2">みんなのアニメーション</p>
+          <div className="space-y-2">
+            {communityAnimations.map((anim) => (
+              <div
+                key={anim.id}
+                className="p-2.5 bg-gray-800 rounded-lg border border-gray-700"
+              >
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="text-sm text-gray-200 font-medium truncate">
+                    {anim.name}
+                  </p>
+                  <button
+                    onClick={() => handleCommunityReport(anim.id)}
+                    className="text-gray-600 hover:text-red-400 transition-colors shrink-0 ml-2"
+                    title="通報する"
+                  >
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="flex items-center gap-1.5 mb-2">
+                  <a
+                    href={`https://twitch.tv/${anim.user_login}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-gray-500 hover:text-purple-400 transition-colors truncate"
+                  >
+                    {anim.user_name}
+                  </a>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => handleCommunityLike(anim.id)}
+                    className={`flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors ${
+                      anim.liked_by_me
+                        ? "bg-pink-600/20 text-pink-400"
+                        : "bg-gray-700 text-gray-400 hover:text-pink-400"
+                    }`}
+                  >
+                    <svg className="w-3.5 h-3.5" fill={anim.liked_by_me ? "currentColor" : "none"} stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
+                    </svg>
+                    {anim.likes_count}
+                  </button>
+                  <button
+                    onClick={() => handleCommunityUse(anim)}
+                    className="flex-1 px-2 py-1 rounded text-xs bg-cyan-600/20 text-cyan-400 hover:bg-cyan-600/30 transition-colors text-center"
+                  >
+                    使う
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {communityHasMore && (
+            <button
+              onClick={loadMoreCommunity}
+              disabled={communityLoading}
+              className="w-full mt-2 px-3 py-1.5 rounded text-xs bg-gray-800 text-gray-400 hover:bg-gray-700 transition-colors disabled:opacity-50"
+            >
+              {communityLoading ? "読み込み中..." : "もっと見る"}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Animation speed — always rendered to prevent layout shift */}
       <div
@@ -394,6 +570,16 @@ export default function AnimationSettings({
           ))}
         </div>
       </div>
+
+      {/* Publish Modal */}
+      {showPublishModal && aiGeneratedCode && (
+        <PublishAnimationModal
+          description={aiDescription}
+          code={aiGeneratedCode}
+          onClose={() => setShowPublishModal(false)}
+          onSuccess={handlePublishSuccess}
+        />
+      )}
     </div>
   );
 }

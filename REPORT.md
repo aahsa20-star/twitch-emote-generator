@@ -11,8 +11,8 @@
 | ホスティング | Vercel（GitHub自動デプロイ） |
 | コード規模 | 57ファイル / 約9,500行（src/配下） |
 | コミット数 | 157+ |
-| 最新コミット | feat: AIアニメーション生成Phase 2完了（プレビューUI+パイプライン統合） |
-| DB | Supabase（templates/likes/ai_animation_logsテーブル） |
+| 最新コミット | feat: AIアニメーション生成Phase 3完了（公開フロー+みんなのアニメーション+いいね+通報） |
+| DB | Supabase（templates/likes/ai_animation_logs/custom_animations/animation_likes/animation_reportsテーブル） |
 | 認証 | Auth.js v5 + Twitch OAuth |
 
 ## コンセプト
@@ -212,6 +212,22 @@
 - AI適用中のハイライト表示（「AIアニメーション適用中」ステータス + ボタンの色変更）
 - テンプレート投稿時にaiAnimationCodeを自動除外（API側でdelete、セキュリティ+ストレージ節約）
 
+### AIアニメーション生成（Phase 3: 公開フロー）
+- 「公開する」ボタン有効化（Phase 2のdisabled状態を解除、クリックでPublishAnimationModal表示）
+- PublishAnimationModal（アニメーション名入力20文字制限、POST /api/custom-animations で保存、成功時トースト通知）
+- API: POST /api/custom-animations（Twitchログイン必須、name/description/code バリデーション、code 5000文字制限）
+- API: GET /api/custom-animations（認証任意、sort=popular|new、limit/offset ページネーション、is_active=trueのみ、ログイン時liked_by_me付与）
+- API: POST /api/custom-animations/[id]/like（トグル方式、アプリ側で likes_count +1/-1、既存テンプレートと同じパターン）
+- API: POST /api/custom-animations/[id]/report（通報、1ユーザー1回制限、DB triggerで3件自動非公開）
+- 「みんなのアニメーション」セクション（AnimationSettings内、Twitchログイン時のみ表示）
+  - 人気順TOP20取得、カード表示（名前・投稿者Twitchリンク・いいね数・いいねボタン・通報ボタン・「使う」ボタン）
+  - 「使う」クリックで config.animation を ai-custom + code にセット（既存パイプライン経由でGIF生成）
+  - 「もっと見る」ボタン（20件ずつ追加読み込み）
+- DB: custom_animations テーブル（code 5000文字制限、通報3件自動非公開trigger）
+- DB: animation_likes テーブル（UNIQUE(animation_id, user_id)）
+- DB: animation_reports テーブル（UNIQUE(animation_id, user_id)、INSERT trigger で自動非公開）
+- 既存50種アニメーション・テンプレートギャラリーに影響なし
+
 ### デザイン・ブランディング
 - Interフォント導入（英字はInter、日本語はNoto Sans JPにフォールバック）
 - 絵文字全削除（テキスト＋CSSのみのミニマルUI）
@@ -256,6 +272,9 @@ src/
 │   ├── api/templates/[id]/route.ts # テンプレート削除API（DELETE、所有者チェック）
 │   ├── api/templates/[id]/like/route.ts # いいねトグルAPI（POST）
 │   ├── api/generate-animation/route.ts # AIアニメーション生成API（Anthropic Claude Sonnet、レート制限5回/日）
+│   ├── api/custom-animations/route.ts # カスタムアニメーションCRUD API（GET一覧/POST公開）
+│   ├── api/custom-animations/[id]/like/route.ts # カスタムアニメーションいいねトグルAPI（POST）
+│   ├── api/custom-animations/[id]/report/route.ts # カスタムアニメーション通報API（POST、3件で自動非公開）
 │   ├── layout.tsx               # ルートレイアウト（Google Fonts、OGP/Twitterメタデータ、Umami Analytics、AuthProvider）
 │   ├── opengraph-image.tsx      # 動的OG画像生成（Edge Runtime、1200x630）
 │   ├── globals.css              # グローバルCSS（Inter + Noto Sans JP）
@@ -266,6 +285,7 @@ src/
 │   ├── Gallery.tsx              # テンプレートギャラリー（一覧/ソート/フィルタ/いいね/削除 + TemplateCard）
 │   ├── LoginPromptModal.tsx     # ログイン促進モーダル（Twitch OAuth）
 │   ├── PostTemplateModal.tsx    # テンプレート投稿モーダル（タイトル/タグ入力）
+│   ├── PublishAnimationModal.tsx # カスタムアニメーション公開モーダル（名前入力20文字制限）
 │   ├── providers/
 │   │   └── AuthProvider.tsx     # SessionProviderラッパー（Client Component）
 │   ├── UploadPanel.tsx          # 画像アップロード（D&D + click）
@@ -487,8 +507,7 @@ xxxxxxx feat: AIアニメーション生成Phase 2完了（プレビューUI+パ
 ## 今後の展望
 
 ### 短期（すぐ実装可能）
-- AIアニメーション Phase 2.5: 生成コードのSupabase保存+ギャラリー公開+動的ロード
-- AIアニメーション Phase 3: 審査フロー+管理者承認パイプライン
+- AIアニメーション Phase 4: 管理者ダッシュボード（通報一覧・手動非公開・featured選定）
 - テンプレートギャラリー Phase 2: サムネイルプレビュー生成（投稿時にブラウザでプレビュー画像生成→Supabase Storage保存）
 - テンプレートギャラリー Phase 3: 通報機能（不適切テンプレートの通報→管理者通知）
 - likes_count のDB trigger移行（レースコンディション完全排除）
