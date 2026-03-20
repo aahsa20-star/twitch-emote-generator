@@ -388,6 +388,7 @@ src/
 | auth.tsの型エラーでVercelビルド全失敗 | `session.user as Record<string, unknown>` のキャストがTypeScriptに拒否される（AdapterUser & User型との不整合） | `as unknown as Record<string, unknown>` と二段階キャストに変更 |
 | モバイルでアニメーション設定ボタンが右に見切れる | サブスク解放後にアニメーション45種のグリッドが画面幅をはみ出す | overflow-x-hidden + truncateで横スクロール防止 |
 | PublishAnimationModal/PreviewCardモーダルが画面中央に表示されない | 親要素の`[contain:layout_style]`が`fixed`のcontaining blockを変更し中央配置が効かない | `createPortal(…, document.body)`でbody直下にレンダリング |
+| 「透過済みPNGをそのまま使う」が中途半端に改行される | ボタン幅に対してテキストが長く、単語の途中で折り返される | `whitespace-nowrap`+`<br>`で意味的に自然な位置で2行分割 |
 
 ---
 

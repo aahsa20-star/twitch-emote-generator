@@ -332,7 +332,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
                   : "border-gray-600 bg-transparent text-gray-300 hover:border-gray-400 hover:text-gray-200"
               }`}
             >
-              透過済みPNGをそのまま使う（VTuber・イラスト素材など）
+              <span className="whitespace-nowrap">透過済みPNGをそのまま使う</span><br /><span className="text-xs">（VTuber・イラスト素材など）</span>
             </button>
           </div>
         )}
