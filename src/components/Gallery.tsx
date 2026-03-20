@@ -23,6 +23,7 @@ export default function Gallery({ onApplyTemplate, onGoToCreator }: GalleryProps
   const [loading, setLoading] = useState(false);
   const [hasMore, setHasMore] = useState(true);
   const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showGuide, setShowGuide] = useState(false);
 
   const fetchTemplates = useCallback(async (reset: boolean) => {
     setLoading(true);
@@ -147,13 +148,55 @@ export default function Gallery({ onApplyTemplate, onGoToCreator }: GalleryProps
         )}
       </div>
 
-      {/* Description (always visible when templates exist) */}
-      {templates.length > 0 && (
-        <p className="text-xs text-gray-500 mb-4">
-          他のユーザーの設定をワンクリックで自分のエモートに適用できます。
-          {!session?.user && " ログインすると投稿・いいねができます。"}
-        </p>
-      )}
+      {/* Collapsible guide */}
+      <div className="mb-4">
+        <button
+          onClick={() => setShowGuide((v) => !v)}
+          className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-200 transition-colors"
+        >
+          <span className={`transition-transform duration-200 ${showGuide ? "rotate-90" : ""}`}>▶</span>
+          テンプレートとは？
+        </button>
+        <div
+          className={`overflow-hidden transition-all duration-300 ${
+            showGuide ? "max-h-[600px] opacity-100 mt-3" : "max-h-0 opacity-0"
+          }`}
+        >
+          <div className="space-y-3">
+            <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-4 space-y-2">
+              <h3 className="text-white font-bold text-sm">テンプレートとは？</h3>
+              <p className="text-gray-300 text-xs">
+                あなたのエモート設定を共有できる機能です。画像は共有されません。フチ・アニメーション・テキストなどの設定値だけが共有されます。
+              </p>
+              <p className="text-gray-400 text-xs">
+                他のユーザーの設定を「このテンプレートを使う」ボタンでワンクリック適用できます。
+              </p>
+            </div>
+            <div className="bg-gray-800/40 border border-gray-700 rounded-xl p-4">
+              <h3 className="text-white font-bold text-sm mb-2">投稿方法</h3>
+              <div className="space-y-2">
+                {[
+                  { step: "1", text: "エモートを作る" },
+                  { step: "2", text: "「テンプレートとして投稿」ボタンをクリック" },
+                  { step: "3", text: "タイトルとタグをつけて投稿" },
+                ].map(({ step, text }) => (
+                  <div key={step} className="flex items-center gap-2">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-purple-600 text-white text-xs font-bold flex items-center justify-center">
+                      {step}
+                    </span>
+                    <p className="text-gray-300 text-xs">{text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {!session?.user && (
+              <p className="text-xs text-gray-500">
+                ログインなしでもテンプレートの閲覧・適用は可能です。投稿・いいねにはTwitchログインが必要です。
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Sort tabs */}
       <div className="flex gap-2 mb-4">
