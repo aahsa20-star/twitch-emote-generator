@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 
 interface PublishAnimationModalProps {
   description: string;
@@ -53,7 +54,7 @@ export default function PublishAnimationModal({
     }
   };
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/60"
       onClick={onClose}
@@ -114,6 +115,7 @@ export default function PublishAnimationModal({
           公開したアニメーションは「みんなのアニメーション」に表示されます。不適切な投稿は通報により非公開になります。
         </p>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

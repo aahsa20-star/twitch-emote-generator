@@ -387,6 +387,7 @@ src/
 | Supabase templatesテーブルにINSERTできない（permission denied） | PostgreSQLのテーブル権限がservice_roleに付与されていなかった（RLS DISABLEDでも権限不足） | `GRANT ALL ON public.templates TO service_role` で明示的に権限付与 |
 | auth.tsの型エラーでVercelビルド全失敗 | `session.user as Record<string, unknown>` のキャストがTypeScriptに拒否される（AdapterUser & User型との不整合） | `as unknown as Record<string, unknown>` と二段階キャストに変更 |
 | モバイルでアニメーション設定ボタンが右に見切れる | サブスク解放後にアニメーション45種のグリッドが画面幅をはみ出す | overflow-x-hidden + truncateで横スクロール防止 |
+| PublishAnimationModalが画面上部に表示される | 親要素の`[contain:layout_style]`が`fixed`のcontaining blockを変更し中央配置が効かない | `createPortal(…, document.body)`でbody直下にレンダリング |
 
 ---
 
