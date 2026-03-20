@@ -209,7 +209,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
   }, [sourceFile]);
 
   return (
-    <div className="flex-1 grid grid-cols-1 md:grid-cols-[320px_1fr] gap-4 md:gap-6 p-4 md:p-6 max-w-6xl mx-auto w-full overflow-x-hidden">
+    <div className="flex-1 grid grid-cols-1 md:grid-cols-[380px_1fr] gap-4 md:gap-6 p-4 md:p-6 max-w-7xl mx-auto w-full overflow-x-hidden">
       {/* Upload + toggle + progress (top-left on desktop, 1st on mobile) */}
       <div className="space-y-4 md:space-y-6 order-1 md:order-none self-start">
         <UploadPanel

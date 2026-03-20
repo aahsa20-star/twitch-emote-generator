@@ -312,6 +312,16 @@ export default function PreviewArea({ variants, stage, hasText = false, textPosi
 
   return (
     <div className="flex flex-col items-center gap-4 relative">
+      {/* Loading overlay when regenerating with existing variants */}
+      {isProcessing && (
+        <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-gray-900/70 rounded-lg backdrop-blur-sm">
+          <svg className="animate-spin h-8 w-8 text-purple-400 mb-3" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" className="opacity-25" />
+            <path fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" className="opacity-75" />
+          </svg>
+          <p className="text-sm text-purple-300 animate-pulse">アニメーション生成中...</p>
+        </div>
+      )}
       {/* Background mode toggle */}
       <div className="absolute top-0 right-0 flex gap-1">
         {BG_OPTIONS.map((opt) => (
