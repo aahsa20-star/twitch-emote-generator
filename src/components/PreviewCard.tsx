@@ -1,5 +1,6 @@
 import { EmoteVariant, TextPosition } from "@/types/emote";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { checkVisibility, VisibilityResult } from "@/lib/visibilityChecker";
 
 type BgMode = "checker" | "dark" | "light";
@@ -308,8 +309,8 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
         <span className="md:hidden text-xs text-gray-500">ドラッグで移動 / ピンチでズーム</span>
       )}
 
-      {/* Enlarged modal (PC only) */}
-      {modalOpen && (
+      {/* Enlarged modal (PC only) — portal to body to escape contain:layout */}
+      {modalOpen && createPortal(
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={() => setModalOpen(false)}>
           <div className="relative checkerboard rounded-lg p-6 max-w-[90vw] max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <img
@@ -326,7 +327,8 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
               ↓ {variant.size}px {format} ダウンロード
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
       {/* Mobile-only download button (no hover on touch devices) */}
       <button
