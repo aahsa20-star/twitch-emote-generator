@@ -226,6 +226,8 @@
 - DB: custom_animations テーブル（code 5000文字制限、通報3件自動非公開trigger）
 - DB: animation_likes テーブル（UNIQUE(animation_id, user_id)）
 - DB: animation_reports テーブル（UNIQUE(animation_id, user_id)、INSERT trigger で自動非公開）
+- 自分の投稿の削除機能（DELETE /api/custom-animations/[id]、所有者チェック、物理削除、削除トースト通知）
+- 投稿者Twitchアイコン表示（24px円形、user_image保存済み、投稿者名とアイコンがTwitchリンク）
 - 既存50種アニメーション・テンプレートギャラリーに影響なし
 
 ### デザイン・ブランディング
@@ -273,6 +275,7 @@ src/
 │   ├── api/templates/[id]/like/route.ts # いいねトグルAPI（POST）
 │   ├── api/generate-animation/route.ts # AIアニメーション生成API（Anthropic Claude Sonnet、レート制限5回/日）
 │   ├── api/custom-animations/route.ts # カスタムアニメーションCRUD API（GET一覧/POST公開）
+│   ├── api/custom-animations/[id]/route.ts # カスタムアニメーション削除API（DELETE、所有者チェック）
 │   ├── api/custom-animations/[id]/like/route.ts # カスタムアニメーションいいねトグルAPI（POST）
 │   ├── api/custom-animations/[id]/report/route.ts # カスタムアニメーション通報API（POST、3件で自動非公開）
 │   ├── layout.tsx               # ルートレイアウト（Google Fonts、OGP/Twitterメタデータ、Umami Analytics、AuthProvider）

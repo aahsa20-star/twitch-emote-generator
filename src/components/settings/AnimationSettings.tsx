@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
+import { useSession } from "next-auth/react";
 import {
   EmoteConfig,
   PartialEmoteConfig,
@@ -43,6 +44,9 @@ export default function AnimationSettings({
   onLoginRequired,
   bgRemovedCanvas,
 }: AnimationSettingsProps) {
+  const { data: session } = useSession();
+  const currentUserId = session?.user?.id;
+
   const [showAiPanel, setShowAiPanel] = useState(false);
   const [aiDescription, setAiDescription] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
@@ -53,9 +57,10 @@ export default function AnimationSettings({
   const [aiRemaining, setAiRemaining] = useState<number | null>(null);
   const [aiRemainingLoading, setAiRemainingLoading] = useState(false);
 
-  // Publish modal
+  // Publish modal & toasts
   const [showPublishModal, setShowPublishModal] = useState(false);
   const [publishToast, setPublishToast] = useState(false);
+  const [deleteToast, setDeleteToast] = useState(false);
 
   // Community animations
   const [communityAnimations, setCommunityAnimations] = useState<CustomAnimation[]>([]);
@@ -116,6 +121,16 @@ export default function AnimationSettings({
     } catch {}
     setCommunityLoading(false);
   }, [communityLoading, communityHasMore, communityOffset]);
+
+  const handleCommunityDelete = useCallback(async (animationId: string) => {
+    if (!confirm("このアニメーションを削除しますか？")) return;
+    const res = await fetch(`/api/custom-animations/${animationId}`, { method: "DELETE" });
+    if (res.ok) {
+      setCommunityAnimations((prev) => prev.filter((a) => a.id !== animationId));
+      setDeleteToast(true);
+      setTimeout(() => setDeleteToast(false), 3000);
+    }
+  }, []);
 
   const handleCommunityLike = useCallback(async (animationId: string) => {
     const res = await fetch(`/api/custom-animations/${animationId}/like`, { method: "POST" });
@@ -253,7 +268,12 @@ export default function AnimationSettings({
 
   return (
     <div>
-      {/* Publish toast */}
+      {/* Toasts */}
+      {deleteToast && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-red-600/90 text-white px-4 py-2.5 rounded-lg text-sm font-medium shadow-lg animate-fade-in">
+          削除しました
+        </div>
+      )}
       {publishToast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 bg-cyan-600/90 text-white px-4 py-2.5 rounded-lg text-sm font-medium shadow-lg animate-fade-in">
           公開しました! みんなのアニメーションに追加されました
@@ -487,23 +507,42 @@ export default function AnimationSettings({
                   <p className="text-sm text-gray-200 font-medium truncate">
                     {anim.name}
                   </p>
-                  <button
-                    onClick={() => handleCommunityReport(anim.id)}
-                    className="text-gray-600 hover:text-red-400 transition-colors shrink-0 ml-2"
-                    title="通報する"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z" />
-                    </svg>
-                  </button>
+                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
+                    {currentUserId === anim.user_id && (
+                      <button
+                        onClick={() => handleCommunityDelete(anim.id)}
+                        className="text-gray-600 hover:text-red-400 transition-colors"
+                        title="削除する"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    )}
+                    {currentUserId !== anim.user_id && (
+                      <button
+                        onClick={() => handleCommunityReport(anim.id)}
+                        className="text-gray-600 hover:text-red-400 transition-colors"
+                        title="通報する"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2z" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
                 <div className="flex items-center gap-1.5 mb-2">
                   <a
                     href={`https://twitch.tv/${anim.user_login}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="text-xs text-gray-500 hover:text-purple-400 transition-colors truncate"
+                    className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-purple-400 transition-colors truncate"
                   >
+                    {anim.user_image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={anim.user_image} alt="" className="w-6 h-6 rounded-full shrink-0" />
+                    )}
                     {anim.user_name}
                   </a>
                 </div>
