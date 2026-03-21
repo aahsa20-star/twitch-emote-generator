@@ -144,7 +144,7 @@ export default function ShareAfterDownloadModal({ onClose, imageDataUrl, templat
                 X
               </a>
               <a
-                href="https://www.twitch.tv/akiissamurai"
+                href="https://www.twitch.tv/datsusara_aki"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-purple-600/20 text-purple-300 text-xs font-medium border border-purple-500/30 hover:bg-purple-600/30 transition-colors"
