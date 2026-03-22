@@ -11,6 +11,9 @@ import {
   Rock_3D,
   Boogaloo,
   Permanent_Marker,
+  Black_Han_Sans,
+  RocknRoll_One,
+  Kaisei_Decol,
 } from "next/font/google";
 import AuthProvider from "@/components/providers/AuthProvider";
 import "./globals.css";
@@ -75,6 +78,24 @@ const permanentMarker = Permanent_Marker({
   variable: "--font-permanent-marker",
 });
 
+const blackHanSans = Black_Han_Sans({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-black-han-sans",
+});
+
+const rocknrollOne = RocknRoll_One({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-rocknroll-one",
+});
+
+const kaiseiDecol = Kaisei_Decol({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-kaisei-decol",
+});
+
 export const metadata: Metadata = {
   title: "Twitch Emote Generator｜エモート作成ツール（無料・ブラウザ完結）",
   description:
@@ -111,6 +132,9 @@ const fontVars = [
   rock3D.variable,
   boogaloo.variable,
   permanentMarker.variable,
+  blackHanSans.variable,
+  rocknrollOne.variable,
+  kaiseiDecol.variable,
 ].join(" ");
 
 export default function RootLayout({
