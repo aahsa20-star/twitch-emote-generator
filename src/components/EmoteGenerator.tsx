@@ -268,7 +268,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
               </span>
             </div>
             <a
-              href="https://discord.gg/CheMXWdj"
+              href="https://discord.gg/9ktJgFrYKe"
               target="_blank"
               rel="noopener noreferrer"
               className="text-xs text-purple-400 hover:underline block"
