@@ -123,22 +123,18 @@ export function applyTextOverlay(
   const x = canvasSize / 2 + scaledOffsetX;
   const y = canvasSize / 2 + scaledOffsetY;
 
-  // Shadow-based text outline for smooth anti-aliased edges
+  // strokeText-based outline for sharp, crisp edges
   const outlineWidth = userOutlineWidth != null
     ? userOutlineWidth * (canvasSize / 112)
     : Math.max(1, canvasSize * 0.025);
 
   if (outlineWidth > 0) {
     ctx.save();
-    ctx.shadowColor = strokeColor;
-    ctx.shadowBlur = outlineWidth;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 0;
-    ctx.fillStyle = strokeColor;
-    // Multiple passes for full opacity buildup
-    for (let i = 0; i < 4; i++) {
-      ctx.fillText(text, x, y);
-    }
+    ctx.strokeStyle = strokeColor;
+    ctx.lineWidth = outlineWidth * 2;
+    ctx.lineJoin = "round";
+    ctx.miterLimit = 2;
+    ctx.strokeText(text, x, y);
     ctx.restore();
   }
 

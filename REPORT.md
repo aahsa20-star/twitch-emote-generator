@@ -260,7 +260,7 @@
 - shadowBlur方式のフチ取り（アンチエイリアス改善）
 - サイズ別フチ幅スケーリング（出力サイズに応じてフチ太さを√比例調整、28px/56px/112pxで均一な見た目に）
 - サイズ別パディング補正（小サイズほどパディング比率を低減、余白差を吸収、GIF用processEmoteWithHiResにも適用）
-- shadow多パス方式のテキスト縁取り（幅0〜10px可変）
+- strokeText方式のテキスト縁取り（幅0〜10px可変、シャープな描画）
 - 28px/32pxテキスト自動非表示（視認性確保）
 - GIF 20フレーム / 速度可変ディレイ（25ms〜80ms、滑らかなアニメーション）
 - カラーピッカー: onChange + 200msデバウンスでリアルタイムプレビュー（macOS浮遊パネル・Windows/Safari対応）
@@ -367,7 +367,7 @@ src/
 | Xシェアボタンが何も開かない | async/await後のwindow.openがポップアップブロッカーに弾かれる | window.openを同期呼び出しに変更、clipboard copyは非同期で後実行 |
 | カラーピッカーが重い・閉じる | React onChange（=DOM input event）がドラッグ中に毎フレーム発火→150msデバウンスで再描画 | ColorPickerコンポーネント分離、onInputでローカルstate、onChangeで親に反映 |
 | フチ取り境界がギザつく | 8方向オフセット描画はアンチエイリアスが効かない | shadowBlur方式に変更 |
-| テキスト縁取りが粗い | strokeTextの標準描画品質の限界 | shadow多パス描画方式に変更 |
+| テキスト縁取りがボケる | shadowBlur多パス方式は本質的にぼやける | strokeText方式に変更（lineJoin=round、シャープな描画） |
 | 28pxでテキストが潰れる | 28pxキャンバスにテキスト描画は物理的に視認不可 | 28pxではテキスト自動非表示 |
 | 小サイズの全体品質が低い | 28px/56pxで直接描画するとフチ・テキストの解像度不足 | 224px高解像度中間キャンバス + multi-step downscale + USMシャープネス（≤56px） |
 | GIFアニメーションの輪郭がぼやける | 出力サイズ（28〜112px）で直接フレーム生成していた | 256px高解像度フレーム生成→フレーム毎にmulti-step downscale |
