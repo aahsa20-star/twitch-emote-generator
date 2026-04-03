@@ -28,7 +28,7 @@ async function getDetector(): Promise<FaceDetector> {
   detectorInstance = await FaceDetector.createFromOptions(vision, {
     baseOptions: { modelAssetPath: MODEL_CDN, delegate },
     runningMode: "IMAGE",
-    minDetectionConfidence: 0.3,
+    minDetectionConfidence: 0.15,
   });
   detectorDelegate = delegate;
   return detectorInstance;
@@ -213,7 +213,7 @@ function detectFacesInFrame(
     const bb = det.boundingBox;
     if (!bb) continue;
     const score = det.categories?.[0]?.score ?? 0;
-    if (score < 0.3) continue;
+    if (score < 0.15) continue;
 
     rawCandidates.push({
       time,
