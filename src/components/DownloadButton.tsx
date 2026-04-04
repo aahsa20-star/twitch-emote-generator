@@ -33,6 +33,7 @@ export default function DownloadButton({
 
   // iOS step download state (0=initial, 1=largest done, 2=mid done)
   const [iosStep, setIosStep] = useState(0);
+  const [iosBadgeStep, setIosBadgeStep] = useState(0);
   const [iosToast, setIosToast] = useState<string | null>(null);
 
   const showIosToast = useCallback((msg: string) => {
@@ -108,14 +109,22 @@ export default function DownloadButton({
     if (!badgeSettings?.enabled || !bgRemovedCanvas) return;
 
     if (isIOS) {
-      // iOS: open each badge size in new tab one by one
-      for (const size of BADGE_SIZES) {
-        const canvas = renderBadge(bgRemovedCanvas, badgeSettings, size);
-        const dataUrl = canvas.toDataURL("image/png");
-        window.open(dataUrl, "_blank");
+      // Step-based download for iOS
+      const targetSize = BADGE_SIZES[iosBadgeStep];
+      if (targetSize === undefined) return;
+
+      const canvas = renderBadge(bgRemovedCanvas, badgeSettings, targetSize);
+      const dataUrl = canvas.toDataURL("image/png");
+      window.open(dataUrl, "_blank");
+
+      if (iosBadgeStep < BADGE_SIZES.length - 1) {
+        setIosBadgeStep(iosBadgeStep + 1);
+        showIosToast(`${targetSize}pxバッジを開きました。長押しで保存後、次を押してください`);
+      } else {
+        setIosBadgeStep(0);
+        showIosToast("全バッジ完了！長押し →「写真に追加」で保存できます");
+        onDownloadComplete?.();
       }
-      showIosToast("長押し →「写真に追加」で保存できます");
-      onDownloadComplete?.();
       return;
     }
 
@@ -136,7 +145,7 @@ export default function DownloadButton({
     a.click();
     setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
     onDownloadComplete?.();
-  }, [badgeSettings, bgRemovedCanvas, onDownloadComplete, showIosToast]);
+  }, [badgeSettings, bgRemovedCanvas, onDownloadComplete, showIosToast, iosBadgeStep]);
 
   const vLargest = variants.find((v) => v.size === largestSize);
   const formatLargest = vLargest?.animatedBlob ? "GIF" : "PNG";
@@ -227,17 +236,33 @@ export default function DownloadButton({
 
       {/* Badge ZIP download */}
       {badgeSettings?.enabled && bgRemovedCanvas && (
-        <button
-          onClick={handleBadgeDownload}
-          disabled={!isReady}
-          className={`w-full py-2 px-4 min-h-[44px] md:min-h-0 rounded-lg text-sm transition-colors ${
-            isReady
-              ? "bg-gray-700 hover:bg-gray-600 text-gray-200 cursor-pointer border border-purple-600"
-              : "bg-gray-700 text-gray-500 cursor-not-allowed"
-          }`}
-        >
-          {isIOS ? "バッジをDL（iOS）" : "バッジ一括DL（ZIP）"}
-        </button>
+        <>
+          <button
+            onClick={handleBadgeDownload}
+            disabled={!isReady}
+            className={`w-full py-2 px-4 min-h-[44px] md:min-h-0 rounded-lg text-sm transition-colors ${
+              isReady
+                ? iosBadgeStep > 0
+                  ? "bg-purple-700 hover:bg-purple-600 text-white cursor-pointer border border-purple-500"
+                  : "bg-gray-700 hover:bg-gray-600 text-gray-200 cursor-pointer border border-purple-600"
+                : "bg-gray-700 text-gray-500 cursor-not-allowed"
+            }`}
+          >
+            {isIOS
+              ? iosBadgeStep === 0
+                ? "バッジを順番にDL（iOS）"
+                : `${BADGE_SIZES[iosBadgeStep]}pxバッジを開く（${iosBadgeStep + 1}/${BADGE_SIZES.length}）`
+              : "バッジ一括DL（ZIP）"}
+          </button>
+          {isIOS && iosBadgeStep > 0 && (
+            <button
+              onClick={() => setIosBadgeStep(0)}
+              className="w-full py-1.5 px-4 rounded-lg text-xs text-gray-400 hover:text-gray-200 transition-colors"
+            >
+              バッジDLリセット
+            </button>
+          )}
+        </>
       )}
     </div>
   );

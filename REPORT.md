@@ -397,7 +397,7 @@ src/
 | モバイルでアニメーション設定ボタンが右に見切れる | サブスク解放後にアニメーション45種のグリッドが画面幅をはみ出す | overflow-x-hidden + truncateで横スクロール防止 |
 | PublishAnimationModal/PreviewCardモーダルが画面中央に表示されない | 親要素の`[contain:layout_style]`が`fixed`のcontaining blockを変更し中央配置が効かない | `createPortal(…, document.body)`でbody直下にレンダリング |
 | 「透過済みPNGをそのまま使う」が中途半端に改行される | ボタン幅に対してテキストが長く、単語の途中で折り返される | `whitespace-nowrap`+`<br>`で意味的に自然な位置で2行分割 |
-| iOSでダウンロードボタンが動作しない | iOS Safariは`<a download>` + blob URLに対応していない | iOS検出（iPadOS 13+対応）→ PNG: `window.open`で新タブ表示+保存ガイドトースト、ZIP: ステップ方式で1枚ずつ`window.open` |
+| iOSでダウンロードボタンが動作しない | iOS Safariは`<a download>` + blob URLに対応していない | iOS検出（iPadOS 13+対応）→ PNG: `window.open`で新タブ表示+保存ガイドトースト、ZIP/バッジ: ステップ方式で1枚ずつ`window.open` |
 | PCでHEICファイルをD&Dするとエラーが不明瞭 | ACCEPTED_TYPESにHEIC/HEIFが含まれておらず汎用エラーが出る | HEIC/HEIFを検出して「JPGまたはPNGに変換してください」の専用エラーメッセージを表示 |
 | iOSでXシェア時にクリップボードコピーが無音失敗 | iOS Safariは`navigator.clipboard.write()`非対応 | iOS検出→「スクリーンショットを撮ってツイートに添付してください📸」トーストを表示 |
 
