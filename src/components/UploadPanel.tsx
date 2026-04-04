@@ -5,7 +5,7 @@ interface UploadPanelProps {
   hasImage: boolean;
 }
 
-const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp"];
+const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/heic", "image/heif"];
 
 export default function UploadPanel({
   onImageSelected,
@@ -25,6 +25,11 @@ export default function UploadPanel({
 
   const handleFile = useCallback(
     (file: File) => {
+      // HEIC/HEIF: accept but warn that Canvas API can't render it
+      if (file.type === "image/heic" || file.type === "image/heif") {
+        showError("HEICファイルは直接使用できません。JPGまたはPNGに変換してからアップロードしてください");
+        return;
+      }
       if (!ACCEPTED_TYPES.includes(file.type)) {
         showError("PNG, JPG, WEBP形式の画像を選択してください");
         return;

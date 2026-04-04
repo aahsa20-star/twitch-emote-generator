@@ -2,12 +2,17 @@
 
 import { useState, useCallback } from "react";
 
+const isIOS = typeof navigator !== "undefined" && (
+  /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+  (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)
+);
+
 interface ShareButtonProps {
   imageDataUrl: string | null;
 }
 
 export default function ShareButton({ imageDataUrl }: ShareButtonProps) {
-  const [toast, setToast] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
 
   const handleShare = useCallback(() => {
     // 1. Open X share window FIRST (must be synchronous for popup blocker)
@@ -21,7 +26,14 @@ export default function ShareButton({ imageDataUrl }: ShareButtonProps) {
       "noopener,noreferrer,width=550,height=420"
     );
 
-    // 2. Copy 112px image to clipboard (async, runs after popup opens)
+    // 2. iOS: clipboard.write not supported — show alternative guidance
+    if (isIOS) {
+      setToast("スクリーンショットを撮ってツイートに添付してください📸");
+      setTimeout(() => setToast(null), 4000);
+      return;
+    }
+
+    // 3. Non-iOS: Copy 112px image to clipboard (async, runs after popup opens)
     if (imageDataUrl && navigator.clipboard?.write) {
       (async () => {
         try {
@@ -31,8 +43,8 @@ export default function ShareButton({ imageDataUrl }: ShareButtonProps) {
           await navigator.clipboard.write([
             new ClipboardItem({ "image/png": pngBlob }),
           ]);
-          setToast(true);
-          setTimeout(() => setToast(false), 3000);
+          setToast("画像をクリップボードにコピーしました。ツイートに貼り付けてください📋");
+          setTimeout(() => setToast(null), 3000);
         } catch {
           // Clipboard API permission denied or other error — skip silently
         }
@@ -54,7 +66,7 @@ export default function ShareButton({ imageDataUrl }: ShareButtonProps) {
       {toast && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50">
           <div className="bg-purple-600/90 text-white text-sm px-4 py-2.5 rounded-lg shadow-lg animate-fade-in backdrop-blur-sm">
-            画像をクリップボードにコピーしました。ツイートに貼り付けてください📋
+            {toast}
           </div>
         </div>
       )}
