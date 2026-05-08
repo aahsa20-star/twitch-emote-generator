@@ -15,6 +15,8 @@ import ShareButton from "./ShareButton";
 import ShareAfterDownloadModal from "./ShareAfterDownloadModal";
 import FloatingMiniPreview from "./FloatingMiniPreview";
 import VideoFaceExtractor from "./VideoFaceExtractor";
+import VideoTrimmer from "./VideoTrimmer";
+import type { DecodedVideo } from "@/lib/video/decoder";
 import LoginPromptModal from "./LoginPromptModal";
 import PostTemplateModal from "./PostTemplateModal";
 import { EmoteConfig, ExportMode, BgRemovalQuality, DEFAULT_BADGE_SETTINGS } from "@/types/emote";
@@ -73,6 +75,9 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
     isGifSource,
     gifFrameCount,
     gifNotice,
+    isVideoSource,
+    videoFrameCount,
+    ingestVideoSource,
   } = useEmoteProcessor(exportMode, subCanvas);
 
   // Convert subFile to subCanvas
@@ -88,6 +93,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
   }, []);
 
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingVideoFile, setPendingVideoFile] = useState<File | null>(null);
   const [showRetryMenu, setShowRetryMenu] = useState(false);
   const [isSubscriber, setIsSubscriber] = useState(false);
   const [passphrase, setPassphrase] = useState("");
@@ -173,6 +179,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
     // re-render anyway, and the editor only handles single images).
     if (file.type === "image/gif") {
       setPendingFile(null);
+      setPendingVideoFile(null);
       setSourceFile(file);
       // GIF is its own animation; clear any frame-by-frame animation overlay.
       if (config.animation.type !== "none") {
@@ -180,7 +187,28 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
       }
       return;
     }
+    // Videos go to the trimming UI before frame extraction.
+    if (file.type.startsWith("video/")) {
+      setPendingFile(null);
+      setPendingVideoFile(file);
+      setSourceFile(file); // so settings panel and downstream UI light up
+      if (config.animation.type !== "none") {
+        updateConfig({ animation: { type: "none" } });
+      }
+      return;
+    }
+    setPendingVideoFile(null);
     setPendingFile(file);
+  };
+
+  const handleVideoConfirm = (decoded: DecodedVideo) => {
+    setPendingVideoFile(null);
+    ingestVideoSource(decoded);
+  };
+
+  const handleVideoCancel = () => {
+    setPendingVideoFile(null);
+    setSourceFile(null);
   };
 
   const handleAdjustConfirm = (adjustedFile: File) => {
@@ -237,6 +265,15 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
             file={pendingFile}
             onConfirm={handleAdjustConfirm}
             onSkip={handleAdjustSkip}
+          />
+        )}
+
+        {/* Video trimmer (Phase 2) */}
+        {pendingVideoFile && (
+          <VideoTrimmer
+            file={pendingVideoFile}
+            onConfirm={handleVideoConfirm}
+            onCancel={handleVideoCancel}
           />
         )}
 
@@ -352,8 +389,20 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
           </div>
         )}
 
-        {/* Skip background removal (hidden for GIF source) */}
-        {sourceFile && !isGifSource && (
+        {/* Video source info */}
+        {isVideoSource && (
+          <div className="space-y-1.5">
+            <div className="text-xs px-3 py-2 rounded-lg bg-pink-600/20 text-pink-200 border border-pink-500/30">
+              <span className="font-medium">動画モード</span> — {videoFrameCount}フレームを各サイズで再エンコードします
+            </div>
+            <p className="text-xs text-gray-500">
+              フチ・テキスト・フレーム装飾は全フレームに適用されます。背景透過とアニメーション設定はスキップされます。
+            </p>
+          </div>
+        )}
+
+        {/* Skip background removal (hidden for animated sources) */}
+        {sourceFile && !isGifSource && !isVideoSource && !pendingVideoFile && (
           <div className="flex flex-col items-start gap-1">
             <button
               onClick={() => setSkipBgRemoval(!skipBgRemoval)}
@@ -368,8 +417,8 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
           </div>
         )}
 
-        {/* Background removal quality toggle (hidden for GIF source) */}
-        {sourceFile && !isGifSource && !skipBgRemoval && (
+        {/* Background removal quality toggle (hidden for animated sources) */}
+        {sourceFile && !isGifSource && !isVideoSource && !pendingVideoFile && !skipBgRemoval && (
           <div className="space-y-1">
             <label className="text-xs text-gray-400 block">透過精度</label>
             <div className="flex gap-2">
@@ -469,7 +518,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
         {/* Retry / skip button above preview */}
         {bgRemovedCanvas && stage === "ready" && (
           <div className="relative mb-3 flex items-center gap-2 flex-wrap">
-            {!isGifSource && (
+            {!isGifSource && !isVideoSource && (
               <button
                 onClick={() => setShowRetryMenu(!showRetryMenu)}
                 className="text-xs px-3 py-1.5 rounded bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors border border-gray-700"
@@ -477,7 +526,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
                 ↩ 透過を調整する
               </button>
             )}
-            {!isGifSource && (
+            {!isGifSource && !isVideoSource && (
               <button
                 onClick={handleReenterAdjust}
                 className="text-xs px-3 py-1.5 rounded bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors border border-gray-700"

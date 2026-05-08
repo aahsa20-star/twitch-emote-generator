@@ -5,10 +5,14 @@ interface UploadPanelProps {
   hasImage: boolean;
 }
 
-const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/heic", "image/heif"];
+const ACCEPTED_TYPES = [
+  "image/png", "image/jpeg", "image/webp", "image/gif", "image/heic", "image/heif",
+  "video/mp4", "video/quicktime", "video/webm",
+];
 
 const MAX_SIZE_STATIC = 10 * 1024 * 1024; // 10MB for static images
 const MAX_SIZE_GIF = 30 * 1024 * 1024; // 30MB for GIFs (animation frames add up)
+const MAX_SIZE_VIDEO = 50 * 1024 * 1024; // 50MB for videos (matches VideoFaceExtractor)
 
 export default function UploadPanel({
   onImageSelected,
@@ -16,6 +20,7 @@ export default function UploadPanel({
 }: UploadPanelProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewIsVideo, setPreviewIsVideo] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -34,19 +39,32 @@ export default function UploadPanel({
         return;
       }
       if (!ACCEPTED_TYPES.includes(file.type)) {
-        showError("PNG, JPG, WEBP, GIF形式の画像を選択してください");
+        showError("PNG, JPG, WEBP, GIF, MP4, MOV, WEBM形式のファイルを選択してください");
         return;
       }
-      const maxSize = file.type === "image/gif" ? MAX_SIZE_GIF : MAX_SIZE_STATIC;
+      const isVideo = file.type.startsWith("video/");
+      const maxSize = isVideo
+        ? MAX_SIZE_VIDEO
+        : file.type === "image/gif"
+          ? MAX_SIZE_GIF
+          : MAX_SIZE_STATIC;
       if (file.size > maxSize) {
-        showError(file.type === "image/gif" ? "30MB以下のGIFを選択してください" : "10MB以下の画像を選択してください");
+        showError(
+          isVideo
+            ? "50MB以下の動画を選択してください"
+            : file.type === "image/gif"
+              ? "30MB以下のGIFを選択してください"
+              : "10MB以下の画像を選択してください"
+        );
         return;
       }
 
       setError(null);
       if (previewUrl) URL.revokeObjectURL(previewUrl);
-      const url = URL.createObjectURL(file);
+      // Videos render via VideoTrimmer below — UploadPanel only shows a label.
+      const url = isVideo ? null : URL.createObjectURL(file);
       setPreviewUrl(url);
+      setPreviewIsVideo(isVideo);
       onImageSelected(file);
     },
     [onImageSelected, previewUrl, showError]
@@ -90,7 +108,7 @@ export default function UploadPanel({
       <input
         ref={inputRef}
         type="file"
-        accept="image/*"
+        accept="image/*,video/mp4,video/quicktime,video/webm"
         className="hidden"
         onChange={handleChange}
       />
@@ -105,18 +123,27 @@ export default function UploadPanel({
         </div>
       )}
 
-      {previewUrl ? (
+      {previewUrl || previewIsVideo ? (
         <div className="space-y-3">
-          <img
-            src={previewUrl}
-            alt="アップロード画像"
-            className="mx-auto max-h-40 object-contain rounded"
-          />
+          {previewIsVideo ? (
+            <div className="mx-auto max-h-40 flex flex-col items-center justify-center gap-2 py-4">
+              <svg className="w-12 h-12 text-purple-400" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+              </svg>
+              <span className="text-sm text-purple-300">動画を選択中（下でトリミング）</span>
+            </div>
+          ) : (
+            <img
+              src={previewUrl!}
+              alt="アップロード画像"
+              className="mx-auto max-h-40 object-contain rounded"
+            />
+          )}
           <p className="text-sm text-gray-400 hidden md:block">
-            クリックまたはD&Dで画像を変更
+            クリックまたはD&Dで{previewIsVideo ? "動画" : "画像"}を変更
           </p>
           <p className="text-sm text-gray-400 md:hidden">
-            タップして画像を変更
+            タップして{previewIsVideo ? "動画" : "画像"}を変更
           </p>
         </div>
       ) : (
@@ -135,10 +162,10 @@ export default function UploadPanel({
             />
           </svg>
           <div>
-            <p className="text-gray-300 hidden md:block">画像をドラッグ&ドロップ</p>
-            <p className="text-gray-300 md:hidden">タップして画像を選択</p>
+            <p className="text-gray-300 hidden md:block">画像/動画をドラッグ&ドロップ</p>
+            <p className="text-gray-300 md:hidden">タップして画像/動画を選択</p>
             <p className="text-sm text-gray-500 mt-1">
-              PNG / JPG / WEBP / GIF
+              PNG / JPG / WEBP / GIF / MP4 / MOV / WEBM
             </p>
           </div>
         </div>
