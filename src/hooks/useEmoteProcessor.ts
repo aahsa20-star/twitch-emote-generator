@@ -15,9 +15,11 @@ import {
   DEFAULT_BADGE_SETTINGS,
 } from "@/types/emote";
 import { removeBackground } from "@/lib/backgroundRemoval";
-import { processEmote, processEmoteWithHiRes } from "@/lib/canvasPipeline";
+import { processEmote, processEmoteWithHiRes, processFrameWithBounds, computeUnionBounds, type Bounds } from "@/lib/canvasPipeline";
 import { generateGif } from "@/lib/gifEncoder";
 import { exportAsZip } from "@/lib/zipExporter";
+import { decodeGif, releaseDecodedGif, MAX_FRAMES, type DecodedGif } from "@/lib/gif/decoder";
+import { encodeAnimatedGif } from "@/lib/gif/animatedEncoder";
 
 export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: HTMLCanvasElement | null = null) {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
@@ -53,11 +55,14 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
   const [progress, setProgress] = useState(0);
   const [variants, setVariants] = useState<EmoteVariant[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [gifSource, setGifSourceState] = useState<DecodedGif | null>(null);
+  const [gifNotice, setGifNotice] = useState<string | null>(null);
 
   const renderTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const stageDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const variantsRef = useRef<EmoteVariant[]>([]);
   const bgRemovalCancelledRef = useRef(false);
+  const gifSourceRef = useRef<DecodedGif | null>(null);
 
   // Load image as canvas (shared helper)
   const fileToCanvas = useCallback(async (file: File): Promise<HTMLCanvasElement> => {
@@ -79,6 +84,15 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     return canvas;
   }, []);
 
+  /** Replace gifSource state and free the previous one. */
+  const setGifSource = useCallback((next: DecodedGif | null) => {
+    if (gifSourceRef.current && gifSourceRef.current !== next) {
+      releaseDecodedGif(gifSourceRef.current);
+    }
+    gifSourceRef.current = next;
+    setGifSourceState(next);
+  }, []);
+
   // Effect 1: Background removal (or skip) when source changes
   useEffect(() => {
     if (!sourceFile) return;
@@ -89,17 +103,83 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
       setVariants([]);
       variantsRef.current = [];
 
-      // Store original blob for BrushEditor restore brush
-      const origBlob = new Blob([await sourceFile!.arrayBuffer()], {
-        type: sourceFile!.type,
-      });
+      // GIF source: decode all frames and route to the animated pipeline.
+      // Skip bg removal entirely (running it per-frame is too slow for
+      // animated input, and most GIFs already have transparency).
+      // Single-frame GIFs fall through to the static path so users still
+      // get bg removal + brush editing — the file extension lies about its
+      // animated-ness.
+      let staticBlobOverride: Blob | null = null;
+      if (sourceFile!.type === "image/gif") {
+        setGifNotice(null);
+        setStage("processing");
+        try {
+          const decoded = await decodeGif(sourceFile!);
+          if (cancelled) {
+            releaseDecodedGif(decoded);
+            return;
+          }
+
+          if (decoded.frames.length > 1) {
+            setGifSource(decoded);
+            // Set bgRemovedCanvas to a copy of the first frame so any UI that
+            // depends on it (preview thumbnails, gallery hover) has something
+            // to render. The animated pipeline ignores this canvas.
+            const first = decoded.frames[0];
+            const firstCopy = document.createElement("canvas");
+            firstCopy.width = first.width;
+            firstCopy.height = first.height;
+            firstCopy.getContext("2d")!.drawImage(first, 0, 0);
+            setBgRemovedCanvas(firstCopy);
+
+            if (decoded.originalFrameCount > decoded.frames.length) {
+              setGifNotice(`${decoded.originalFrameCount}フレーム → ${decoded.frames.length}フレームに削減しました（Twitch上限対応）`);
+            }
+            return;
+          }
+
+          // Single-frame GIF → snapshot frame as a PNG and feed it through
+          // the static pipeline (so bg removal + brush still work).
+          const onlyFrame = decoded.frames[0];
+          staticBlobOverride = await new Promise<Blob>((resolve, reject) => {
+            onlyFrame.toBlob(
+              (b) => b ? resolve(b) : reject(new Error("toBlob returned null")),
+              "image/png"
+            );
+          });
+          releaseDecodedGif(decoded);
+          if (cancelled) return;
+        } catch (err) {
+          console.error("GIF decode failed:", err);
+          if (!cancelled) {
+            setErrorMessage("GIFの読み込みに失敗しました。別のファイルをお試しください");
+            setTimeout(() => setErrorMessage(null), 5000);
+            setStage("idle");
+          }
+          return;
+        }
+      }
+
+      // Non-GIF path (or single-frame GIF flattened to PNG): clear any previous
+      // GIF source, fall through to the existing static-image flow.
+      setGifSource(null);
+      setGifNotice(null);
+
+      // Store original blob for BrushEditor restore brush. For single-frame
+      // GIFs we use the flattened PNG so the brush editor sees the same pixels
+      // the user sees on screen.
+      const origBlob = staticBlobOverride
+        ?? new Blob([await sourceFile!.arrayBuffer()], { type: sourceFile!.type });
       if (!cancelled) setOriginalBlob(origBlob);
 
       if (skipBgRemoval) {
-        // Skip: use original image directly
+        // Skip: use original image directly (or the flattened PNG for single-frame GIF)
         setStage("processing");
         try {
-          const canvas = await fileToCanvas(sourceFile!);
+          const canvasFile = staticBlobOverride
+            ? new File([staticBlobOverride], "frame.png", { type: "image/png" })
+            : sourceFile!;
+          const canvas = await fileToCanvas(canvasFile);
           if (!cancelled && !bgRemovalCancelledRef.current) {
             setBgRemovedCanvas(canvas);
           }
@@ -136,7 +216,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     return () => {
       cancelled = true;
     };
-  }, [sourceFile, skipBgRemoval, bgRemovalQuality, fileToCanvas]);
+  }, [sourceFile, skipBgRemoval, bgRemovalQuality, fileToCanvas, setGifSource]);
 
   // Effect 2: Render previews when bgRemovedCanvas or config changes
   useEffect(() => {
@@ -171,6 +251,54 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
             exportMode === "discord" || exportMode === "ffz" ? DISCORD_SIZES :
             exportMode === "7tv" ? SEVENTV_SIZES :
             EMOTE_SIZES; // twitch, bttv
+
+          // GIF-source branch: process every decoded frame through the pipeline
+          // and re-encode at each output size. The configured `animation.type`
+          // is intentionally ignored here — the GIF *is* the animation.
+          if (gifSource) {
+            // Compute the union content bounds once so every frame shares the
+            // same center/scale transform (no jitter as the subject moves).
+            const bounds: Bounds = computeUnionBounds(gifSource.frames);
+
+            for (const size of sizes) {
+              if (cancelled) return;
+              setStage("generating-preview");
+
+              // Run pipeline on each frame at output size.
+              const processedFrames: HTMLCanvasElement[] = [];
+              for (const frame of gifSource.frames) {
+                processedFrames.push(processFrameWithBounds(frame, size, config, bounds));
+              }
+              if (cancelled) {
+                for (const f of processedFrames) { f.width = 0; f.height = 0; }
+                return;
+              }
+
+              const animatedBlob = await encodeAnimatedGif(processedFrames, gifSource.delays, size);
+
+              // Static preview = first processed frame as PNG data URL.
+              const staticDataUrl = processedFrames[0].toDataURL("image/png");
+
+              // Free per-frame canvases now that they're encoded into the blob.
+              for (const f of processedFrames) { f.width = 0; f.height = 0; }
+
+              newVariants.push({
+                size,
+                staticDataUrl,
+                animatedBlob,
+                filename: `emote_${size}px.gif`,
+              });
+            }
+
+            if (!cancelled) {
+              if (stageDelayRef.current) clearTimeout(stageDelayRef.current);
+              setVariants(newVariants);
+              variantsRef.current = newVariants;
+              setStage("ready");
+            }
+            return;
+          }
+
           // If animation enabled, build a shared hi-res canvas for GIF frame generation
           const needsAnimation = config.animation.type !== "none";
           let sharedHiRes: HTMLCanvasElement | null = null;
@@ -244,7 +372,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
         clearTimeout(stageDelayRef.current);
       }
     };
-  }, [bgRemovedCanvas, config, sourceFile, exportMode, subCanvas]);
+  }, [bgRemovedCanvas, config, sourceFile, exportMode, subCanvas, gifSource]);
 
   // Convert blob to canvas helper
   const blobToCanvas = useCallback(async (blob: Blob): Promise<HTMLCanvasElement> => {
@@ -370,5 +498,10 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     handleBrushSkip,
     fileToCanvas,
     errorMessage,
+    isGifSource: gifSource !== null,
+    gifFrameCount: gifSource?.frames.length ?? 0,
+    gifOriginalFrameCount: gifSource?.originalFrameCount ?? 0,
+    gifNotice,
+    maxGifFrames: MAX_FRAMES,
   };
 }

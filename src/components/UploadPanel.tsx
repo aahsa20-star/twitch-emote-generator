@@ -5,7 +5,10 @@ interface UploadPanelProps {
   hasImage: boolean;
 }
 
-const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/heic", "image/heif"];
+const ACCEPTED_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif", "image/heic", "image/heif"];
+
+const MAX_SIZE_STATIC = 10 * 1024 * 1024; // 10MB for static images
+const MAX_SIZE_GIF = 30 * 1024 * 1024; // 30MB for GIFs (animation frames add up)
 
 export default function UploadPanel({
   onImageSelected,
@@ -31,11 +34,12 @@ export default function UploadPanel({
         return;
       }
       if (!ACCEPTED_TYPES.includes(file.type)) {
-        showError("PNG, JPG, WEBP形式の画像を選択してください");
+        showError("PNG, JPG, WEBP, GIF形式の画像を選択してください");
         return;
       }
-      if (file.size > 10 * 1024 * 1024) {
-        showError("10MB以下の画像を選択してください");
+      const maxSize = file.type === "image/gif" ? MAX_SIZE_GIF : MAX_SIZE_STATIC;
+      if (file.size > maxSize) {
+        showError(file.type === "image/gif" ? "30MB以下のGIFを選択してください" : "10MB以下の画像を選択してください");
         return;
       }
 
@@ -134,7 +138,7 @@ export default function UploadPanel({
             <p className="text-gray-300 hidden md:block">画像をドラッグ&ドロップ</p>
             <p className="text-gray-300 md:hidden">タップして画像を選択</p>
             <p className="text-sm text-gray-500 mt-1">
-              PNG / JPG / WEBP
+              PNG / JPG / WEBP / GIF
             </p>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { EmoteConfig, TEXT_PRESETS } from "@/types/emote";
-import { HI_RES, GIF_HI_RES, USM_MAX_SIZE, releaseCanvas } from "./types";
-import { centerAndResize, ContentAdjustment } from "./backgroundRemoval";
+import { HI_RES, GIF_HI_RES, USM_MAX_SIZE, releaseCanvas, type Bounds } from "./types";
+import { centerAndResize, centerAndResizeWithBounds, ContentAdjustment } from "./backgroundRemoval";
 import { applyBorder, applyTextOverlay, compositeImages, applyFrame } from "./drawing";
 
 function resolveTextToRender(config: EmoteConfig): string | null {
@@ -246,4 +246,74 @@ export function processEmoteWithHiRes(
   const output = size < GIF_HI_RES ? downscale(hiResCanvas, size) : hiResCanvas;
 
   return { output, hiRes: hiResCanvas };
+}
+
+/**
+ * Process a single GIF source frame using pre-computed content bounds.
+ *
+ * Differs from processEmote in three ways:
+ *  - skips background removal (caller is responsible for transparency)
+ *  - uses caller-supplied bounds so every frame in a sequence shares the
+ *    same center/scale transform (no jitter as content moves)
+ *  - never mutates `frame` (caller may keep using it)
+ *
+ * Returns a fresh canvas at `size` × `size`.
+ */
+export function processFrameWithBounds(
+  frame: HTMLCanvasElement,
+  size: number,
+  config: EmoteConfig,
+  bounds: Bounds
+): HTMLCanvasElement {
+  const adjustment: ContentAdjustment | undefined =
+    (config.contentOffsetX || config.contentOffsetY || config.contentScale !== 1.0)
+      ? { offsetX: config.contentOffsetX, offsetY: config.contentOffsetY, scale: config.contentScale }
+      : undefined;
+
+  const basePadding = config.padding ?? 0.05;
+  const effectivePadding = size <= 32 ? basePadding * 0.4 : size <= 56 ? basePadding * 0.7 : basePadding;
+
+  // 1. Center + resize at HI_RES using shared bounds
+  let canvas = centerAndResizeWithBounds(frame, HI_RES, effectivePadding, bounds, adjustment);
+
+  // 2. Border
+  {
+    const prev = canvas;
+    canvas = applyBorder(canvas, config.outline.style, config.outline.width, config.outline.color, size);
+    if (canvas !== prev) releaseCanvas(prev);
+  }
+
+  // 3. Frame decoration
+  {
+    const prev = canvas;
+    canvas = applyFrame(canvas, config.frame.type);
+    if (canvas !== prev) releaseCanvas(prev);
+  }
+
+  // 4. Text overlay (skip ≤32px — unreadable)
+  const textToRender = resolveTextToRender(config);
+  if (textToRender && size > 32) {
+    const prev = canvas;
+    canvas = applyTextOverlay(canvas, {
+      text: textToRender,
+      font: config.text.font,
+      fillColor: config.text.fillColor,
+      strokeColor: config.text.strokeColor,
+      position: config.text.position,
+      userFontSize: config.text.fontSize,
+      offsetX: config.text.offsetX,
+      offsetY: config.text.offsetY,
+      outlineWidth: config.text.outlineWidth,
+    }, HI_RES);
+    releaseCanvas(prev);
+  }
+
+  // 5. Downscale to output size
+  if (size < HI_RES) {
+    const prev = canvas;
+    canvas = downscale(canvas, size);
+    releaseCanvas(prev);
+  }
+
+  return canvas;
 }

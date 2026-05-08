@@ -150,6 +150,19 @@ export default function DownloadButton({
   const vLargest = variants.find((v) => v.size === largestSize);
   const formatLargest = vLargest?.animatedBlob ? "GIF" : "PNG";
 
+  // File size summary (animated only — PNGs are always tiny enough).
+  const animatedSummary = variants
+    .filter((v) => v.animatedBlob)
+    .map((v) => ({
+      size: v.size,
+      bytes: v.animatedBlob!.size,
+      overLimit: v.animatedBlob!.size > 1024 * 1024,
+    }))
+    .sort((a, b) => b.size - a.size);
+  const hasOversize = animatedSummary.some((s) => s.overLimit);
+  const formatBytes = (n: number) =>
+    n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(2)}MB` : `${Math.round(n / 1024)}KB`;
+
   // iOS step button label
   const iosZipLabel = iosStep === 0
     ? "全サイズを順番にDL（iOS）"
@@ -161,6 +174,35 @@ export default function DownloadButton({
       {iosToast && (
         <div className="bg-purple-900/80 text-purple-200 text-xs p-2 rounded-lg text-center animate-pulse">
           {iosToast}
+        </div>
+      )}
+
+      {/* Animated GIF size summary (only when there's animated output) */}
+      {isReady && animatedSummary.length > 0 && (
+        <div className={`text-xs px-3 py-2 rounded-lg border ${
+          hasOversize
+            ? "bg-red-900/30 border-red-700 text-red-200"
+            : "bg-gray-800 border-gray-700 text-gray-400"
+        }`}>
+          <div className="flex items-center justify-between gap-2 mb-1">
+            <span className="font-medium">GIFファイルサイズ</span>
+            <span className="opacity-70">Twitch上限: 1MB</span>
+          </div>
+          <div className="space-y-0.5">
+            {animatedSummary.map((s) => (
+              <div key={s.size} className="flex justify-between font-mono">
+                <span>{s.size}px</span>
+                <span className={s.overLimit ? "text-red-300 font-semibold" : ""}>
+                  {formatBytes(s.bytes)}{s.overLimit ? " ⚠" : ""}
+                </span>
+              </div>
+            ))}
+          </div>
+          {hasOversize && (
+            <p className="mt-1.5 text-[11px] leading-snug">
+              赤字のサイズはTwitch登録時にリジェクトされる可能性があります。フチを細くする・テキストを短くする・別のGIFを使うなどで軽量化してください。
+            </p>
+          )}
         </div>
       )}
 

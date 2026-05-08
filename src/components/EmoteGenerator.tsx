@@ -70,6 +70,9 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
     handleBrushSkip,
     fileToCanvas,
     errorMessage,
+    isGifSource,
+    gifFrameCount,
+    gifNotice,
   } = useEmoteProcessor(exportMode, subCanvas);
 
   // Convert subFile to subCanvas
@@ -166,6 +169,17 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
   };
 
   const handleImageSelected = (file: File) => {
+    // GIFs go straight to the source — no static crop editor (each frame would
+    // re-render anyway, and the editor only handles single images).
+    if (file.type === "image/gif") {
+      setPendingFile(null);
+      setSourceFile(file);
+      // GIF is its own animation; clear any frame-by-frame animation overlay.
+      if (config.animation.type !== "none") {
+        updateConfig({ animation: { type: "none" } });
+      }
+      return;
+    }
     setPendingFile(file);
   };
 
@@ -321,8 +335,25 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
           </div>
         )}
 
-        {/* Skip background removal */}
-        {sourceFile && (
+        {/* GIF source info */}
+        {isGifSource && (
+          <div className="space-y-1.5">
+            <div className="text-xs px-3 py-2 rounded-lg bg-blue-600/20 text-blue-300 border border-blue-500/30">
+              <span className="font-medium">GIFモード</span> — {gifFrameCount}フレームを各サイズで再エンコードします
+            </div>
+            {gifNotice && (
+              <div className="text-xs px-3 py-2 rounded-lg bg-yellow-600/20 text-yellow-300 border border-yellow-500/30">
+                {gifNotice}
+              </div>
+            )}
+            <p className="text-xs text-gray-500">
+              フチ・テキスト・フレーム装飾は全フレームに適用されます。背景透過とアニメーション設定はスキップされ、元のGIFの動きとタイミングがそのまま使われます。
+            </p>
+          </div>
+        )}
+
+        {/* Skip background removal (hidden for GIF source) */}
+        {sourceFile && !isGifSource && (
           <div className="flex flex-col items-start gap-1">
             <button
               onClick={() => setSkipBgRemoval(!skipBgRemoval)}
@@ -337,8 +368,8 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
           </div>
         )}
 
-        {/* Background removal quality toggle */}
-        {sourceFile && !skipBgRemoval && (
+        {/* Background removal quality toggle (hidden for GIF source) */}
+        {sourceFile && !isGifSource && !skipBgRemoval && (
           <div className="space-y-1">
             <label className="text-xs text-gray-400 block">透過精度</label>
             <div className="flex gap-2">
@@ -438,18 +469,22 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
         {/* Retry / skip button above preview */}
         {bgRemovedCanvas && stage === "ready" && (
           <div className="relative mb-3 flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => setShowRetryMenu(!showRetryMenu)}
-              className="text-xs px-3 py-1.5 rounded bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors border border-gray-700"
-            >
-              ↩ 透過を調整する
-            </button>
-            <button
-              onClick={handleReenterAdjust}
-              className="text-xs px-3 py-1.5 rounded bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors border border-gray-700"
-            >
-              ↔ 位置を調整する
-            </button>
+            {!isGifSource && (
+              <button
+                onClick={() => setShowRetryMenu(!showRetryMenu)}
+                className="text-xs px-3 py-1.5 rounded bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors border border-gray-700"
+              >
+                ↩ 透過を調整する
+              </button>
+            )}
+            {!isGifSource && (
+              <button
+                onClick={handleReenterAdjust}
+                className="text-xs px-3 py-1.5 rounded bg-gray-800 text-gray-400 hover:text-gray-200 hover:bg-gray-700 transition-colors border border-gray-700"
+              >
+                ↔ 位置を調整する
+              </button>
+            )}
             {hasPositionAdjustment && (
               <button
                 onClick={handleResetPosition}
