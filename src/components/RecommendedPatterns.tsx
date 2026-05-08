@@ -32,6 +32,8 @@ const defaultConfig: EmoteConfig = {
   contentOffsetX: 0,
   contentOffsetY: 0,
   contentScale: 1.0,
+  animatedSpeed: 1.0,
+  animatedLoopCount: 0,
 };
 
 const AUTO_PATTERNS: AutoPattern[] = [

@@ -129,7 +129,26 @@ export interface EmoteConfig {
   contentOffsetY: number;
   /** Content scale multiplier (0.5 to 2.0). Default 1.0. */
   contentScale: number;
+  /** Playback speed multiplier for GIF/video sources. 1.0 = original speed.
+   *  Higher values shrink frame delays (faster), lower values stretch them.
+   *  Ignored for static images and the 52-pattern animation system. */
+  animatedSpeed: number;
+  /** Loop count for GIF/video output. 0 = infinite, 1 = once, 2 = twice, ...
+   *  Ignored for static images. */
+  animatedLoopCount: number;
 }
+
+/** Animated-source playback options. */
+export const ANIMATED_SPEED_PRESETS = [0.5, 1.0, 1.5, 2.0] as const;
+export const ANIMATED_SPEED_MIN = 0.25;
+export const ANIMATED_SPEED_MAX = 2.0;
+export const ANIMATED_SPEED_STEP = 0.25;
+export const ANIMATED_LOOP_OPTIONS: { value: number; label: string }[] = [
+  { value: 0, label: "無限ループ" },
+  { value: 1, label: "1回のみ" },
+  { value: 2, label: "2回" },
+  { value: 3, label: "3回" },
+];
 
 /** One-level deep partial: top keys optional, nested object keys also optional. */
 export type PartialEmoteConfig = {

@@ -19,7 +19,7 @@ import { processEmote, processEmoteWithHiRes, processFrameWithBounds, computeUni
 import { generateGif } from "@/lib/gifEncoder";
 import { exportAsZip } from "@/lib/zipExporter";
 import { decodeGif, releaseDecodedGif, MAX_FRAMES, type DecodedGif } from "@/lib/gif/decoder";
-import { encodeAnimatedGif } from "@/lib/gif/animatedEncoder";
+import { encodeAnimatedGif, applySpeedToDelays, loopCountToRepeat } from "@/lib/gif/animatedEncoder";
 import { releaseDecodedVideo, type DecodedVideo } from "@/lib/video/decoder";
 
 export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: HTMLCanvasElement | null = null) {
@@ -51,6 +51,8 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     contentOffsetX: 0,
     contentOffsetY: 0,
     contentScale: 1.0,
+    animatedSpeed: 1.0,
+    animatedLoopCount: 0,
   });
   const [stage, setStage] = useState<ProcessingStage>("idle");
   const [progress, setProgress] = useState(0);
@@ -307,6 +309,12 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
             // same center/scale transform (no jitter as the subject moves).
             const bounds: Bounds = computeUnionBounds(animated.frames);
 
+            // Translate user-facing playback settings into encoder inputs.
+            // Speed and loop count only apply to animated sources (GIF/video),
+            // never to the static-image + 52-pattern animation path.
+            const adjustedDelays = applySpeedToDelays(animated.delays, config.animatedSpeed);
+            const repeat = loopCountToRepeat(config.animatedLoopCount);
+
             for (const size of sizes) {
               if (cancelled) return;
               setStage("generating-preview");
@@ -321,7 +329,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
                 return;
               }
 
-              const animatedBlob = await encodeAnimatedGif(processedFrames, animated.delays, size);
+              const animatedBlob = await encodeAnimatedGif(processedFrames, adjustedDelays, size, repeat);
 
               // Static preview = first processed frame as PNG data URL.
               const staticDataUrl = processedFrames[0].toDataURL("image/png");

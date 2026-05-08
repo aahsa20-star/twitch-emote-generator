@@ -3,6 +3,11 @@ import {
   PartialEmoteConfig,
   BORDER_OPTIONS,
   FRAME_OPTIONS,
+  ANIMATED_SPEED_PRESETS,
+  ANIMATED_SPEED_MIN,
+  ANIMATED_SPEED_MAX,
+  ANIMATED_SPEED_STEP,
+  ANIMATED_LOOP_OPTIONS,
 } from "@/types/emote";
 import ColorPicker from "./settings/ColorPicker";
 import TextSettings from "./settings/TextSettings";
@@ -21,6 +26,10 @@ interface SettingsPanelProps {
   onSubImageSelected: (file: File) => void;
   bgRemovedCanvas?: HTMLCanvasElement | null;
   subCanvas?: HTMLCanvasElement | null;
+  /** True when the source is an animated GIF or extracted video frames.
+   *  Gates the "再生設定" section (speed + loop count) which only applies
+   *  to those source types. */
+  isAnimatedSource?: boolean;
 }
 
 export default function SettingsPanel({
@@ -34,6 +43,7 @@ export default function SettingsPanel({
   onSubImageSelected,
   bgRemovedCanvas,
   subCanvas,
+  isAnimatedSource = false,
 }: SettingsPanelProps) {
   return (
     <div className={`space-y-5 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
@@ -162,15 +172,81 @@ export default function SettingsPanel({
         subCanvas={subCanvas}
       />
 
-      {/* Animation */}
-      <AnimationSettings
-        config={config}
-        onConfigChange={onConfigChange}
-        isSubscriber={isSubscriber}
-        isLoggedIn={isLoggedIn}
-        onLoginRequired={onLoginRequired}
-        bgRemovedCanvas={bgRemovedCanvas}
-      />
+      {/* Animation — hidden for animated sources (the source IS the animation;
+          the 52-pattern animation system would be a no-op in that branch). */}
+      {!isAnimatedSource && (
+        <AnimationSettings
+          config={config}
+          onConfigChange={onConfigChange}
+          isSubscriber={isSubscriber}
+          isLoggedIn={isLoggedIn}
+          onLoginRequired={onLoginRequired}
+          bgRemovedCanvas={bgRemovedCanvas}
+        />
+      )}
+
+      {/* Playback settings (animated sources only) */}
+      {isAnimatedSource && (
+        <div>
+          <h3 className="text-sm font-semibold text-gray-300 mb-2">再生設定</h3>
+          <div className="space-y-3">
+            {/* Speed */}
+            <div className="space-y-1.5">
+              <label className="text-xs text-gray-400 flex justify-between">
+                <span>速度</span>
+                <span className="font-mono text-gray-300">{config.animatedSpeed.toFixed(2)}x</span>
+              </label>
+              <input
+                type="range"
+                min={ANIMATED_SPEED_MIN}
+                max={ANIMATED_SPEED_MAX}
+                step={ANIMATED_SPEED_STEP}
+                value={config.animatedSpeed}
+                onChange={(e) => onConfigChange({ animatedSpeed: Number(e.target.value) } as PartialEmoteConfig)}
+                className="w-full accent-purple-500"
+              />
+              <div className="flex gap-1.5">
+                {ANIMATED_SPEED_PRESETS.map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => onConfigChange({ animatedSpeed: p } as PartialEmoteConfig)}
+                    className={`flex-1 py-1 rounded text-xs transition-colors ${
+                      Math.abs(config.animatedSpeed - p) < 0.001
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    {p}x
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Loop count */}
+            <div className="space-y-1.5">
+              <label className="text-xs text-gray-400 block">ループ回数</label>
+              <div className="grid grid-cols-4 gap-1.5">
+                {ANIMATED_LOOP_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => onConfigChange({ animatedLoopCount: opt.value } as PartialEmoteConfig)}
+                    className={`py-1.5 rounded text-xs transition-colors ${
+                      config.animatedLoopCount === opt.value
+                        ? "bg-purple-600 text-white"
+                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[11px] text-gray-500 leading-snug">
+                Twitchエモートとして使う場合は無限ループ推奨
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Badge (subscriber-only) */}
       {isSubscriber && (

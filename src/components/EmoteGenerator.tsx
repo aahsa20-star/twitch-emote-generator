@@ -602,6 +602,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
           onSubImageSelected={handleSubImageSelected}
           bgRemovedCanvas={bgRemovedCanvas}
           subCanvas={subCanvas}
+          isAnimatedSource={isGifSource || isVideoSource}
         />
         {/* DL + Share + Post Template inside sticky container (desktop only) */}
         {sourceFile && (
