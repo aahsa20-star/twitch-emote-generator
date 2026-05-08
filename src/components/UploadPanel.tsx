@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from "react";
+import { ImageIcon, Film, Video } from "lucide-react";
 
 interface UploadPanelProps {
   onImageSelected: (file: File) => void;
@@ -148,24 +149,27 @@ export default function UploadPanel({
         </div>
       ) : (
         <div className="space-y-3 py-4">
-          <svg
-            className="mx-auto h-12 w-12 text-gray-500"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M12 16v-8m0 0l-3 3m3-3l3 3M4 16l1.106-4.424A2 2 0 017.048 10h9.904a2 2 0 011.942 1.576L20 16M4 16a2 2 0 002 2h12a2 2 0 002-2M4 16V8a2 2 0 012-2h2.93a2 2 0 011.664.89l.812 1.22A2 2 0 0013.07 9H18a2 2 0 012 2v5"
-            />
-          </svg>
+          {/* Input-type strip: signals at a glance that all three input kinds
+              are accepted. Replaces the generic upload arrow icon. */}
+          <div className="flex items-center justify-center gap-6 text-gray-500">
+            <div className="flex flex-col items-center gap-1">
+              <ImageIcon className="w-7 h-7" strokeWidth={1.5} />
+              <span className="text-[10px] uppercase tracking-wide">画像</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <Film className="w-7 h-7" strokeWidth={1.5} />
+              <span className="text-[10px] uppercase tracking-wide">GIF</span>
+            </div>
+            <div className="flex flex-col items-center gap-1">
+              <Video className="w-7 h-7" strokeWidth={1.5} />
+              <span className="text-[10px] uppercase tracking-wide">動画</span>
+            </div>
+          </div>
           <div>
-            <p className="text-gray-300 hidden md:block">画像/動画をドラッグ&ドロップ</p>
-            <p className="text-gray-300 md:hidden">タップして画像/動画を選択</p>
+            <p className="text-gray-300 hidden md:block">画像・GIF・動画をドラッグ&ドロップ</p>
+            <p className="text-gray-300 md:hidden">タップして画像・GIF・動画を選択</p>
             <p className="text-sm text-gray-500 mt-1">
-              PNG / JPG / WEBP / GIF / MP4 / MOV / WEBM
+              画像（PNG / JPG / WEBP）/ GIF / 動画（MP4 / MOV / WEBM）
             </p>
           </div>
         </div>

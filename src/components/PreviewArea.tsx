@@ -19,13 +19,13 @@ interface PreviewAreaProps {
   onContentAdjust?: (dx: number, dy: number, ds: number) => void;
 }
 
-const FEATURES = [
+const INPUT_FEATURES = ["画像", "GIF", "動画"];
+const PROCESS_FEATURES = [
   "背景自動透過",
-  "3サイズ同時出力",
-  "テキスト入れ",
   "フチ取り",
-  "アニメーション",
-  "ZIP一括DL",
+  "テキスト",
+  "3サイズ出力",
+  "52種アニメ",
 ];
 
 interface SamplePattern {
@@ -137,8 +137,11 @@ function SampleShowcase() {
   return (
     <div className="flex flex-col items-center gap-6 w-full max-w-lg mx-auto py-4 relative overflow-hidden">
       {/* Catchcopy */}
-      <div className="text-center space-y-2 w-full px-2">
-        <p className="text-sm sm:text-base md:text-lg font-semibold text-gray-200 leading-relaxed">
+      <div className="text-center space-y-1.5 w-full px-2">
+        <p className="text-base sm:text-lg md:text-xl font-bold text-gray-100 leading-snug">
+          画像でも、GIFでも、動画でも。
+        </p>
+        <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
           背景透過 → フチ取り →<br className="sm:hidden" />
           3サイズ出力まで、<br className="sm:hidden" /><span className="whitespace-nowrap">ブラウザだけで完結</span>
         </p>
@@ -147,16 +150,30 @@ function SampleShowcase() {
         </p>
       </div>
 
-      {/* Feature badges */}
-      <div className="flex flex-wrap justify-center gap-2">
-        {FEATURES.map((label) => (
-          <span
-            key={label}
-            className="text-xs px-2.5 py-1 rounded-full bg-gray-800 text-gray-300 border border-gray-700"
-          >
-            {label}
-          </span>
-        ))}
+      {/* Feature badges, grouped by role */}
+      <div className="flex flex-col items-center gap-2 w-full">
+        <div className="flex items-center gap-2 flex-wrap justify-center">
+          <span className="text-[11px] text-gray-500 font-medium">入力:</span>
+          {INPUT_FEATURES.map((label) => (
+            <span
+              key={label}
+              className="text-xs px-2.5 py-1 rounded-full bg-purple-900/40 text-purple-200 border border-purple-700/50"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap justify-center">
+          <span className="text-[11px] text-gray-500 font-medium">処理:</span>
+          {PROCESS_FEATURES.map((label) => (
+            <span
+              key={label}
+              className="text-xs px-2.5 py-1 rounded-full bg-gray-800 text-gray-300 border border-gray-700"
+            >
+              {label}
+            </span>
+          ))}
+        </div>
       </div>
 
       {/* Sample previews */}
