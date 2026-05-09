@@ -4,46 +4,104 @@ import { centerAndResize } from "./backgroundRemoval";
 
 // --- Border ---
 
+/**
+ * 8-direction stamp offsets, normalized so diagonals are at the same radial
+ * distance as cardinals (1/√2 along each axis). This avoids diagonal corners
+ * sticking out further than cardinals on rounded shapes.
+ */
+const STAMP_8: ReadonlyArray<readonly [number, number]> = (() => {
+  const inv = 1 / Math.SQRT2;
+  return [
+    [0, -1],   [inv, -inv],
+    [1, 0],    [inv, inv],
+    [0, 1],    [-inv, inv],
+    [-1, 0],   [-inv, -inv],
+  ];
+})();
+
+/** 4-direction stamp offsets — used for animated frames to keep cost down. */
+const STAMP_4: ReadonlyArray<readonly [number, number]> = [
+  [0, -1], [1, 0], [0, 1], [-1, 0],
+];
+
+/**
+ * Apply a border (white / black / custom solid color, or drop shadow).
+ *
+ * @param outputSize  Final downscaled output size (28 / 56 / 112). When omitted,
+ *                    falls back to canvas.width (e.g. PreviewArea single-stage).
+ *                    Used for size-adaptive minimum border width.
+ * @param isAnimated  When true, reduces stamp count from 8 → 4 directions to
+ *                    keep per-frame cost manageable for GIF/video sources
+ *                    (called inside `processFrameWithBounds`). Default false.
+ *
+ * Size-adaptive minimum border width (in OUTPUT-px space):
+ * - 28px output: >= 2px
+ * - 56px output: >= 3px
+ * - 112px output: user spec respected, no floor
+ *
+ * Rendering technique: stamp filter (silhouette stamped at borderWidth offset
+ * in 8 / 4 directions), with optional shadowBlur supplement for AA at larger
+ * outputs. At 28px the supplement is 0 (sharp corners read better than blur).
+ */
 export function applyBorder(
   canvas: HTMLCanvasElement,
   style: BorderStyle,
   userBorderWidth?: number,
   customBorderColor?: string,
-  outputSize?: number
+  outputSize?: number,
+  isAnimated?: boolean
 ): HTMLCanvasElement {
   if (style === "none") return canvas;
 
   const size = canvas.width;
-  // Scale factor: ratio of output size to canvas size.
-  // When rendering at HI_RES (224px) for a 28px output, scaleFactor = 28/224 = 0.125.
-  // This ensures border width is proportional to the final output, not the intermediate canvas.
-  const scaleFactor = outputSize ? outputSize / size : 1;
+  const effectiveOutputSize = outputSize ?? size;
   const result = document.createElement("canvas");
   result.width = size;
   result.height = size;
   const ctx = result.getContext("2d")!;
 
+  // Drop-shadow style — separate from solid border, kept with size-aware decay.
   if (style === "shadow") {
     const shadowScale = userBorderWidth != null ? (userBorderWidth / 4) : 1;
-    const shadowFactor = Math.max(0.5, Math.sqrt(scaleFactor));
+    // Light decay: drop shadow stays partially visible at 28 (vs 0 for solid borders).
+    const blurDecay =
+      effectiveOutputSize <= 28 ? 0.3 :
+      effectiveOutputSize <= 56 ? 0.6 :
+      1.0;
+    const blurAtOutput = effectiveOutputSize * 0.03 * shadowScale * blurDecay;
+    const offsetAtOutput = effectiveOutputSize * 0.015 * shadowScale * blurDecay;
+    const toCanvas = size / effectiveOutputSize;
     ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
-    ctx.shadowBlur = Math.max(2, size * 0.03 * shadowScale * shadowFactor);
-    ctx.shadowOffsetX = Math.max(1, size * 0.015 * shadowScale * shadowFactor);
-    ctx.shadowOffsetY = Math.max(1, size * 0.015 * shadowScale * shadowFactor);
+    ctx.shadowBlur = Math.max(2, blurAtOutput * toCanvas);
+    ctx.shadowOffsetX = Math.max(1, offsetAtOutput * toCanvas);
+    ctx.shadowOffsetY = Math.max(1, offsetAtOutput * toCanvas);
     ctx.drawImage(canvas, 0, 0);
     return result;
   }
 
-  // Shadow-based smooth border: draw colored silhouette with shadowBlur for anti-aliased edges
+  // Solid color border — stamp filter implementation.
   const borderColor = style === "custom" ? (customBorderColor || "#ffffff") : style === "white" ? "#ffffff" : "#000000";
-  // Scale borderWidth: user value is in "display px" at 112px, scale to canvas size,
-  // then adjust by sqrt(scaleFactor) so small outputs don't get disproportionately thick borders.
-  const borderScaleFactor = Math.max(0.5, Math.sqrt(scaleFactor));
-  const borderWidth = userBorderWidth != null
-    ? Math.max(1, Math.round(userBorderWidth * (size / 112) * borderScaleFactor))
-    : Math.max(1, Math.round(size * 0.027 * borderScaleFactor));
 
-  // Create a solid-color silhouette
+  // 1. Compute user-intended border width in OUTPUT-px space.
+  //    userBorderWidth is "display px at 112px output" by convention.
+  let userOutputBorder: number;
+  if (userBorderWidth != null) {
+    userOutputBorder = userBorderWidth * (effectiveOutputSize / 112);
+  } else {
+    userOutputBorder = effectiveOutputSize * 0.027; // ~3% default
+  }
+
+  // 2. Apply size-adaptive minimum (floor).
+  const minBorderAtOutput =
+    effectiveOutputSize <= 28 ? 2 :
+    effectiveOutputSize <= 56 ? 3 :
+    0;
+  const effectiveOutputBorder = Math.max(userOutputBorder, minBorderAtOutput);
+
+  // 3. Scale to canvas (HI_RES) for actual stamping.
+  const borderWidth = Math.max(1, Math.round(effectiveOutputBorder * (size / effectiveOutputSize)));
+
+  // 4. Build a solid-color silhouette of the shape.
   const silhouette = document.createElement("canvas");
   silhouette.width = size;
   silhouette.height = size;
@@ -53,29 +111,52 @@ export function applyBorder(
   silCtx.fillStyle = borderColor;
   silCtx.fillRect(0, 0, size, size);
 
-  // Use shadow to create smooth anti-aliased border
-  // Draw on an oversized canvas so shadow doesn't clip
-  const pad = borderWidth * 2 + 4;
+  // 5. Oversized buffer so stamps near the edge don't clip.
+  const pad = borderWidth + 2;
   const bigSize = size + pad * 2;
   const big = document.createElement("canvas");
   big.width = bigSize;
   big.height = bigSize;
   const bigCtx = big.getContext("2d")!;
 
-  bigCtx.shadowColor = borderColor;
-  bigCtx.shadowBlur = borderWidth;
-  // Draw multiple passes for opacity buildup (shadow alone is semi-transparent)
-  for (let i = 0; i < 3; i++) {
-    bigCtx.shadowOffsetX = 0;
-    bigCtx.shadowOffsetY = 0;
-    bigCtx.drawImage(silhouette, pad, pad);
+  // 6. Stamp filter — N-direction silhouette stamps at borderWidth offset.
+  //    Static: 8 dirs (cardinal + diagonal, radially normalized).
+  //    Animated: 4 dirs (cardinal only) for per-frame cost reduction.
+  const offsets = isAnimated ? STAMP_4 : STAMP_8;
+  for (const [dx, dy] of offsets) {
+    bigCtx.drawImage(
+      silhouette,
+      pad + dx * borderWidth,
+      pad + dy * borderWidth,
+    );
   }
-  // Clear the silhouette center so only the shadow border remains
-  bigCtx.shadowColor = "transparent";
+
+  // 7. Optional shadowBlur supplement for AA at larger outputs.
+  //    At 28px the stamp's faceted edges read better sharp; at 112px a
+  //    light blur smooths the polygonal corners.
+  const blurDecay =
+    effectiveOutputSize <= 28 ? 0 :
+    effectiveOutputSize <= 56 ? 0.5 :
+    1.0;
+  if (blurDecay > 0) {
+    const aaBlur = borderWidth * 0.25 * blurDecay;
+    const softened = document.createElement("canvas");
+    softened.width = bigSize;
+    softened.height = bigSize;
+    const softCtx = softened.getContext("2d")!;
+    softCtx.shadowColor = borderColor;
+    softCtx.shadowBlur = aaBlur;
+    softCtx.drawImage(big, 0, 0);
+    bigCtx.clearRect(0, 0, bigSize, bigSize);
+    bigCtx.drawImage(softened, 0, 0);
+    releaseCanvas(softened);
+  }
+
+  // 8. Carve out the original silhouette → leaves only the border ring.
   bigCtx.globalCompositeOperation = "destination-out";
   bigCtx.drawImage(silhouette, pad, pad);
 
-  // Composite: border shadow + original
+  // 9. Composite: border ring beneath the original image.
   ctx.drawImage(big, -pad, -pad);
   ctx.drawImage(canvas, 0, 0);
   releaseCanvas(silhouette);

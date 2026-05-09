@@ -278,10 +278,12 @@ export function processFrameWithBounds(
   // 1. Center + resize at HI_RES using shared bounds
   let canvas = centerAndResizeWithBounds(frame, HI_RES, effectivePadding, bounds, adjustment);
 
-  // 2. Border
+  // 2. Border — pass isAnimated=true: this function runs once per source frame,
+  // so we use the 4-direction stamp filter instead of 8 to keep cost bounded
+  // for 30–60 frame sequences.
   {
     const prev = canvas;
-    canvas = applyBorder(canvas, config.outline.style, config.outline.width, config.outline.color, size);
+    canvas = applyBorder(canvas, config.outline.style, config.outline.width, config.outline.color, size, true);
     if (canvas !== prev) releaseCanvas(prev);
   }
 
