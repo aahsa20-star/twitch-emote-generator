@@ -156,9 +156,11 @@ export function processEmote(
     if (canvas !== prev) releaseCanvas(prev);
   }
 
-  // 5. Apply text overlay at high resolution (skip for ≤32px — text is unreadable)
+  // 5. Apply text overlay at high resolution.
+  // Size-adaptive minimums in applyTextOverlay keep text readable at 28/56px
+  // (previous `size > 32` skip removed — see QUALITY_AUDIT category 3).
   const textToRender = resolveTextToRender(config);
-  if (textToRender && size > 32) {
+  if (textToRender) {
     const prev = canvas;
     canvas = applyTextOverlay(canvas, {
       text: textToRender,
@@ -170,7 +172,7 @@ export function processEmote(
       offsetX: config.text.offsetX,
       offsetY: config.text.offsetY,
       outlineWidth: config.text.outlineWidth,
-    }, HI_RES);
+    }, HI_RES, size);
     releaseCanvas(prev);
   }
 
@@ -226,7 +228,7 @@ export function processEmoteWithHiRes(
   }
 
   const textToRender = resolveTextToRender(config);
-  if (textToRender && size > 32) {
+  if (textToRender) {
     const prev = hiResCanvas;
     hiResCanvas = applyTextOverlay(hiResCanvas, {
       text: textToRender,
@@ -238,7 +240,7 @@ export function processEmoteWithHiRes(
       offsetX: config.text.offsetX,
       offsetY: config.text.offsetY,
       outlineWidth: config.text.outlineWidth,
-    }, GIF_HI_RES);
+    }, GIF_HI_RES, size);
     releaseCanvas(prev);
   }
 
@@ -290,9 +292,9 @@ export function processFrameWithBounds(
     if (canvas !== prev) releaseCanvas(prev);
   }
 
-  // 4. Text overlay (skip ≤32px — unreadable)
+  // 4. Text overlay — size-adaptive minimums keep 28/56px readable.
   const textToRender = resolveTextToRender(config);
-  if (textToRender && size > 32) {
+  if (textToRender) {
     const prev = canvas;
     canvas = applyTextOverlay(canvas, {
       text: textToRender,
@@ -304,7 +306,7 @@ export function processFrameWithBounds(
       offsetX: config.text.offsetX,
       offsetY: config.text.offsetY,
       outlineWidth: config.text.outlineWidth,
-    }, HI_RES);
+    }, HI_RES, size);
     releaseCanvas(prev);
   }
 

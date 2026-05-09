@@ -85,10 +85,31 @@ export function applyBorder(
 
 // --- Text overlay ---
 
+/**
+ * Render text overlay onto an emote canvas.
+ *
+ * @param canvasSize  Render-canvas size in px (HI_RES for the main pipeline,
+ *                    GIF_HI_RES for animated frames, or output size for
+ *                    direct one-shot renders like PreviewArea).
+ * @param outputSize  Final output size in px (28 / 56 / 112). Defaults to
+ *                    canvasSize when omitted (single-stage renders). Used to
+ *                    apply size-aware minimum fontSize and outline guarantees
+ *                    so text remains readable at 28px / 56px after downscale.
+ *
+ * Size-adaptive minimums (in OUTPUT px space, not canvas px):
+ * - 28px output: fontSize >= 14, outline >= 2
+ * - 56px output: fontSize >= 22, outline >= 3
+ * - 112px output: user spec respected, no floor applied
+ *
+ * Minimums are *floors*: max(userSpec, minimum). Users specifying larger sizes
+ * are honored as-is. The function draws at canvasSize, scaling the effective
+ * output-space size by (canvasSize / outputSize).
+ */
 export function applyTextOverlay(
   canvas: HTMLCanvasElement,
   options: TextOverlayOptions,
-  canvasSize: number
+  canvasSize: number,
+  outputSize: number = canvasSize
 ): HTMLCanvasElement {
   const result = document.createElement("canvas");
   result.width = canvasSize;
@@ -99,35 +120,56 @@ export function applyTextOverlay(
 
   const { text, font, fillColor, strokeColor, userFontSize, offsetX = 0, offsetY = 0, outlineWidth: userOutlineWidth } = options;
 
-  // Scale font size: userFontSize is in "display px" at 112px, scale to canvasSize
-  let fontSize: number;
+  // 1. Compute user-intended font size in OUTPUT-px space.
+  //    userFontSize is "display px at 112px output" by convention.
+  let userOutputFontSize: number;
   if (userFontSize != null) {
-    fontSize = userFontSize * (canvasSize / 112);
+    userOutputFontSize = userFontSize * (outputSize / 112);
   } else {
-    const baseFontSize = canvasSize * 0.22;
-    fontSize = text.length > 3
-      ? Math.max(canvasSize * 0.12, baseFontSize * (3 / text.length))
-      : baseFontSize;
+    const baseAuto = outputSize * 0.22;
+    userOutputFontSize = text.length > 3
+      ? Math.max(outputSize * 0.12, baseAuto * (3 / text.length))
+      : baseAuto;
   }
+
+  // 2. Apply size-adaptive minimum (floor).
+  const minFontSizeAtOutput =
+    outputSize <= 28 ? 14 :
+    outputSize <= 56 ? 22 :
+    0;
+  const effectiveOutputFontSize = Math.max(userOutputFontSize, minFontSizeAtOutput);
+
+  // 3. Scale to render canvas for crisp HI_RES drawing.
+  const fontSize = effectiveOutputFontSize * (canvasSize / outputSize);
 
   const fontFamily = `"${font}", "Noto Sans JP", "Hiragino Kaku Gothic ProN", sans-serif`;
   ctx.font = `bold ${fontSize}px ${fontFamily}`;
   ctx.textAlign = "center";
 
-  // Scale offsets from 112px display space to canvas space
+  // Offsets are also expressed in 112-display space; same canvas-space mapping.
   const scaledOffsetX = offsetX * (canvasSize / 112);
   const scaledOffsetY = offsetY * (canvasSize / 112);
 
-  // Position: always center-based, free placement via offsets
   ctx.textBaseline = "middle";
   const x = canvasSize / 2 + scaledOffsetX;
   const y = canvasSize / 2 + scaledOffsetY;
 
-  // strokeText-based outline for sharp, crisp edges
-  const outlineWidth = userOutlineWidth != null
-    ? userOutlineWidth * (canvasSize / 112)
-    : Math.max(1, canvasSize * 0.025);
+  // Outline width with same size-adaptive minimum logic.
+  let userOutputOutline: number;
+  if (userOutlineWidth != null) {
+    userOutputOutline = userOutlineWidth * (outputSize / 112);
+  } else {
+    userOutputOutline = Math.max(1, outputSize * 0.025);
+  }
+  const minOutlineAtOutput =
+    outputSize <= 28 ? 2 :
+    outputSize <= 56 ? 3 :
+    0;
+  const effectiveOutputOutline = Math.max(userOutputOutline, minOutlineAtOutput);
+  const outlineWidth = effectiveOutputOutline * (canvasSize / outputSize);
 
+  // Stroke first, then fill — fill must sit on top so the outline reads as a
+  // halo around the visible glyph. Reversing the order hides the outline.
   if (outlineWidth > 0) {
     ctx.save();
     ctx.strokeStyle = strokeColor;
@@ -138,7 +180,6 @@ export function applyTextOverlay(
     ctx.restore();
   }
 
-  // Text fill on top
   ctx.fillStyle = fillColor;
   ctx.fillText(text, x, y);
 
