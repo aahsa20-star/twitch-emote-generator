@@ -680,7 +680,7 @@ GIF case の 126M ops は gif.js エンコード（500M〜1G ops 想定）と比
 
 ---
 
-## 修正1〜5 累積コミット
+## 修正1〜6 累積コミット
 
 | # | hash | タイトル |
 |---|---|---|
@@ -688,9 +688,72 @@ GIF case の 126M ops は gif.js エンコード（500M〜1G ops 想定）と比
 | 2 | `b0f7e67` | デフォルトpadding 5%→2% |
 | 3 | `7a598f0` | テキスト28pxスキップ撤廃 + サイズ適応レンダリング |
 | 4 | `2e2f71e` | フチ取り最低幅保証 + stamp filter化 |
-| 5 | _(このコミット)_ | GIF ディザリング有効化 |
+| 5 | `a931d58` | GIF ディザリング有効化 |
+| 6 | _(このコミット)_ | フチスタイル7種追加（neon / double / sticker / outline-only / gradient / chrome / dotted） |
 
-優先度A 全 5 修正完了。最終視覚検証セッションで baseline (commit `3888d27` 時点) vs all-fixes-applied (fix5 commit) の比較を実施予定。
+優先度A 全 5 修正は production にデプロイ済み。fix6 で表現力強化フェーズに入った。
+
+---
+
+### 修正6: フチスタイル7種追加（差別化機能）
+
+**背景**: fix1〜5 で「フチが消える/細い」品質問題を解決した上で、makeemotes 等との差別化として**スタイルバリエーション**を無料機能で提供する。
+
+**追加スタイル**（全 7 種、無料）:
+
+| スタイル | 概要 | 主要ロジック |
+|---|---|---|
+| `neon` | 蛍光色グロー | 3 段 additive shadowBlur (1.5×/2.5×/4× borderWidth) + ring。デフォルト cyan |
+| `double` | 二重フチ | 外側 1.5× userColor + 内側 0.5× luminance自動コントラスト色 |
+| `sticker` | ステッカー風 | 1.5× 白フチ + 落ち影 (offset/blur 出力サイズ比例) |
+| `outline-only` | 輪郭のみ | stamp ring 描画後、元画像 composite を省略 |
+| `gradient` | 縦グラデ | linear gradient (top: userColor → bottom: contrast) を silhouette に流す |
+| `chrome` | クロム調 | 4-stop 銀グラデ固定 (#5a5a5a → #f5f5f5 → #a8a8a8 → #dedede) |
+| `dotted` | 点線 | 16方向 stamp の偶数番目のみ + AA blur 無効化で 45° 間隔の gap |
+
+**実装アーキテクチャ**: `applyBorder` を以下のヘルパー関数群に分解し、スタイル別の compose 関数にディスパッチ。fix4 の最低幅保証は全スタイル横断で適用される。
+
+```typescript
+// 共通ヘルパー (drawing.ts 冒頭)
+computeBorderWidth(size, outputSize, userBorderWidth): number    // fix4 floor logic
+buildSilhouette(canvas, fillStyle: string | CanvasGradient): canvas
+stampRing(silhouette, borderWidth, isAnimated, outputSize, ringColor, options): { big, pad }
+pickContrastColor(hex): string                                    // luminance しきい値 140
+
+// スタイル別 compose 関数
+composeStandardBorder()   // white/black/custom (legacy 互換)
+composeNeonBorder()
+composeDoubleBorder()
+composeStickerBorder()
+composeOutlineOnly()
+composeGradientBorder()
+composeChromeBorder()
+composeDottedBorder()
+```
+
+**STAMP_16 定数追加**: 16方向（22.5°ごと）の正規化済み offset。dotted スタイルが偶数番目のみ採用（実質 45° ごと 8点）。
+
+**UI 変更**:
+- `BORDER_OPTIONS` に 7 エントリ追加（label のみ、`subscriberOnly` フラグなし）
+- `SettingsPanel.tsx` のカラーピッカー表示条件を `custom` 単独 → 6 スタイル（custom/neon/double/sticker/outline-only/gradient/dotted）の OR に拡張。chrome は色固定なので除外
+
+**色の扱い**:
+- 既存の `outline.color` フィールドを流用、subscriber のみが変更可能（互換維持）
+- 非subscriber の free 体験では各スタイルが意図通り見えるよう、neon は白指定時に cyan に自動置換
+- chrome は完全色固定（銀グラデ）
+
+**パフォーマンス**:
+- standard / outline-only / gradient / chrome / dotted: fix4 と同等（stamp + 1 composite ≈ 10M ops at HI_RES=448）
+- neon: 追加 3-pass shadow blur で +30M ops 程度。glow が大きいので合成キャンバスもやや拡大
+- double: stampRing 2 回呼び出しで 2× → 約 20M ops
+- sticker: stampRing 1 回 + 一時 canvas 1 枚 + drop shadow 1 pass。fix4 と同等
+
+**最低幅保証**: 全スタイルで `computeBorderWidth` を経由するため、fix4 の floor (28px=2 / 56px=3) は維持。28px 出力でも各スタイルが識別可能。
+
+**Smoke test**: `tsc --noEmit` クリア。
+
+**今夜未実装（次回 fix7 で実装予定）**:
+- **手描き風（hand-drawn）**: perlin noise ベースで線の太さ/位置を揺らす実装。今夜は周波数・振幅のチューニングで時間が読めないリスクから別 fix に切り出した
 
 ---
 

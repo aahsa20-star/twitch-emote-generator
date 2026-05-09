@@ -25,6 +25,131 @@ const STAMP_4: ReadonlyArray<readonly [number, number]> = [
 ];
 
 /**
+ * 16-direction stamp offsets at half angular spacing (every 22.5°), used for
+ * the "dotted" style where alternating positions are skipped to create gaps.
+ */
+const STAMP_16: ReadonlyArray<readonly [number, number]> = (() => {
+  const arr: [number, number][] = [];
+  for (let i = 0; i < 16; i++) {
+    const a = (i / 16) * Math.PI * 2 - Math.PI / 2; // start at top
+    arr.push([Math.cos(a), Math.sin(a)]);
+  }
+  return arr;
+})();
+
+// --- Shared helpers (used by all border styles) ---
+
+/** Compute borderWidth in canvas-px space, applying the size-adaptive floor. */
+function computeBorderWidth(
+  size: number,
+  effectiveOutputSize: number,
+  userBorderWidth: number | undefined,
+): number {
+  const userOutputBorder = userBorderWidth != null
+    ? userBorderWidth * (effectiveOutputSize / 112)
+    : effectiveOutputSize * 0.027;
+  const minBorderAtOutput =
+    effectiveOutputSize <= 28 ? 2 :
+    effectiveOutputSize <= 56 ? 3 :
+    0;
+  const effectiveOutputBorder = Math.max(userOutputBorder, minBorderAtOutput);
+  return Math.max(1, Math.round(effectiveOutputBorder * (size / effectiveOutputSize)));
+}
+
+/** Build a solid-color silhouette of the shape on a fresh canvas. */
+function buildSilhouette(canvas: HTMLCanvasElement, fillStyle: string | CanvasGradient): HTMLCanvasElement {
+  const size = canvas.width;
+  const sil = document.createElement("canvas");
+  sil.width = size;
+  sil.height = size;
+  const ctx = sil.getContext("2d")!;
+  ctx.drawImage(canvas, 0, 0);
+  ctx.globalCompositeOperation = "source-in";
+  ctx.fillStyle = fillStyle;
+  ctx.fillRect(0, 0, size, size);
+  return sil;
+}
+
+/**
+ * Stamp a silhouette in N directions on an oversized buffer and carve out the
+ * inner area to leave just the border ring. Returns the big canvas + pad info
+ * so callers can composite it onto a result canvas.
+ */
+function stampRing(
+  silhouette: HTMLCanvasElement,
+  borderWidth: number,
+  isAnimated: boolean,
+  effectiveOutputSize: number,
+  ringColor: string,
+  options?: { skipAlternating?: boolean; skipCenterCarve?: boolean }
+): { big: HTMLCanvasElement; pad: number } {
+  const size = silhouette.width;
+  const pad = borderWidth + 2;
+  const bigSize = size + pad * 2;
+  const big = document.createElement("canvas");
+  big.width = bigSize;
+  big.height = bigSize;
+  const bigCtx = big.getContext("2d")!;
+
+  // Choose stamp pattern.
+  let offsets: ReadonlyArray<readonly [number, number]>;
+  if (options?.skipAlternating) {
+    // Use STAMP_16 every other one → 8 dots at 45° intervals (visible gaps).
+    offsets = STAMP_16.filter((_, i) => i % 2 === 0);
+  } else {
+    offsets = isAnimated ? STAMP_4 : STAMP_8;
+  }
+
+  for (const [dx, dy] of offsets) {
+    bigCtx.drawImage(silhouette, pad + dx * borderWidth, pad + dy * borderWidth);
+  }
+
+  // AA blur supplement (size-aware decay), skipped for dotted to keep gaps sharp.
+  if (!options?.skipAlternating) {
+    const blurDecay =
+      effectiveOutputSize <= 28 ? 0 :
+      effectiveOutputSize <= 56 ? 0.5 :
+      1.0;
+    if (blurDecay > 0) {
+      const aaBlur = borderWidth * 0.25 * blurDecay;
+      const softened = document.createElement("canvas");
+      softened.width = bigSize;
+      softened.height = bigSize;
+      const softCtx = softened.getContext("2d")!;
+      softCtx.shadowColor = ringColor;
+      softCtx.shadowBlur = aaBlur;
+      softCtx.drawImage(big, 0, 0);
+      bigCtx.clearRect(0, 0, bigSize, bigSize);
+      bigCtx.drawImage(softened, 0, 0);
+      releaseCanvas(softened);
+    }
+  }
+
+  // Carve out the original silhouette → leaves only the border ring.
+  if (!options?.skipCenterCarve) {
+    bigCtx.globalCompositeOperation = "destination-out";
+    bigCtx.drawImage(silhouette, pad, pad);
+  }
+
+  return { big, pad };
+}
+
+/**
+ * Pick a contrast color for "double" style's inner ring. Bright outer →
+ * dark inner; dark outer → light inner. Uses simple luminance threshold.
+ */
+function pickContrastColor(hex: string): string {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex);
+  if (!m) return "#000000";
+  const v = parseInt(m[1], 16);
+  const r = (v >> 16) & 0xff;
+  const g = (v >> 8) & 0xff;
+  const b = v & 0xff;
+  const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+  return lum > 140 ? "#000000" : "#ffffff";
+}
+
+/**
  * Apply a border (white / black / custom solid color, or drop shadow).
  *
  * @param outputSize  Final downscaled output size (28 / 56 / 112). When omitted,
@@ -55,111 +180,371 @@ export function applyBorder(
 
   const size = canvas.width;
   const effectiveOutputSize = outputSize ?? size;
+
+  // Drop-shadow style — separate from solid border, kept with size-aware decay.
+  if (style === "shadow") {
+    return applyDropShadowStyle(canvas, userBorderWidth, effectiveOutputSize);
+  }
+
+  const borderWidth = computeBorderWidth(size, effectiveOutputSize, userBorderWidth);
+
+  // Resolve user-color base used by most styles. White/black are aliases.
+  const userColor =
+    style === "white" ? "#ffffff" :
+    style === "black" ? "#000000" :
+    (customBorderColor || "#ffffff");
+
+  switch (style) {
+    case "white":
+    case "black":
+    case "custom":
+      return composeStandardBorder(canvas, userColor, borderWidth, isAnimated ?? false, effectiveOutputSize);
+    case "neon": {
+      // Default cyan when user hasn't picked a color (color stays subscriber-gated).
+      // Free users get a recognizable neon look out of the box.
+      const neonColor = userColor === "#ffffff" ? "#00ffff" : userColor;
+      return composeNeonBorder(canvas, neonColor, borderWidth, isAnimated ?? false, effectiveOutputSize);
+    }
+    case "double":
+      return composeDoubleBorder(canvas, userColor, borderWidth, isAnimated ?? false, effectiveOutputSize);
+    case "sticker":
+      return composeStickerBorder(canvas, userColor, borderWidth, isAnimated ?? false, effectiveOutputSize);
+    case "outline-only":
+      return composeOutlineOnly(canvas, userColor, borderWidth, isAnimated ?? false, effectiveOutputSize);
+    case "gradient":
+      return composeGradientBorder(canvas, userColor, borderWidth, isAnimated ?? false, effectiveOutputSize);
+    case "chrome":
+      return composeChromeBorder(canvas, borderWidth, isAnimated ?? false, effectiveOutputSize);
+    case "dotted":
+      return composeDottedBorder(canvas, userColor, borderWidth, effectiveOutputSize);
+    default:
+      // Exhaustiveness fallback — should never hit at runtime.
+      return canvas;
+  }
+}
+
+// === Style implementations ===
+
+/** Drop-shadow style (existing fix4 behavior, unchanged). */
+function applyDropShadowStyle(
+  canvas: HTMLCanvasElement,
+  userBorderWidth: number | undefined,
+  effectiveOutputSize: number,
+): HTMLCanvasElement {
+  const size = canvas.width;
   const result = document.createElement("canvas");
   result.width = size;
   result.height = size;
   const ctx = result.getContext("2d")!;
 
-  // Drop-shadow style — separate from solid border, kept with size-aware decay.
-  if (style === "shadow") {
-    const shadowScale = userBorderWidth != null ? (userBorderWidth / 4) : 1;
-    // Light decay: drop shadow stays partially visible at 28 (vs 0 for solid borders).
-    const blurDecay =
-      effectiveOutputSize <= 28 ? 0.3 :
-      effectiveOutputSize <= 56 ? 0.6 :
-      1.0;
-    const blurAtOutput = effectiveOutputSize * 0.03 * shadowScale * blurDecay;
-    const offsetAtOutput = effectiveOutputSize * 0.015 * shadowScale * blurDecay;
-    const toCanvas = size / effectiveOutputSize;
-    ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
-    ctx.shadowBlur = Math.max(2, blurAtOutput * toCanvas);
-    ctx.shadowOffsetX = Math.max(1, offsetAtOutput * toCanvas);
-    ctx.shadowOffsetY = Math.max(1, offsetAtOutput * toCanvas);
-    ctx.drawImage(canvas, 0, 0);
-    return result;
-  }
-
-  // Solid color border — stamp filter implementation.
-  const borderColor = style === "custom" ? (customBorderColor || "#ffffff") : style === "white" ? "#ffffff" : "#000000";
-
-  // 1. Compute user-intended border width in OUTPUT-px space.
-  //    userBorderWidth is "display px at 112px output" by convention.
-  let userOutputBorder: number;
-  if (userBorderWidth != null) {
-    userOutputBorder = userBorderWidth * (effectiveOutputSize / 112);
-  } else {
-    userOutputBorder = effectiveOutputSize * 0.027; // ~3% default
-  }
-
-  // 2. Apply size-adaptive minimum (floor).
-  const minBorderAtOutput =
-    effectiveOutputSize <= 28 ? 2 :
-    effectiveOutputSize <= 56 ? 3 :
-    0;
-  const effectiveOutputBorder = Math.max(userOutputBorder, minBorderAtOutput);
-
-  // 3. Scale to canvas (HI_RES) for actual stamping.
-  const borderWidth = Math.max(1, Math.round(effectiveOutputBorder * (size / effectiveOutputSize)));
-
-  // 4. Build a solid-color silhouette of the shape.
-  const silhouette = document.createElement("canvas");
-  silhouette.width = size;
-  silhouette.height = size;
-  const silCtx = silhouette.getContext("2d")!;
-  silCtx.drawImage(canvas, 0, 0);
-  silCtx.globalCompositeOperation = "source-in";
-  silCtx.fillStyle = borderColor;
-  silCtx.fillRect(0, 0, size, size);
-
-  // 5. Oversized buffer so stamps near the edge don't clip.
-  const pad = borderWidth + 2;
-  const bigSize = size + pad * 2;
-  const big = document.createElement("canvas");
-  big.width = bigSize;
-  big.height = bigSize;
-  const bigCtx = big.getContext("2d")!;
-
-  // 6. Stamp filter — N-direction silhouette stamps at borderWidth offset.
-  //    Static: 8 dirs (cardinal + diagonal, radially normalized).
-  //    Animated: 4 dirs (cardinal only) for per-frame cost reduction.
-  const offsets = isAnimated ? STAMP_4 : STAMP_8;
-  for (const [dx, dy] of offsets) {
-    bigCtx.drawImage(
-      silhouette,
-      pad + dx * borderWidth,
-      pad + dy * borderWidth,
-    );
-  }
-
-  // 7. Optional shadowBlur supplement for AA at larger outputs.
-  //    At 28px the stamp's faceted edges read better sharp; at 112px a
-  //    light blur smooths the polygonal corners.
+  const shadowScale = userBorderWidth != null ? (userBorderWidth / 4) : 1;
   const blurDecay =
-    effectiveOutputSize <= 28 ? 0 :
-    effectiveOutputSize <= 56 ? 0.5 :
+    effectiveOutputSize <= 28 ? 0.3 :
+    effectiveOutputSize <= 56 ? 0.6 :
     1.0;
-  if (blurDecay > 0) {
-    const aaBlur = borderWidth * 0.25 * blurDecay;
-    const softened = document.createElement("canvas");
-    softened.width = bigSize;
-    softened.height = bigSize;
-    const softCtx = softened.getContext("2d")!;
-    softCtx.shadowColor = borderColor;
-    softCtx.shadowBlur = aaBlur;
-    softCtx.drawImage(big, 0, 0);
-    bigCtx.clearRect(0, 0, bigSize, bigSize);
-    bigCtx.drawImage(softened, 0, 0);
-    releaseCanvas(softened);
-  }
+  const blurAtOutput = effectiveOutputSize * 0.03 * shadowScale * blurDecay;
+  const offsetAtOutput = effectiveOutputSize * 0.015 * shadowScale * blurDecay;
+  const toCanvas = size / effectiveOutputSize;
+  ctx.shadowColor = "rgba(0, 0, 0, 0.7)";
+  ctx.shadowBlur = Math.max(2, blurAtOutput * toCanvas);
+  ctx.shadowOffsetX = Math.max(1, offsetAtOutput * toCanvas);
+  ctx.shadowOffsetY = Math.max(1, offsetAtOutput * toCanvas);
+  ctx.drawImage(canvas, 0, 0);
+  return result;
+}
 
-  // 8. Carve out the original silhouette → leaves only the border ring.
-  bigCtx.globalCompositeOperation = "destination-out";
-  bigCtx.drawImage(silhouette, pad, pad);
+/** Standard solid-color border (replaces fix4's white/black/custom path). */
+function composeStandardBorder(
+  canvas: HTMLCanvasElement,
+  borderColor: string,
+  borderWidth: number,
+  isAnimated: boolean,
+  effectiveOutputSize: number,
+): HTMLCanvasElement {
+  const size = canvas.width;
+  const result = document.createElement("canvas");
+  result.width = size;
+  result.height = size;
+  const ctx = result.getContext("2d")!;
 
-  // 9. Composite: border ring beneath the original image.
+  const sil = buildSilhouette(canvas, borderColor);
+  const { big, pad } = stampRing(sil, borderWidth, isAnimated, effectiveOutputSize, borderColor);
   ctx.drawImage(big, -pad, -pad);
   ctx.drawImage(canvas, 0, 0);
-  releaseCanvas(silhouette);
+  releaseCanvas(sil);
+  releaseCanvas(big);
+  return result;
+}
+
+/**
+ * Neon style: bright outline + 3-layer additive glow at increasing radius.
+ * Uses the user color as glow tint. Produces a saturated halo around the shape.
+ */
+function composeNeonBorder(
+  canvas: HTMLCanvasElement,
+  glowColor: string,
+  borderWidth: number,
+  isAnimated: boolean,
+  effectiveOutputSize: number,
+): HTMLCanvasElement {
+  const size = canvas.width;
+  const result = document.createElement("canvas");
+  result.width = size;
+  result.height = size;
+  const ctx = result.getContext("2d")!;
+
+  const sil = buildSilhouette(canvas, glowColor);
+  const { big, pad } = stampRing(sil, borderWidth, isAnimated, effectiveOutputSize, glowColor);
+
+  // Three glow passes at increasing blur, drawn additively on a temp buffer.
+  const glowSize = size + pad * 2;
+  const glow = document.createElement("canvas");
+  glow.width = glowSize;
+  glow.height = glowSize;
+  const glowCtx = glow.getContext("2d")!;
+  glowCtx.globalCompositeOperation = "lighter";
+
+  for (const r of [borderWidth * 1.5, borderWidth * 2.5, borderWidth * 4]) {
+    glowCtx.shadowColor = glowColor;
+    glowCtx.shadowBlur = r;
+    glowCtx.globalAlpha = 0.6;
+    glowCtx.drawImage(sil, pad, pad);
+  }
+  glowCtx.globalAlpha = 1.0;
+  glowCtx.shadowBlur = 0;
+
+  // Composite: glow under, ring on top, original on top.
+  ctx.drawImage(glow, -pad, -pad);
+  ctx.drawImage(big, -pad, -pad);
+  ctx.drawImage(canvas, 0, 0);
+
+  releaseCanvas(sil);
+  releaseCanvas(big);
+  releaseCanvas(glow);
+  return result;
+}
+
+/**
+ * Double border: outer ring at 1.5× width in user color, inner ring at 0.5×
+ * width in auto-contrast color. Two stamps composited from outer-most inward.
+ */
+function composeDoubleBorder(
+  canvas: HTMLCanvasElement,
+  outerColor: string,
+  borderWidth: number,
+  isAnimated: boolean,
+  effectiveOutputSize: number,
+): HTMLCanvasElement {
+  const size = canvas.width;
+  const result = document.createElement("canvas");
+  result.width = size;
+  result.height = size;
+  const ctx = result.getContext("2d")!;
+
+  const innerColor = pickContrastColor(outerColor);
+  const outerWidth = Math.max(2, Math.round(borderWidth * 1.5));
+  const innerWidth = Math.max(1, Math.round(borderWidth * 0.5));
+
+  const outerSil = buildSilhouette(canvas, outerColor);
+  const outerRing = stampRing(outerSil, outerWidth, isAnimated, effectiveOutputSize, outerColor);
+
+  const innerSil = buildSilhouette(canvas, innerColor);
+  const innerRing = stampRing(innerSil, innerWidth, isAnimated, effectiveOutputSize, innerColor);
+
+  ctx.drawImage(outerRing.big, -outerRing.pad, -outerRing.pad);
+  ctx.drawImage(innerRing.big, -innerRing.pad, -innerRing.pad);
+  ctx.drawImage(canvas, 0, 0);
+
+  releaseCanvas(outerSil);
+  releaseCanvas(outerRing.big);
+  releaseCanvas(innerSil);
+  releaseCanvas(innerRing.big);
+  return result;
+}
+
+/**
+ * Sticker style: thick white border + drop shadow offset down-right.
+ * The Twitch emote classic look — feels "punched out" of a sticker sheet.
+ */
+function composeStickerBorder(
+  canvas: HTMLCanvasElement,
+  borderColor: string,
+  borderWidth: number,
+  isAnimated: boolean,
+  effectiveOutputSize: number,
+): HTMLCanvasElement {
+  const size = canvas.width;
+  const result = document.createElement("canvas");
+  result.width = size;
+  result.height = size;
+  const ctx = result.getContext("2d")!;
+
+  const ringWidth = Math.max(2, Math.round(borderWidth * 1.5));
+  // Sticker borders default to white if user picked black (looks weird).
+  const finalColor = borderColor === "#000000" ? "#ffffff" : borderColor;
+
+  const sil = buildSilhouette(canvas, finalColor);
+  const { big, pad } = stampRing(sil, ringWidth, isAnimated, effectiveOutputSize, finalColor);
+
+  // Drop shadow: offset and blur derived from output size.
+  const toCanvas = size / effectiveOutputSize;
+  const shadowOffset = Math.max(1, Math.round(effectiveOutputSize * 0.04 * toCanvas));
+  const shadowBlur = Math.max(1, Math.round(borderWidth * 1.2));
+
+  // Compose the "stickered" image (border + content) onto a temp canvas first
+  // so we can render it with a shadow.
+  const stickered = document.createElement("canvas");
+  stickered.width = size;
+  stickered.height = size;
+  const stickeredCtx = stickered.getContext("2d")!;
+  stickeredCtx.drawImage(big, -pad, -pad);
+  stickeredCtx.drawImage(canvas, 0, 0);
+
+  ctx.shadowColor = "rgba(0, 0, 0, 0.45)";
+  ctx.shadowBlur = shadowBlur;
+  ctx.shadowOffsetX = shadowOffset;
+  ctx.shadowOffsetY = shadowOffset;
+  ctx.drawImage(stickered, 0, 0);
+
+  releaseCanvas(sil);
+  releaseCanvas(big);
+  releaseCanvas(stickered);
+  return result;
+}
+
+/**
+ * Outline-only: render the border ring without the original content.
+ * Result is a colored silhouette outline on transparent background.
+ */
+function composeOutlineOnly(
+  canvas: HTMLCanvasElement,
+  borderColor: string,
+  borderWidth: number,
+  isAnimated: boolean,
+  effectiveOutputSize: number,
+): HTMLCanvasElement {
+  const size = canvas.width;
+  const result = document.createElement("canvas");
+  result.width = size;
+  result.height = size;
+  const ctx = result.getContext("2d")!;
+
+  const sil = buildSilhouette(canvas, borderColor);
+  const { big, pad } = stampRing(sil, borderWidth, isAnimated, effectiveOutputSize, borderColor);
+  // Only the ring — no original image composite.
+  ctx.drawImage(big, -pad, -pad);
+
+  releaseCanvas(sil);
+  releaseCanvas(big);
+  return result;
+}
+
+/**
+ * Gradient border: stamp ring filled with a vertical linear gradient from
+ * userColor (top) to a lighter shade (bottom). Reads as a 2-tone outline.
+ */
+function composeGradientBorder(
+  canvas: HTMLCanvasElement,
+  baseColor: string,
+  borderWidth: number,
+  isAnimated: boolean,
+  effectiveOutputSize: number,
+): HTMLCanvasElement {
+  const size = canvas.width;
+  const result = document.createElement("canvas");
+  result.width = size;
+  result.height = size;
+  const ctx = result.getContext("2d")!;
+
+  // Build a gradient fill: baseColor → contrastColor (top → bottom).
+  const tmp = document.createElement("canvas");
+  tmp.width = size;
+  tmp.height = size;
+  const tmpCtx = tmp.getContext("2d")!;
+  const grad = tmpCtx.createLinearGradient(0, 0, 0, size);
+  grad.addColorStop(0, baseColor);
+  grad.addColorStop(1, pickContrastColor(baseColor));
+
+  const sil = buildSilhouette(canvas, grad);
+  releaseCanvas(tmp);
+
+  const { big, pad } = stampRing(sil, borderWidth, isAnimated, effectiveOutputSize, baseColor);
+  ctx.drawImage(big, -pad, -pad);
+  ctx.drawImage(canvas, 0, 0);
+
+  releaseCanvas(sil);
+  releaseCanvas(big);
+  return result;
+}
+
+/**
+ * Chrome border: 4-stop vertical gradient (dark → silver → light → silver)
+ * giving a metallic sheen. Color param is ignored — chrome is always silver.
+ */
+function composeChromeBorder(
+  canvas: HTMLCanvasElement,
+  borderWidth: number,
+  isAnimated: boolean,
+  effectiveOutputSize: number,
+): HTMLCanvasElement {
+  const size = canvas.width;
+  const result = document.createElement("canvas");
+  result.width = size;
+  result.height = size;
+  const ctx = result.getContext("2d")!;
+
+  const tmp = document.createElement("canvas");
+  tmp.width = size;
+  tmp.height = size;
+  const tmpCtx = tmp.getContext("2d")!;
+  const grad = tmpCtx.createLinearGradient(0, 0, 0, size);
+  grad.addColorStop(0.0, "#5a5a5a");   // dark top
+  grad.addColorStop(0.35, "#f5f5f5");  // bright highlight band
+  grad.addColorStop(0.55, "#a8a8a8");  // mid silver
+  grad.addColorStop(1.0, "#dedede");   // light bottom
+
+  const sil = buildSilhouette(canvas, grad);
+  releaseCanvas(tmp);
+
+  const { big, pad } = stampRing(sil, borderWidth, isAnimated, effectiveOutputSize, "#a8a8a8");
+  ctx.drawImage(big, -pad, -pad);
+  ctx.drawImage(canvas, 0, 0);
+
+  releaseCanvas(sil);
+  releaseCanvas(big);
+  return result;
+}
+
+/**
+ * Dotted border: stamp at 16 evenly-spaced angles, but skip every other
+ * position → 8 stamps with 45° gaps. After downscale this reads as a
+ * dashed/dotted ring. AA blur is intentionally disabled so gaps stay crisp.
+ *
+ * Always uses the 16-direction pattern regardless of isAnimated; the dotted
+ * look needs the angular spacing and the cost is comparable to STAMP_8.
+ */
+function composeDottedBorder(
+  canvas: HTMLCanvasElement,
+  borderColor: string,
+  borderWidth: number,
+  effectiveOutputSize: number,
+): HTMLCanvasElement {
+  const size = canvas.width;
+  const result = document.createElement("canvas");
+  result.width = size;
+  result.height = size;
+  const ctx = result.getContext("2d")!;
+
+  const sil = buildSilhouette(canvas, borderColor);
+  const { big, pad } = stampRing(
+    sil, borderWidth, /* isAnimated unused with skipAlternating */ false,
+    effectiveOutputSize, borderColor,
+    { skipAlternating: true }
+  );
+  ctx.drawImage(big, -pad, -pad);
+  ctx.drawImage(canvas, 0, 0);
+
+  releaseCanvas(sil);
   releaseCanvas(big);
   return result;
 }

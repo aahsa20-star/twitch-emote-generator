@@ -11,7 +11,20 @@ export type ExportMode = "twitch" | "discord" | "7tv" | "bttv" | "ffz";
 
 export type BgRemovalQuality = "speed" | "quality";
 
-export type BorderStyle = "none" | "white" | "black" | "shadow" | "custom";
+export type BorderStyle =
+  | "none"
+  | "white"
+  | "black"
+  | "shadow"
+  | "custom"
+  // fix6: visual variation styles, all free.
+  | "neon"
+  | "double"
+  | "sticker"
+  | "outline-only"
+  | "gradient"
+  | "chrome"
+  | "dotted";
 
 export type FrameType =
   | "none"
@@ -234,6 +247,14 @@ export const BORDER_OPTIONS: BorderOption[] = [
   { value: "black", label: "黒フチ" },
   { value: "shadow", label: "影付き" },
   { value: "custom", label: "カスタム色", subscriberOnly: true },
+  // fix6: visual variation styles. All free (no subscriberOnly).
+  { value: "neon", label: "ネオン" },
+  { value: "double", label: "二重フチ" },
+  { value: "sticker", label: "ステッカー風" },
+  { value: "outline-only", label: "輪郭のみ" },
+  { value: "gradient", label: "グラデ" },
+  { value: "chrome", label: "クロム" },
+  { value: "dotted", label: "点線" },
 ];
 
 export interface FrameOption {

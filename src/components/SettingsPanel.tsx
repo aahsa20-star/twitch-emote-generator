@@ -89,15 +89,22 @@ export default function SettingsPanel({
             />
           </div>
         )}
-        {config.outline.style === "custom" && isSubscriber && (
-          <div className="mt-2">
-            <ColorPicker
-              label="フチの色"
-              value={config.outline.color}
-              onChange={(c) => onConfigChange({ outline: { color: c } })}
-            />
-          </div>
-        )}
+        {(config.outline.style === "custom" ||
+          config.outline.style === "neon" ||
+          config.outline.style === "double" ||
+          config.outline.style === "sticker" ||
+          config.outline.style === "outline-only" ||
+          config.outline.style === "gradient" ||
+          config.outline.style === "dotted") &&
+          isSubscriber && (
+            <div className="mt-2">
+              <ColorPicker
+                label="フチの色"
+                value={config.outline.color}
+                onChange={(c) => onConfigChange({ outline: { color: c } })}
+              />
+            </div>
+          )}
         {config.outline.style === "custom" && !isSubscriber && (
           <div className="mt-2 flex items-center gap-2">
             <span
