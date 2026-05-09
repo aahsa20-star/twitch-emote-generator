@@ -6,6 +6,7 @@ import { Heart, Trash2 } from "lucide-react";
 import { Template, EmoteConfig, TEMPLATE_TAGS } from "@/types/emote";
 import { configToSummary } from "@/lib/templateUtils";
 import LoginPromptModal from "./LoginPromptModal";
+import AccountDeleteButton from "./AccountDeleteButton";
 
 interface GalleryProps {
   onApplyTemplate: (config: EmoteConfig, credit?: { userName: string; userLogin?: string | null }) => void;
@@ -131,6 +132,7 @@ export default function Gallery({ onApplyTemplate, onGoToCreator }: GalleryProps
             >
               ログアウト
             </button>
+            <AccountDeleteButton />
           </div>
         ) : (
           <div className="flex items-center gap-3 flex-wrap">
