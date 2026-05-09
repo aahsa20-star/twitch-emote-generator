@@ -33,6 +33,7 @@
 - **動画→GIF変換（Phase 2: 動画アップロード→アニメGIF出力）** — mp4/mov/webm（最大50MB）をアップロード→VideoTrimmerでトリミング（最大4秒）+ FPS選択（10/15/20、デフォルト15）→ `<video>.currentTime` seek + drawImage でフレーム抽出（最大辺512pxにダウンサイズ）→ Phase 1 のフレームパイプラインに合流して3サイズGIF出力。WebCodecs不採用（mp4/mov/webm全部対応・Firefox対応・iOS Safari対応・実装複雑度半分）。背景透過は対象外。
 - **再生設定（GIF/動画モード共通）** — 速度スライダー（0.25x〜2.0x、0.25刻み、プリセット0.5/1.0/1.5/2.0）+ ループ回数選択（無限/1回/2回/3回）。delays配列にspeedを適用し、gif.jsの`repeat`パラメータでループ回数を制御。アニメーションソース（GIF/動画）のときのみSettingsPanel に表示、静止画+既存52種アニメには影響なし。
 - **発見性UI/コピー改善** — UploadPanel に画像/GIF/動画の3アイコン＋グループ化説明文（「画像（PNG/JPG/WEBP）/ GIF / 動画（MP4/MOV/WEBM）」）。SampleShowcaseキャッチに「画像でも、GIFでも、動画でも。」を太字1行追加。機能タグを「入力」（画像/GIF/動画）と「処理」（背景自動透過/フチ取り/テキスト/3サイズ出力/52種アニメ）の2グループに再構成。SEOメタディスクリプションも「画像・GIF・動画から〜」に更新。
+- **フォント追加（12種→22種）** — 不足分野を補強する10種を追加: 明朝（Shippori Mincho/Hina Mincho）、丸文字（M PLUS Rounded 1c/Yusei Magic）、筆文字・手書き（Yuji Syuku/Klee One）、英字インパクト（Bungee/Bangers）、英字ポップ（Lobster）、ピクセル英字（Press Start 2P）。`next/font/google` でself-hostし、bundle 影響なし。
 - 画像トリミング＋位置調整UI（レスポンシブキャンバス[PC:320px/モバイル:適応]、8ハンドル矩形選択、ドラッグ移動、ズーム50%〜200%）
 - AI背景透過（@imgly/background-removal、WASM、約30MBモデル、標準/高精度モード切替）
 - 背景透過のスキップ／キャンセル／やり直し

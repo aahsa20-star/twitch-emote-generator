@@ -14,6 +14,18 @@ import {
   Black_Han_Sans,
   RocknRoll_One,
   Kaisei_Decol,
+  // Phase 3 additions: fill underrepresented genres (mincho, rounded,
+  // brush, English impact/pop/pixel) for emote-friendly variety.
+  Shippori_Mincho,
+  Hina_Mincho,
+  M_PLUS_Rounded_1c,
+  Yusei_Magic,
+  Yuji_Syuku,
+  Klee_One,
+  Bungee,
+  Bangers,
+  Lobster,
+  Press_Start_2P,
 } from "next/font/google";
 import AuthProvider from "@/components/providers/AuthProvider";
 import "./globals.css";
@@ -96,6 +108,74 @@ const kaiseiDecol = Kaisei_Decol({
   variable: "--font-kaisei-decol",
 });
 
+// --- Phase 3 additions ---
+
+// Mincho (端正な明朝)
+const shipporiMincho = Shippori_Mincho({
+  subsets: ["latin"],
+  weight: "700",
+  variable: "--font-shippori-mincho",
+});
+
+const hinaMincho = Hina_Mincho({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-hina-mincho",
+});
+
+// Rounded (丸文字)
+const mPlusRounded1c = M_PLUS_Rounded_1c({
+  subsets: ["latin"],
+  weight: "800",
+  variable: "--font-mplus-rounded-1c",
+});
+
+const yuseiMagic = Yusei_Magic({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-yusei-magic",
+});
+
+// Brush / handwritten (筆文字・手書き和風)
+const yujiSyuku = Yuji_Syuku({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-yuji-syuku",
+});
+
+const kleeOne = Klee_One({
+  subsets: ["latin"],
+  weight: "600",
+  variable: "--font-klee-one",
+});
+
+// English impact
+const bungee = Bungee({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-bungee",
+});
+
+const bangers = Bangers({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-bangers",
+});
+
+// English pop
+const lobster = Lobster({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-lobster",
+});
+
+// English pixel
+const pressStart2P = Press_Start_2P({
+  subsets: ["latin"],
+  weight: "400",
+  variable: "--font-press-start-2p",
+});
+
 export const metadata: Metadata = {
   title: "Twitch Emote Generator｜エモート作成ツール（無料・ブラウザ完結）",
   description:
@@ -135,6 +215,16 @@ const fontVars = [
   blackHanSans.variable,
   rocknrollOne.variable,
   kaiseiDecol.variable,
+  shipporiMincho.variable,
+  hinaMincho.variable,
+  mPlusRounded1c.variable,
+  yuseiMagic.variable,
+  yujiSyuku.variable,
+  kleeOne.variable,
+  bungee.variable,
+  bangers.variable,
+  lobster.variable,
+  pressStart2P.variable,
 ].join(" ");
 
 export default function RootLayout({

@@ -159,6 +159,7 @@ export type FontCategory = "標準" | "日本語" | "英字";
 
 export const FONT_OPTIONS: { value: string; label: string; category: FontCategory }[] = [
   { value: "Noto Sans JP", label: "Noto Sans JP Bold", category: "標準" },
+  // Japanese — gothic / display
   { value: "Dela Gothic One", label: "Dela Gothic One（極太ゴシック）", category: "日本語" },
   { value: "Reggae One", label: "Reggae One（レゲエ）", category: "日本語" },
   { value: "Rampart One", label: "Rampart One（中抜き）", category: "日本語" },
@@ -168,8 +169,24 @@ export const FONT_OPTIONS: { value: string; label: string; category: FontCategor
   { value: "Kaisei Decol", label: "花鳥風月", category: "日本語" },
   { value: "Zen Tokyo Zoo", label: "Zen Tokyo Zoo（装飾）", category: "日本語" },
   { value: "Rock 3D", label: "Rock 3D（3D風）", category: "日本語" },
+  // Japanese — mincho
+  { value: "Shippori Mincho", label: "しっぽり明朝（端正）", category: "日本語" },
+  { value: "Hina Mincho", label: "ひな明朝（細め）", category: "日本語" },
+  // Japanese — rounded
+  { value: "M PLUS Rounded 1c", label: "M PLUS 丸ゴ（極太）", category: "日本語" },
+  { value: "Yusei Magic", label: "ゆうせいマジック（手書き丸文字）", category: "日本語" },
+  // Japanese — brush / handwritten
+  { value: "Yuji Syuku", label: "Yuji 肅（筆文字）", category: "日本語" },
+  { value: "Klee One", label: "Klee One（鉛筆書き風）", category: "日本語" },
+  // English — handwritten / pop
   { value: "Permanent Marker", label: "Permanent Marker（手書き）", category: "英字" },
   { value: "Boogaloo", label: "Boogaloo（ポップ英字）", category: "英字" },
+  { value: "Lobster", label: "Lobster（筆記体ポップ）", category: "英字" },
+  // English — impact
+  { value: "Bungee", label: "Bungee（極太装飾）", category: "英字" },
+  { value: "Bangers", label: "Bangers（コミック風）", category: "英字" },
+  // English — pixel
+  { value: "Press Start 2P", label: "Press Start 2P（ピクセル）", category: "英字" },
 ];
 
 export const TEXT_POSITION_OPTIONS: { value: TextPosition; label: string }[] = [
