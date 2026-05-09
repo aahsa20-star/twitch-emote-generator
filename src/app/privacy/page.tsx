@@ -114,7 +114,8 @@ export default function PrivacyPage() {
               <ul className="list-disc list-inside text-sm leading-relaxed space-y-1 pl-2">
                 <li>セッショントークン（ログイン状態の維持）</li>
                 <li>ユーザーが選択した UI 設定（テーマ、表示設定等）</li>
-                <li>アクセス権限に関するキャッシュ情報</li>
+                {/* TODO(fix7): フォロワー認証実装後に有効化 */}
+                {/* <li>アクセス権限に関するキャッシュ情報</li> */}
               </ul>
               <p className="text-sm leading-relaxed">
                 これらの情報はユーザー自身のブラウザにのみ保存され、サーバーには送信されません（セッショントークンを除く）。
