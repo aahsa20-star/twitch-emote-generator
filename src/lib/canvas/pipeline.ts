@@ -129,7 +129,7 @@ export function processEmote(
       : undefined;
 
   // Reduce padding for small output sizes to minimize whitespace difference
-  const basePadding = config.padding ?? 0.05;
+  const basePadding = config.padding ?? 0.02;
   const effectivePadding = size <= 32 ? basePadding * 0.4 : size <= 56 ? basePadding * 0.7 : basePadding;
 
   // 1. Center and resize at high resolution
@@ -201,7 +201,7 @@ export function processEmoteWithHiRes(
       : undefined;
 
   // Reduce padding for small output sizes (same logic as processEmote)
-  const basePaddingHiRes = config.padding ?? 0.05;
+  const basePaddingHiRes = config.padding ?? 0.02;
   const effectivePaddingHiRes = size <= 32 ? basePaddingHiRes * 0.4 : size <= 56 ? basePaddingHiRes * 0.7 : basePaddingHiRes;
 
   // 1-5: Same pipeline as processEmote, but at GIF_HI_RES for animation source
@@ -270,7 +270,7 @@ export function processFrameWithBounds(
       ? { offsetX: config.contentOffsetX, offsetY: config.contentOffsetY, scale: config.contentScale }
       : undefined;
 
-  const basePadding = config.padding ?? 0.05;
+  const basePadding = config.padding ?? 0.02;
   const effectivePadding = size <= 32 ? basePadding * 0.4 : size <= 56 ? basePadding * 0.7 : basePadding;
 
   // 1. Center + resize at HI_RES using shared bounds

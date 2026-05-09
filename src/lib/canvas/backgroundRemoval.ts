@@ -9,7 +9,7 @@ export interface ContentAdjustment {
 export function centerAndResize(
   source: HTMLCanvasElement | HTMLImageElement,
   targetSize: number,
-  padding: number = 0.05,
+  padding: number = 0.02,
   adjustment?: ContentAdjustment
 ): HTMLCanvasElement {
   const tempCanvas = document.createElement("canvas");

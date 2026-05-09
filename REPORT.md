@@ -36,6 +36,7 @@
 - **フォント追加（12種→22種）** — 不足分野を補強する10種を追加: 明朝（Shippori Mincho/Hina Mincho）、丸文字（M PLUS Rounded 1c/Yusei Magic）、筆文字・手書き（Yuji Syuku/Klee One）、英字インパクト（Bungee/Bangers）、英字ポップ（Lobster）、ピクセル英字（Press Start 2P）。`next/font/google` でself-hostし、bundle 影響なし。
 - **品質監査タスク完了** — 6カテゴリ（オートクロップ/マスター解像度/テキスト/フチ取り/背景透過の縁/アニメ）について現状コードと実出力を分析。詳細は [QUALITY_AUDIT.md](QUALITY_AUDIT.md)、検証用テスト画像は `test-images/`。最大の発見は「28px出力にテキストが焼き込まれない」（意図的なスキップ）と「フチが28pxで実質消える」。優先度A（次セッション実装）/B/Cで6カテゴリ × 修正方針を提示。
 - **品質改善・修正1（HI_RES 224→448）** — マスター解像度を倍増し、112px出力で 4倍オーバーサンプリングに（旧2倍）。`processEmote` / `processFrameWithBounds` 内の border/frame/text 描画 anti-alias 精度が向上。GIF アニメ（`GIF_HI_RES=256`）・bg-removal は無影響。静的分析: メモリ peak +1.15 MiB、pipeline 描画コスト ×4、bg-removal がドミナントなため体感処理時間 +5〜20% 想定。最終視覚検証は修正5完了後にまとめて実施。
+- **品質改善・修正2（デフォルトpadding 5%→2%）** — 自動クロップ後の余白デフォルトを 0.05 → 0.02 に縮小。被写体の描画領域比率が 81% → 92% に拡大（面積 +13.8%）し、Twitchチャット内でのエモート存在感を改善。変更箇所: `types/emote.ts` JSDoc・`useEmoteProcessor` 初期 state・`RecommendedPatterns` 初期 config・`backgroundRemoval.centerAndResize` デフォルト引数・`pipeline.ts` の3箇所のフォールバック。永続化なし（localStorage 未使用）。性能影響ゼロ。リスク: 人物画像で頭頂・肩がタイトすぎる可能性（最終視覚検証で確認、必要なら 0.03 に再調整）。
 - 画像トリミング＋位置調整UI（レスポンシブキャンバス[PC:320px/モバイル:適応]、8ハンドル矩形選択、ドラッグ移動、ズーム50%〜200%）
 - AI背景透過（@imgly/background-removal、WASM、約30MBモデル、標準/高精度モード切替）
 - 背景透過のスキップ／キャンセル／やり直し
