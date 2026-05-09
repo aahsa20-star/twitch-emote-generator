@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Twitter, Youtube, MessageCircle } from "lucide-react";
 
 export default function Footer() {
@@ -34,6 +35,14 @@ export default function Footer() {
       </ul>
       <p className="text-center text-gray-500">
         本サービスはサービス改善のためUmami Analyticsによるアクセス解析を行っています。取得するデータはIPアドレスを含まない匿名の統計情報のみです。
+      </p>
+      <p className="text-center">
+        <Link
+          href="/privacy"
+          className="text-purple-400 hover:text-purple-300 transition-colors underline-offset-2 hover:underline"
+        >
+          プライバシーポリシー
+        </Link>
       </p>
       <div className="pt-3 border-t border-gray-800 space-y-3">
         <div className="flex items-center justify-center gap-4">
