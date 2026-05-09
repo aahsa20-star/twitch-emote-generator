@@ -635,53 +635,256 @@ GIF case の 126M ops は gif.js エンコード（500M〜1G ops 想定）と比
 
 ---
 
-## 最終視覚検証用 eval 仕様メモ（修正5後の新セッション向け）
+### 修正5: GIF ディザリング有効化（カテゴリ6）
 
-### `pipeline.ts` の API 表面
+**変更**: gif.js のオプションに `dither: "FloydSteinberg"` を追加（4箇所）。エッジ AA とグラデーションの band を改善。
 
-`src/lib/canvas/pipeline.ts` の export は **純関数**で React state 不要。preview_eval から直接呼べる構造。
+**変更ファイル**（GIF 出力経路すべて）:
+- `src/lib/animations/index.ts:196` — AI custom animation 用
+- `src/lib/animations/index.ts:257` — 52種アニメ用（基本パターン）
+- `src/lib/animationSandbox.ts:206` — sandbox iframe 内 AI 動画
+- `src/lib/gif/animatedEncoder.ts:41` — GIF/動画ソース → 出力 GIF
+
+`@types/gif.js` の型定義は `dither?: DitherMethod | boolean` で `"FloydSteinberg"` をネイティブで受け付けるため、型キャスト不要。
+
+**選択値**: `"FloydSteinberg"`（serpentine なし）。
+- gif.js が提供する 4 つのアルゴリズム（FloydSteinberg / FalseFloydSteinberg / Stucki / Atkinson）の中で最も視覚品質と速度のバランスが良い
+- serpentine 版（行ごとに走査方向反転）はバンディング軽減に効くが、アニメフレーム間で誤差パターンが揺らぐ副作用がある可能性。標準版を選択
+
+**ユーザー設定への露出**: トグル UI なし、固定 ON。理由は Aki の指針通り：
+- 他の品質改善（fix1〜4）と組み合わせて「他ツール並み」を目指す本タスクの目的に沿う
+- 「dither って何？」の UX 負荷を避ける
+- ファイルサイズ増加が許容範囲（〜25%）
+
+**パフォーマンス予測（静的分析）**:
+
+| 指標 | before | after | デルタ |
+|---|---|---|---|
+| ファイルサイズ | — | — | **+10〜25%**（隣接ピクセルの色分散で LZW 圧縮効率↓） |
+| 書き出し時間 | — | — | **+10〜30%**（per-pixel エラー拡散の追加コスト） |
+| エッジ AA | shadowBlur 任せ（ジャギー残） | dither で疑似 AA | 大幅改善 |
+| グラデーション band | 階調が見える | 視覚的に滑らか | 改善 |
+| 透過 alpha 境界 | くっきり階段 | dither 補正でやや滑らか | 軽微改善 |
+
+ディザ処理オペ数試算:
+- 256px × 60フレーム = 約 15.7M ピクセル
+- per-pixel 4 隣接 × 数算術 ≈ 50M ops
+- gif.js 本体エンコード（500M〜1G ops 想定）の 5〜10% 追加
+
+**Smoke test**: `tsc --noEmit` クリア（型エラーなし、`as unknown as boolean` 不要）。`npm run build` は引き続き Google Fonts flakiness（fix5 由来ではない）。
+
+**リスク**:
+- 静止画では dither は適用されない（GIF 限定）。dither を効かせるための追加実装は不要
+- ファイルサイズ +25% を超える場合があれば（特に大きなグラデーション領域含む画像）、Twitch の GIF サイズ制限（256KB）に近づく可能性。20フレーム 112px の典型ケースで実測未確認、最終視覚検証で要確認
+- ディザのドット感が28pxで目立つ可能性。ただし 28px の GIF はそもそも detail が乏しいので顕著には出ないと予想
+
+---
+
+## 修正1〜5 累積コミット
+
+| # | hash | タイトル |
+|---|---|---|
+| 1 | `8cc2267` | HI_RES 224→448 |
+| 2 | `b0f7e67` | デフォルトpadding 5%→2% |
+| 3 | `7a598f0` | テキスト28pxスキップ撤廃 + サイズ適応レンダリング |
+| 4 | `2e2f71e` | フチ取り最低幅保証 + stamp filter化 |
+| 5 | _(このコミット)_ | GIF ディザリング有効化 |
+
+優先度A 全 5 修正完了。最終視覚検証セッションで baseline (commit `3888d27` 時点) vs all-fixes-applied (fix5 commit) の比較を実施予定。
+
+---
+
+## 最終視覚検証セッションへの引き継ぎメモ（修正5後の新セッション向け）
+
+> このセクションは fix5 完了時点でまとめた、**次セッションで Aki または別の Claude Code がそのまま実行できる引き継ぎメモ**です。再調査せずに進めるための情報を全部入れてあります。
+
+### 0. 何を検証するか（チェックリスト）
+
+各 fix が **想定通り視覚に現れているか** を baseline (`3888d27`) vs all-fixes (`fix5 commit`) で比較する。
+
+| fix | チェックポイント | 見るべき画像 |
+|---|---|---|
+| 1 (HI_RES) | 112px出力で border/text/frame の anti-alias が向上、輪郭がシャープ | `01-logo-star_112` の星のコーナー、`03-icon-with-text_112` の文字輪郭 |
+| 2 (padding) | 被写体が canvas をより大きく占める（面積 +13.8%）。ただし人物画像で頭頂・肩がギリギリすぎないか | `02-portrait_28/56/112` 全部 |
+| 3 (text 28px) | 28pxでテキストが**消えなくなる**（最大の改善ポイント）。56pxでも見やすくなる | `02-portrait-border-text_28`、`03-icon-with-text_28/56`、新規 `_56`サイズも撮ること |
+| 4 (border) | 28pxで border が**見えるようになる**。stamp filter で輪郭が均一に | `02-portrait-white-border_28/56`、`02-portrait-border-text_28/56` |
+| 5 (dither) | GIFアニメのエッジジャギーが軽減、グラデーションのバンドが消える | アニメ系の比較は静止画 PNG では捕捉不可、別途 GIF サンプル必要 |
+
+**ファイルサイズ予測との整合性確認**:
+- fix5 で GIF サイズ +10〜25%。実測で 30% 超過なら dither serpentine 版や quality:5 への調整を検討
+- fix1 で PNG サイズが微増（detail 増加）。激増（2倍超）するなら何か壊れてる
+
+### 1. `pipeline.ts` の API 表面（fix5 commit 時点）
+
+`src/lib/canvas/pipeline.ts` の export は **純関数**で React state 不要。preview_eval から直接呼べる。
 
 ```typescript
-// 主エントリポイント（静止画用）
+// 静止画用（主エントリポイント）
 processEmote(
   source: HTMLCanvasElement | HTMLImageElement,
   size: number,                    // 出力px (28/56/112)
-  config: EmoteConfig,             // src/types/emote.ts
+  config: EmoteConfig,             // src/types/emote.ts:117 参照
   subCanvas?: HTMLCanvasElement    // 2画像合成用 (optional)
 ): HTMLCanvasElement
 
-// GIFアニメ用（HI_RES + 元解像度の両方を返す）
-processEmoteWithHiRes(...): { output, hiRes }
+// 52種アニメ用（HI_RES と downscaled output の両方を返す）
+processEmoteWithHiRes(
+  source, size, config, subCanvas?
+): { output: HTMLCanvasElement; hiRes: HTMLCanvasElement }
 
-// 既存GIFフレーム処理用（bounds事前計算）
-processFrameWithBounds(frame, size, config, bounds): HTMLCanvasElement
+// 既存GIF/動画ソース用（bounds事前計算済み、per-frame）
+processFrameWithBounds(
+  frame: HTMLCanvasElement,
+  size: number,
+  config: EmoteConfig,
+  bounds: Bounds                   // canvas/types.ts の findContentBounds で算出
+): HTMLCanvasElement
 ```
 
-### eval から呼び出す手順（推奨）
+`HI_RES`/`GIF_HI_RES` 定数は `src/lib/canvas/types.ts`：
+- `HI_RES = 448`（fix1 で 224 → 448 に変更）
+- `GIF_HI_RES = 256`（不変）
+- `USM_MAX_SIZE = 56`
 
-1. `pipeline.ts` 末尾に開発用 instrumentation を一時追加：
-   ```typescript
-   if (typeof window !== "undefined") {
-     (window as any).__pipeline = { processEmote, processEmoteWithHiRes };
-   }
+### 2. EmoteConfig のデフォルト値（実コード由来）
+
+`src/hooks/useEmoteProcessor.ts:33-56` 参照。eval で組むときの最小構成：
+
+```typescript
+const config: EmoteConfig = {
+  outline: { style: "none", width: 3, color: "#ffffff" },
+  frame: { type: "none" },
+  subImage: { mode: "none", scale: 0.5, offsetX: 0, offsetY: 0 },
+  text: {
+    preset: null, customText: "",
+    font: "Noto Sans JP",
+    fillColor: "#ffffff", strokeColor: "#000000",
+    position: "bottom",
+    fontSize: 20, offsetX: 0, offsetY: 0, outlineWidth: 3,
+  },
+  animation: { type: "none", speed: "normal" },
+  badge: { /* DEFAULT_BADGE_SETTINGS, 視覚検証では未使用 */ },
+  padding: 0.02,                   // ← fix2 で 0.05 → 0.02
+  contentOffsetX: 0, contentOffsetY: 0, contentScale: 1.0,
+  animatedSpeed: 1.0, animatedLoopCount: 0,
+};
+```
+
+### 3. eval から呼び出す手順
+
+#### ステップ1: instrumentation を一時注入（**コミットしないこと**）
+
+`src/lib/canvas/pipeline.ts` の末尾に追加:
+
+```typescript
+if (typeof window !== "undefined") {
+  (window as Window & { __pipeline?: unknown }).__pipeline = {
+    processEmote, processEmoteWithHiRes, processFrameWithBounds,
+    HI_RES, GIF_HI_RES,
+  };
+}
+```
+
+`npm run dev` でホットリロードされる。視覚検証完了後に **必ず削除** してからコミットを進めること。
+
+#### ステップ2: 入力サンプル画像を Canvas API で生成
+
+監査時と同じ3種:
+
+| ID | 内容 | 主要色 |
+|---|---|---|
+| 01-logo-star | 紫角丸正方形 + 黄色5角星（透明背景） | #7c3aed / #facc15 |
+| 02-portrait | 顔（円） + 肩シルエット（半円）、透明背景 | #fcd5b5 / #6b7280 |
+| 03-icon | 赤ハート（Path API）+ 4隅黄ドット、透明背景 | #ef4444 / #facc15 |
+
+source canvas は **256×256 で生成**（pipeline 側で HI_RES に拡大される）、α=0 を背景に保つ。
+
+#### ステップ3: スタイル組み合わせマトリクス
+
+| ID 接尾辞 | outline | text |
+|---|---|---|
+| `_plain` | none | "" |
+| `_white-border` | white | "" |
+| `_border-text` | white | "草" (1文字テスト) |
+| `_with-text` | none | "草" |
+| `_long-text` | none | "草生える" (4文字テスト, fix3 多文字確認用) |
+
+**新規追加**: 全パターンで `_56` サイズも生成（旧 baseline は 28/112 のみだったが、fix3 が 56px の text 描画を改善するので 56 を残しておく価値高い）。
+
+#### ステップ4: eval テンプレート（壊れない書き方）
+
+```typescript
+const inputs = await buildInputs();  // 3種の source canvas を返す
+const styles: StyleSpec[] = [...];   // 上記マトリクス
+const sizes = [28, 56, 112] as const;
+
+const results: Record<string, string> = {};
+
+// 1個ずつ for...of で逐次 await。Promise.all は順不同で壊れる。
+for (const input of inputs) {
+  for (const style of styles) {
+    for (const size of sizes) {
+      // ★ 必ず let で再宣言。canvas/output を関数スコープ外で再利用しない
+      const config = makeConfig(style);
+      const out = (window as any).__pipeline.processEmote(
+        input.canvas, size, config
+      );
+      // 寸法 sanity check
+      if (out.width !== size || out.height !== size) {
+        throw new Error(`Wrong size: ${input.id} ${style.id} ${size} → ${out.width}x${out.height}`);
+      }
+      results[`${input.id}-${style.id}_${size}`] = out.toDataURL("image/png");
+      // canvas を release（メモリリーク回避）
+      out.width = 0; out.height = 0;
+    }
+  }
+}
+return results;
+```
+
+#### ステップ5: 保存と検証
+
+eval が返した base64 dict を:
+1. Node 側で `Buffer.from(b64, "base64")` してファイルに書き出し → `test-images/after-fix5/<id>.png`
+2. **必ず寸法と MD5 確認**:
+   ```bash
+   for f in test-images/after-fix5/*.png; do file "$f"; done
+   md5 test-images/after-fix5/*.png | sort -k 4
    ```
-   コミットしないこと（measurementセッション中のみの実装注入）。
-2. `EmoteConfig` のデフォルト値は `src/types/emote.ts` から取得。`text.preset = null` + `text.customText = ""` で text無し、`outline.style = "none"` で border無し。
-3. 入力 source 画像は監査時と同じ3種を再現：
-   - **01-logo-star**: 紫(#7c3aed)角丸正方形 + 黄色(#facc15)五角星
-   - **02-portrait**: 顔（円, #fcd5b5）+ 肩シルエット（半円, #6b7280）
-   - **03-icon**: 赤いハート（path）+ 4隅の黄ドット
-   全てキャンバスサイズは 256x256 程度、背景は完全透明（α=0）。
-4. 各 source × style（plain / white-border / border-text / with-text）× size（28/56/112）で逐次 await。**canvas/output 変数を loop 内で必ず再宣言**（前回の after-fix1 が壊れた原因）。
-5. 各canvasを `canvas.toDataURL("image/png")` → base64 → File system で `test-images/after-fix5/` に保存。
-6. file size を baseline と比較する場合は naturalWidth/naturalHeight を必ず確認（前回 28x28 化が見逃された）。
+3. 同 ID の baseline と after-fix5 を Read tool で並べて視覚確認
 
-### 注意点（前回 after-fix1 の壊れ原因）
+### 4. 前回 after-fix1 が壊れた原因（再発防止チェックリスト）
 
-- canvas state を loop で使い回すと前回の size が残る → **每ループで `let canvas = ...` を再宣言**
-- `Promise.all` で順不同になると後勝ちする → **`for...of` + await で逐次化**
-- 出力前に必ず `file --mime-type` 等で寸法確認：MD5 重複と suffix 不一致は壊れシグナル
+- ❌ canvas state を loop で使い回した → ✅ **每ループで `let` 宣言**
+- ❌ `Promise.all` で順序混乱 → ✅ **`for...of` + `await`**
+- ❌ size 指定が反映されず 28x28 化 → ✅ **eval 末尾で `out.width !== size` を必ず assert**
+- ❌ MD5 重複に気付かず → ✅ **保存後 `md5 *.png` で全件 sort 確認**
 
-### bg-removal の扱い
+### 5. bg-removal の扱い
 
-監査時と同じく **「透過済みPNGをそのまま使う」トグル**経由で bg-removal をスキップする想定。`processEmote` は透過済み source をそのまま受けられる（`centerAndResize` がα見て bounds 算出する）ので、合成画像（背景透明）を直接渡せばよい。
+監査時と同じく **「透過済みPNGをそのまま使う」トグル**経由で bg-removal を実行回避する想定。eval から `processEmote` を直接呼ぶときは bg-removal を経由せず source を直接渡せばよい（pipeline.ts は `centerAndResize` で α を見て bounds を算出する）。
+
+サンプル画像を最初から透明背景で作っておけば bg-removal の WASM ロード（〜30MB モデル）も不要。
+
+### 6. GIF 用 dither の視覚確認方法（fix5 専用）
+
+PNG 静止画では dither の効果は見えない。dither は GIF エンコード時にのみ適用される。確認手順:
+
+1. 入力にアニメソース（`processEmoteWithHiRes` で hi-res を作って 52種アニメに通す or `processFrameWithBounds` で動画フレームをループ）を用意
+2. `gif.js` で出力 → blob → File system に保存
+3. baseline と after-fix5 の同一 GIF を比較。エッジ AA・グラデーション帯が改善している
+4. ファイルサイズも比較（fix5 予測 +10〜25%、それ超なら設定見直し）
+
+簡易的には、52種アニメから選んだ1パターン（例: `pulse` や `bounce`）を 28px / 112px の 2 サイズで生成し、ImageMagick やブラウザで開いて視覚比較すれば十分。
+
+### 7. 既知の制約・注意
+
+- `npm run build` はこの実行環境では Google Fonts fetch が落ちて失敗する（`fonts.gstatic.com` への接続が遮断されている）。Vercel 上のビルドは成功している（既存コミットがデプロイ済み）。fix1〜5 の commit message でも明記済み
+- preview_eval を使う場合は dev server を `npm run start`（prod build）で起動するほうが本番に近い挙動になる。ただし上記の理由で prod build できないなら `npm run dev` で fallback
+- `test-images/` 直下に baseline 画像があるので、after-fix5 は `test-images/after-fix5/` に隔離して保存すること
+
+### 8. 残課題（今回のスコープ外、次タスク候補）
+
+- **優先度B/C**（QUALITY_AUDIT.md `修正優先度マトリクス` 参照）: bounds 閾値調整、color decontamination、顔検出ベース auto-crop など
+- **追加発見11件**（QUALITY_AUDIT.md `監査時に気づいた追加の品質改善案` 参照）: プレビュー正確性、Twitchチャット潰れチェッカー、自動レコメンド等
+- **fix3 警告UI**: 多文字を 28px で焼くと潰れることへの警告トースト or 実寸表示。ユーザビリティ改善として fix3-extra で切り出し可能

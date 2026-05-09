@@ -37,6 +37,8 @@ export async function encodeAnimatedGif(
       workerScript: "/gif.worker.js",
       transparent: 0x00000000 as unknown as string,
       repeat,
+      // Floyd-Steinberg ディザリング — fix5 / QUALITY_AUDIT category 6。
+      dither: "FloydSteinberg",
     });
 
     for (let i = 0; i < frames.length; i++) {

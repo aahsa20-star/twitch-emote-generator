@@ -202,6 +202,8 @@ export async function framesToGif(
       workerScript: "/gif.worker.js",
       transparent: 0x00000000 as unknown as string,
       repeat: 0,
+      // Floyd-Steinberg ディザリング — fix5 / QUALITY_AUDIT category 6。
+      dither: "FloydSteinberg",
     });
 
     for (const frame of frames) {

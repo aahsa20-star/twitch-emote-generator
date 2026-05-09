@@ -191,6 +191,9 @@ export async function generateGif(
         workerScript: "/gif.worker.js",
         transparent: 0x00000000 as unknown as string,
         repeat: 0,
+        // Floyd-Steinberg ディザリングでエッジ AA とグラデーション帯を改善。
+        // ファイルサイズ +10〜25% / 書き出し時間 +10〜30% のトレードオフ。
+        dither: "FloydSteinberg",
       });
 
       const frameCanvases: HTMLCanvasElement[] = [];
@@ -250,6 +253,8 @@ export async function generateGif(
       workerScript: "/gif.worker.js",
       transparent: 0x00000000 as unknown as string,
       repeat: 0,
+      // Floyd-Steinberg ディザリング — fix5 / QUALITY_AUDIT category 6。
+      dither: "FloydSteinberg",
     });
 
     const totalFrames = 20;
