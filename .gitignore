@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# admin-private — 削除実行 SQL クエリ集（具体クエリ集を public repo に晒さないため）
+.admin-sop-private.md
