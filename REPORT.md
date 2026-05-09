@@ -34,6 +34,8 @@
 - **再生設定（GIF/動画モード共通）** — 速度スライダー（0.25x〜2.0x、0.25刻み、プリセット0.5/1.0/1.5/2.0）+ ループ回数選択（無限/1回/2回/3回）。delays配列にspeedを適用し、gif.jsの`repeat`パラメータでループ回数を制御。アニメーションソース（GIF/動画）のときのみSettingsPanel に表示、静止画+既存52種アニメには影響なし。
 - **発見性UI/コピー改善** — UploadPanel に画像/GIF/動画の3アイコン＋グループ化説明文（「画像（PNG/JPG/WEBP）/ GIF / 動画（MP4/MOV/WEBM）」）。SampleShowcaseキャッチに「画像でも、GIFでも、動画でも。」を太字1行追加。機能タグを「入力」（画像/GIF/動画）と「処理」（背景自動透過/フチ取り/テキスト/3サイズ出力/52種アニメ）の2グループに再構成。SEOメタディスクリプションも「画像・GIF・動画から〜」に更新。
 - **フォント追加（12種→22種）** — 不足分野を補強する10種を追加: 明朝（Shippori Mincho/Hina Mincho）、丸文字（M PLUS Rounded 1c/Yusei Magic）、筆文字・手書き（Yuji Syuku/Klee One）、英字インパクト（Bungee/Bangers）、英字ポップ（Lobster）、ピクセル英字（Press Start 2P）。`next/font/google` でself-hostし、bundle 影響なし。
+- **品質監査タスク完了** — 6カテゴリ（オートクロップ/マスター解像度/テキスト/フチ取り/背景透過の縁/アニメ）について現状コードと実出力を分析。詳細は [QUALITY_AUDIT.md](QUALITY_AUDIT.md)、検証用テスト画像は `test-images/`。最大の発見は「28px出力にテキストが焼き込まれない」（意図的なスキップ）と「フチが28pxで実質消える」。優先度A（次セッション実装）/B/Cで6カテゴリ × 修正方針を提示。
+- **品質改善・修正1（HI_RES 224→448）** — マスター解像度を倍増し、112px出力で 4倍オーバーサンプリングに（旧2倍）。`processEmote` / `processFrameWithBounds` 内の border/frame/text 描画 anti-alias 精度が向上。GIF アニメ（`GIF_HI_RES=256`）・bg-removal は無影響。静的分析: メモリ peak +1.15 MiB、pipeline 描画コスト ×4、bg-removal がドミナントなため体感処理時間 +5〜20% 想定。最終視覚検証は修正5完了後にまとめて実施。
 - 画像トリミング＋位置調整UI（レスポンシブキャンバス[PC:320px/モバイル:適応]、8ハンドル矩形選択、ドラッグ移動、ズーム50%〜200%）
 - AI背景透過（@imgly/background-removal、WASM、約30MBモデル、標準/高精度モード切替）
 - 背景透過のスキップ／キャンセル／やり直し

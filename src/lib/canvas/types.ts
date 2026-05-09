@@ -1,5 +1,8 @@
 // Internal render size: process at high resolution for crisp borders/text
-export const HI_RES = 224;
+// Bumped 224 → 448 for sharper text outlines and border anti-aliasing,
+// especially at the 112px output (now 4x oversampled instead of 2x).
+// Memory: 448*448*4 = ~0.8MB per canvas, acceptable.
+export const HI_RES = 448;
 
 /** GIF animation render size: higher than output for crisp animation frames */
 export const GIF_HI_RES = 256;
