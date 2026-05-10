@@ -58,16 +58,11 @@ export default function PrivacyPage() {
                 <li>プロフィール画像 URL</li>
                 <li>
                   @datsusara_aki チャンネルへのフォロー有無
-                  <span className="text-gray-400"> *</span>
                 </li>
                 <li>
                   上記チャンネルへのフォロー日時（フォローしている場合）
-                  <span className="text-gray-400"> *</span>
                 </li>
               </ul>
-              <p className="text-xs text-gray-400 leading-relaxed">
-                * フォロー判定機能は将来的に実装予定です。実装後、これらの情報の取得が開始されます。
-              </p>
               <p className="text-sm leading-relaxed">
                 なお、@datsusara_aki チャンネル以外への、ユーザーのフォロー情報は取得しません。
               </p>
@@ -114,8 +109,7 @@ export default function PrivacyPage() {
               <ul className="list-disc list-inside text-sm leading-relaxed space-y-1 pl-2">
                 <li>セッショントークン（ログイン状態の維持）</li>
                 <li>ユーザーが選択した UI 設定（テーマ、表示設定等）</li>
-                {/* TODO(fix7): フォロワー認証実装後に有効化 */}
-                {/* <li>アクセス権限に関するキャッシュ情報</li> */}
+                <li>アクセス権限に関するキャッシュ情報</li>
               </ul>
               <p className="text-sm leading-relaxed">
                 これらの情報はユーザー自身のブラウザにのみ保存され、サーバーには送信されません（セッショントークンを除く）。
