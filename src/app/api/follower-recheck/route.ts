@@ -30,13 +30,16 @@ import { checkIsFollower } from "@/lib/twitch/follower-check";
  *   500 + { error: "broadcaster-id-missing" }              ← env var not set
  */
 export async function POST(req: NextRequest) {
+  // fix7.1.1: drop the explicit `salt` arg.
+  // In Auth.js v5 the cookie name & salt are resolved internally from
+  // NextAuth options + NODE_ENV. Passing an explicit salt that doesn't
+  // match the cookie's actual JWE encryption salt makes getToken() return
+  // null for valid sessions — observed in production after fix7.1, where
+  // logged-in users hit the 401 branch and saw the "Twitch のログインが
+  // 切れています" warning even though they were logged in.
   const token = await getToken({
     req,
     secret: process.env.AUTH_SECRET,
-    salt:
-      process.env.NODE_ENV === "production"
-        ? "__Secure-authjs.session-token"
-        : "authjs.session-token",
   });
 
   if (!token?.access_token || !token.sub) {
