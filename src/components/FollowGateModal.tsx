@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { signIn } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 
 /**
  * 本格誘導モーダル — DL クリック時 (trial ユーザー) に表示。
@@ -9,9 +9,12 @@ import { signIn } from "next-auth/react";
  * 役割:
  *  - フォロー誘導をメイン経路にし、合言葉は inline 展開でセカンダリ提示
  *  - utm パラメータ付き Twitch URL を別タブで開く
- *  - 「フォロー済み・解除を確認」ボタンで signIn() を呼んで再認可フローを起動
+ *  - 「フォロー済み・解除を確認」ボタン: fix7.1 で full-reload を排除。
+ *    /api/follower-recheck で server-side 確認 → useSession().update() で
+ *    JWT を再評価 (jwt callback の trigger === "update" 分岐に乗る) →
+ *    React state を保ったまま premium 化を反映。
  *
- * 設計: FOLLOWER_AUTH_DESIGN.md §7.1
+ * 設計: FOLLOWER_AUTH_DESIGN.md §7.1 + fix7.1 修正
  *
  * @prop open / onClose      モーダル制御
  * @prop variant             utm_medium 計測用 (lock_modal / key_icon / onboarding)
@@ -38,6 +41,11 @@ function buildTwitchUrl(variant: FollowGateVariant): string {
   return `https://www.twitch.tv/${TWITCH_CHANNEL}?${params.toString()}`;
 }
 
+type ReauthFeedback =
+  | { kind: "success"; text: string }
+  | { kind: "warning"; text: string; offerSignin?: boolean }
+  | { kind: "error"; text: string };
+
 export default function FollowGateModal({
   open,
   onClose,
@@ -45,16 +53,97 @@ export default function FollowGateModal({
   previewSrc,
   onSubscribed,
 }: FollowGateModalProps) {
+  const { update } = useSession();
   const [showPassphraseInput, setShowPassphraseInput] = useState(false);
   const [passphrase, setPassphrase] = useState("");
   const [passphraseError, setPassphraseError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [reauthLoading, setReauthLoading] = useState(false);
+  const [reauthFeedback, setReauthFeedback] = useState<ReauthFeedback | null>(
+    null,
+  );
 
   if (!open) return null;
 
-  const handleReauth = () => {
-    // signIn redirects to Twitch — current scope already includes user:read:follows
-    // (set in src/auth.ts). On return, the JWT callback re-checks isFollower.
+  const handleReauth = async () => {
+    if (reauthLoading) return;
+    setReauthLoading(true);
+    setReauthFeedback(null);
+    try {
+      const res = await fetch("/api/follower-recheck", { method: "POST" });
+      // Some server errors return non-JSON (network proxies); guard parse.
+      let data: {
+        isFollower?: boolean;
+        followedAt?: string;
+        source?: "fresh" | "stale-cache" | "fail-safe";
+        propagationLikely?: boolean;
+        error?: string;
+        needsSignin?: boolean;
+      } = {};
+      try {
+        data = await res.json();
+      } catch {
+        // ignore — fall through to status-based handling
+      }
+
+      // Token revoked / scope lost → only signIn can fix this.
+      if (res.status === 401 || data.needsSignin) {
+        setReauthFeedback({
+          kind: "warning",
+          text: "Twitch のログインが切れています。下のボタンで再ログインしてください。",
+          offerSignin: true,
+        });
+        return;
+      }
+
+      if (!res.ok) {
+        setReauthFeedback({
+          kind: "error",
+          text: "確認に失敗しました。少し時間を置いてもう一度お試しください。",
+        });
+        return;
+      }
+
+      if (data.isFollower) {
+        // Trigger jwt callback's `trigger === "update"` branch.
+        // Note: the jwt callback re-verifies via Twitch API and ignores
+        // any value we pass here — see auth.ts comment.
+        await update({});
+        setReauthFeedback({
+          kind: "success",
+          text: "✨ フォロー特典が有効になりました",
+        });
+        // Close after a brief success animation so the user sees the message.
+        setTimeout(() => onClose(), 1500);
+        return;
+      }
+
+      if (data.propagationLikely) {
+        setReauthFeedback({
+          kind: "warning",
+          text: "Twitch 側でまだフォローが反映されていない可能性があります。数秒待ってから再度お試しください。",
+        });
+        return;
+      }
+
+      // Fresh "no follow" — user hasn't actually followed yet.
+      setReauthFeedback({
+        kind: "warning",
+        text: "フォローが確認できませんでした。Twitch でフォローしてから再度お試しください。",
+      });
+    } catch {
+      setReauthFeedback({
+        kind: "error",
+        text: "通信エラーが発生しました。しばらく待ってから再度お試しください。",
+      });
+    } finally {
+      setReauthLoading(false);
+    }
+  };
+
+  // Fallback path: only when token is revoked, fall back to a full signIn.
+  // Outside of that branch we never trigger a page reload anymore.
+  const handleSigninFallback = () => {
     signIn("twitch");
   };
 
@@ -175,10 +264,45 @@ export default function FollowGateModal({
             </a>
             <button
               onClick={handleReauth}
-              className="block w-full text-center px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm rounded transition-colors"
+              disabled={reauthLoading}
+              className="block w-full text-center px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm rounded transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
             >
-              フォロー済み・解除を確認
+              {reauthLoading ? (
+                <>
+                  <span
+                    className="inline-block w-3.5 h-3.5 border-2 border-gray-400 border-t-gray-100 rounded-full animate-spin"
+                    aria-hidden
+                  />
+                  確認中…
+                </>
+              ) : (
+                "フォロー済み・解除を確認"
+              )}
             </button>
+            {reauthFeedback && (
+              <div
+                role="status"
+                aria-live="polite"
+                className={
+                  reauthFeedback.kind === "success"
+                    ? "px-3 py-2 rounded text-xs bg-green-900/40 border border-green-700/50 text-green-200"
+                    : reauthFeedback.kind === "warning"
+                      ? "px-3 py-2 rounded text-xs bg-amber-900/30 border border-amber-700/40 text-amber-100"
+                      : "px-3 py-2 rounded text-xs bg-red-900/30 border border-red-700/40 text-red-200"
+                }
+              >
+                <p className="leading-snug">{reauthFeedback.text}</p>
+                {reauthFeedback.kind === "warning" &&
+                  reauthFeedback.offerSignin && (
+                    <button
+                      onClick={handleSigninFallback}
+                      className="mt-2 px-2.5 py-1 text-xs bg-amber-700/60 hover:bg-amber-700/80 text-white rounded transition-colors"
+                    >
+                      Twitch で再ログイン
+                    </button>
+                  )}
+              </div>
+            )}
           </div>
 
           {/* Passphrase secondary path */}
