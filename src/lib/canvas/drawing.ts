@@ -762,6 +762,57 @@ function seededRand(seed: number): number {
   return x - Math.floor(x);
 }
 
+function drawCatEar(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  w: number,
+  h: number,
+  mirror: boolean
+) {
+  const tipDx = mirror ? w * 0.15 : -w * 0.15;
+  ctx.fillStyle = "#1a1a1a";
+  ctx.beginPath();
+  ctx.moveTo(cx - w / 2, cy + h);
+  ctx.lineTo(cx + w / 2, cy + h);
+  ctx.lineTo(cx + tipDx, cy);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = "#ffaac8";
+  ctx.beginPath();
+  ctx.moveTo(cx - w * 0.25, cy + h * 0.85);
+  ctx.lineTo(cx + w * 0.25, cy + h * 0.85);
+  ctx.lineTo(cx + tipDx * 0.5, cy + h * 0.3);
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawSakuraPetal(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  r: number,
+  color: string
+) {
+  ctx.fillStyle = color;
+  for (let p = 0; p < 5; p++) {
+    const angle = (p / 5) * Math.PI * 2 - Math.PI / 2;
+    const px = cx + r * 0.55 * Math.cos(angle);
+    const py = cy + r * 0.55 * Math.sin(angle);
+    ctx.save();
+    ctx.translate(px, py);
+    ctx.rotate(angle + Math.PI / 2);
+    ctx.beginPath();
+    ctx.ellipse(0, 0, r * 0.35, r * 0.55, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+  ctx.fillStyle = "#ff6699";
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.2, 0, Math.PI * 2);
+  ctx.fill();
+}
+
 function drawClassicFrame(
   ctx: CanvasRenderingContext2D,
   size: number,
@@ -1012,6 +1063,69 @@ export function applyFrame(
         ctx.lineTo(cx + endR * Math.cos(angle), cy + endR * Math.sin(angle));
         ctx.stroke();
       }
+      ctx.restore();
+      break;
+    }
+
+    case "cat": {
+      const earW = size * 0.20;
+      const earH = size * 0.18;
+      const earY = size * 0.02;
+      drawCatEar(ctx, size * 0.22, earY, earW, earH, false);
+      drawCatEar(ctx, size * 0.78, earY, earW, earH, true);
+      break;
+    }
+
+    case "sakura": {
+      const colors = ["#ffb7d9", "#ffc8de", "#ff9fcc", "#ffd4e5"];
+      const positions: [number, number][] = [
+        [size * 0.08, size * 0.10],
+        [size * 0.50, size * 0.06],
+        [size * 0.92, size * 0.10],
+        [size * 0.06, size * 0.50],
+        [size * 0.94, size * 0.50],
+        [size * 0.08, size * 0.90],
+        [size * 0.50, size * 0.94],
+        [size * 0.92, size * 0.90],
+      ];
+      for (let i = 0; i < positions.length; i++) {
+        const [px, py] = positions[i];
+        const r = size * (0.06 + seededRand(i * 31) * 0.025);
+        const angle = seededRand(i * 37) * Math.PI * 2;
+        const color = colors[i % colors.length];
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(angle);
+        drawSakuraPetal(ctx, 0, 0, r, color);
+        ctx.restore();
+      }
+      break;
+    }
+
+    case "hologram": {
+      const lwOuter = Math.max(2, size * 0.05);
+      const lwInner = Math.max(1, size * 0.018);
+      ctx.save();
+      const gradOuter = ctx.createLinearGradient(0, 0, size, size);
+      gradOuter.addColorStop(0, "rgba(255, 0, 200, 0.5)");
+      gradOuter.addColorStop(0.33, "rgba(0, 230, 255, 0.5)");
+      gradOuter.addColorStop(0.66, "rgba(255, 230, 0, 0.5)");
+      gradOuter.addColorStop(1, "rgba(0, 255, 100, 0.5)");
+      ctx.strokeStyle = gradOuter;
+      ctx.lineWidth = lwOuter;
+      ctx.shadowColor = "rgba(255, 255, 255, 0.6)";
+      ctx.shadowBlur = size * 0.06;
+      ctx.strokeRect(lwOuter / 2, lwOuter / 2, size - lwOuter, size - lwOuter);
+      const gradInner = ctx.createLinearGradient(size, 0, 0, size);
+      gradInner.addColorStop(0, "#ff00cc");
+      gradInner.addColorStop(0.33, "#00e6ff");
+      gradInner.addColorStop(0.66, "#ffe600");
+      gradInner.addColorStop(1, "#00ff66");
+      ctx.strokeStyle = gradInner;
+      ctx.lineWidth = lwInner;
+      ctx.shadowBlur = 0;
+      const innerOffset = lwOuter + lwInner * 1.5;
+      ctx.strokeRect(innerOffset, innerOffset, size - innerOffset * 2, size - innerOffset * 2);
       ctx.restore();
       break;
     }

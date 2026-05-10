@@ -39,7 +39,11 @@ export type FrameType =
   | "pixel"
   | "gold"
   | "silver"
-  | "comic";
+  | "comic"
+  // fix9: decorative styles.
+  | "cat"
+  | "sakura"
+  | "hologram";
 
 export type CompositeMode = "none" | "overlay-br" | "overlay-bl" | "sidebyside";
 
@@ -294,6 +298,10 @@ export const FRAME_OPTIONS: FrameOption[] = [
   { value: "gold", label: "金枠", subscriberOnly: true },
   { value: "silver", label: "銀枠", subscriberOnly: true },
   { value: "comic", label: "コミック", subscriberOnly: true },
+  // fix9: decorative styles.
+  { value: "cat", label: "猫耳", subscriberOnly: true },
+  { value: "sakura", label: "桜", subscriberOnly: true },
+  { value: "hologram", label: "ホログラム", subscriberOnly: true },
 ];
 
 export const COMPOSITE_OPTIONS: { value: CompositeMode; label: string; desc: string }[] = [
