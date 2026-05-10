@@ -328,7 +328,7 @@ Footer の既存文言は **法的開示としては不十分**だが、**ユー
 #### J. 連絡先
 
 ```
-- 運営者: Aki（datsusara_aki / akiissamurai）
+- 運営者: Aki（Twitch: datsusara_aki / X: akiissamurai）
 - 連絡手段:
   - X: @akiissamurai
   - Discord: https://discord.gg/9ktJgFrYKe
