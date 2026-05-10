@@ -47,7 +47,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ],
   session: { strategy: "jwt" },
   callbacks: {
-    async jwt({ token, account }) {
+    async jwt({ token, account, trigger }) {
       // ---------- Initial sign-in ----------
       // `account` is provided only on the first call after sign-in.
       if (account?.access_token) {
@@ -122,6 +122,58 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         }
 
         return token;
+      }
+
+      // ---------- fix7.1: client-triggered re-verification ----------
+      // FollowGateModal's "Follow check" button posts /api/follower-recheck
+      // and then calls useSession().update({}) on success. That triggers
+      // this callback with trigger === "update". We deliberately IGNORE the
+      // `session` argument — clients can pass anything in update(),
+      // including a forged `{ isFollower: true }`, so we never trust it.
+      // Instead we re-fetch from Twitch API server-side, just like the
+      // initial sign-in path. This costs one extra Helix call per genuine
+      // re-check but closes the elevation-of-privilege hole.
+      if (
+        trigger === "update" &&
+        token.access_token &&
+        token.sub &&
+        TWITCH_BROADCASTER_ID
+      ) {
+        // Throttle: skip if we re-checked within the last 5 seconds.
+        // The endpoint already called Helix once; double-checking inside
+        // 5s is wasteful and would make spam-clicking the button hit
+        // Twitch's rate limit on our key.
+        const lastCheck = token.followCheckedAt;
+        const recentlyChecked =
+          typeof lastCheck === "number" && Date.now() - lastCheck < 5000;
+        if (!recentlyChecked) {
+          const staleCache =
+            typeof token.isFollower === "boolean" &&
+            typeof token.followCheckedAt === "number"
+              ? {
+                  isFollower: token.isFollower,
+                  checkedAt: token.followCheckedAt,
+                }
+              : undefined;
+          const result = await checkIsFollower(
+            token.access_token,
+            token.sub,
+            TWITCH_BROADCASTER_ID,
+            staleCache,
+          );
+          if (result.source === "fresh") {
+            token.isFollower = result.isFollower ?? false;
+            token.followedAt = result.followedAt;
+            token.followCheckedAt = Date.now();
+            delete token.error;
+          } else if (result.source === "stale-cache") {
+            token.isFollower = result.isFollower ?? false;
+            token.error = "FollowCheckError";
+          } else {
+            token.isFollower = false;
+            token.error = "FollowCheckError";
+          }
+        }
       }
 
       // ---------- Subsequent calls: refresh if expired ----------
