@@ -236,6 +236,10 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
   const handleLogout = () => {
     setIsSubscriber(false);
     try { localStorage.removeItem(SUBSCRIBER_KEY); } catch {}
+    // fix7: server-side cookie もクリア（/api/auth DELETE で HttpOnly cookie 削除）
+    fetch("/api/auth", { method: "DELETE" }).catch(() => {
+      // ignore — cookie expires in 30 days anyway
+    });
     // Reset subscriber-only config values to defaults
     const subscriberAnimations = ["sparkle", "afterimage", "fastspin", "float", "wobble", "vhs", "snow", "fire", "matrix", "drunk", "confetti", "hypno", "tv", "earthquake", "party", "flip", "ghost", "glitch2", "spiral", "heartbeat", "spring", "jelly"];
     updateConfig({
