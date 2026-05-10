@@ -223,7 +223,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
         setIsSubscriber(true);
         setPassphrase("");
         try { localStorage.setItem(SUBSCRIBER_KEY, "true"); } catch {}
-        setAuthToast("サブスク限定機能が解放されました！");
+        setAuthToast("特典機能が解放されました！");
       } else {
         setAuthToast("合言葉が違います");
       }
@@ -373,7 +373,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
         {/* Subscriber auth */}
         {isSubscriber ? (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-emerald-400/80">サブスク限定 解放済み — 5つの限定機能が利用可能</span>
+            <span className="text-xs text-emerald-400/80">特典 解放済み — 5つの限定機能が利用可能</span>
             <button
               onClick={handleLogout}
               className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
@@ -383,15 +383,15 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
           </div>
         ) : (
           <div className="bg-gray-800/60 rounded-lg p-3 space-y-2.5">
-            <label className="text-xs text-gray-300 font-medium block">サブスク限定機能</label>
+            <label className="text-xs text-gray-300 font-medium block">特典機能</label>
             <div className="grid grid-cols-2 gap-x-3 gap-y-1">
               <span className="text-xs text-gray-400 flex items-center gap-1.5">
                 <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
-                限定アニメーション 45種
+                限定アニメーション 42種
               </span>
               <span className="text-xs text-gray-400 flex items-center gap-1.5">
                 <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
-                エモートフレーム 6種
+                エモートフレーム 16種
               </span>
               <span className="text-xs text-gray-400 flex items-center gap-1.5">
                 <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
@@ -406,6 +406,14 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
                 サブスクバッジ作成
               </span>
             </div>
+            <a
+              href="https://www.twitch.tv/datsusara_aki"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-purple-400 hover:underline block"
+            >
+              Twitch で @datsusara_aki をフォローして解放（無料）
+            </a>
             <a
               href="https://discord.gg/9ktJgFrYKe"
               target="_blank"
