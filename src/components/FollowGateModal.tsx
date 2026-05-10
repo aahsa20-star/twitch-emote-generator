@@ -9,12 +9,14 @@ import { signIn, useSession } from "next-auth/react";
  * 役割:
  *  - フォロー誘導をメイン経路にし、合言葉は inline 展開でセカンダリ提示
  *  - utm パラメータ付き Twitch URL を別タブで開く
- *  - 「フォロー済み・解除を確認」ボタン: fix7.1 で full-reload を排除。
- *    /api/follower-recheck で server-side 確認 → useSession().update() で
- *    JWT を再評価 (jwt callback の trigger === "update" 分岐に乗る) →
- *    React state を保ったまま premium 化を反映。
+ *  - 「フォロー済み・解除を確認」ボタン: fix7.2 で getToken() 経由を撤廃。
+ *    useSession().update() を直接呼び、jwt callback の trigger === "update"
+ *    分岐内で Twitch API を再叩きする一発フローに集約。fix7.1 で間に挟んで
+ *    いた /api/follower-recheck エンドポイントは Auth.js v5 の getToken()
+ *    が App Router の NextRequest と非互換でログイン中ユーザーでも null を
+ *    返す問題に当たり、salt 削除でも解消しなかったため完全撤廃。
  *
- * 設計: FOLLOWER_AUTH_DESIGN.md §7.1 + fix7.1 修正
+ * 設計: FOLLOWER_AUTH_DESIGN.md §7.1 + fix7.1 / fix7.2 修正
  *
  * @prop open / onClose      モーダル制御
  * @prop variant             utm_medium 計測用 (lock_modal / key_icon / onboarding)
@@ -70,24 +72,23 @@ export default function FollowGateModal({
     setReauthLoading(true);
     setReauthFeedback(null);
     try {
-      const res = await fetch("/api/follower-recheck", { method: "POST" });
-      // Some server errors return non-JSON (network proxies); guard parse.
-      let data: {
-        isFollower?: boolean;
-        followedAt?: string;
-        source?: "fresh" | "stale-cache" | "fail-safe";
-        propagationLikely?: boolean;
-        error?: string;
-        needsSignin?: boolean;
-      } = {};
-      try {
-        data = await res.json();
-      } catch {
-        // ignore — fall through to status-based handling
-      }
+      // Trigger jwt callback's `trigger === "update"` branch directly.
+      // The callback in src/auth.ts re-fetches isFollower from Twitch API
+      // using token.access_token (no getToken needed) and writes the
+      // result back into the JWT. update() resolves with the new Session.
+      // The hint object below is intentionally read-only on the server —
+      // auth.ts ignores client-supplied values for security.
+      const newSession = await update({ trigger: "follower-recheck" });
 
-      // Token revoked / scope lost → only signIn can fix this.
-      if (res.status === 401 || data.needsSignin) {
+      // session.user.isFollower / session.user.error are exposed by
+      // session() callback in src/auth.ts:160-178.
+      const userExt = newSession?.user as
+        | { isFollower?: boolean; error?: string }
+        | undefined;
+      const isFollower = userExt?.isFollower === true;
+      const error = userExt?.error;
+
+      if (error === "RefreshTokenError") {
         setReauthFeedback({
           kind: "warning",
           text: "Twitch のログインが切れています。下のボタンで再ログインしてください。",
@@ -96,40 +97,32 @@ export default function FollowGateModal({
         return;
       }
 
-      if (!res.ok) {
-        setReauthFeedback({
-          kind: "error",
-          text: "確認に失敗しました。少し時間を置いてもう一度お試しください。",
-        });
-        return;
-      }
-
-      if (data.isFollower) {
-        // Trigger jwt callback's `trigger === "update"` branch.
-        // Note: the jwt callback re-verifies via Twitch API and ignores
-        // any value we pass here — see auth.ts comment.
-        await update({});
+      if (isFollower) {
         setReauthFeedback({
           kind: "success",
           text: "✨ フォロー特典が有効になりました",
         });
-        // Close after a brief success animation so the user sees the message.
+        // Close after a brief success animation.
         setTimeout(() => onClose(), 1500);
         return;
       }
 
-      if (data.propagationLikely) {
+      if (error === "FollowCheckError") {
+        // jwt callback fell back to fail-safe (Twitch API down or rate
+        // limited beyond retry). Surface as transient — retry later.
         setReauthFeedback({
-          kind: "warning",
-          text: "Twitch 側でまだフォローが反映されていない可能性があります。数秒待ってから再度お試しください。",
+          kind: "error",
+          text: "確認に失敗しました。少し時間を置いて再度お試しください。",
         });
         return;
       }
 
-      // Fresh "no follow" — user hasn't actually followed yet.
+      // Fresh "no follow" — Twitch returned a definitive negative.
+      // Could be propagation lag right after a follow, or simply not
+      // following yet. Single message covers both cases.
       setReauthFeedback({
         kind: "warning",
-        text: "フォローが確認できませんでした。Twitch でフォローしてから再度お試しください。",
+        text: "フォローが確認できませんでした。Twitch でフォロー後、数秒待ってから再度お試しください。",
       });
     } catch {
       setReauthFeedback({
