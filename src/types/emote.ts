@@ -43,7 +43,10 @@ export type FrameType =
   // fix9: decorative styles.
   | "cat"
   | "sakura"
-  | "hologram";
+  | "hologram"
+  // fix9: effect styles.
+  | "fire"
+  | "coin";
 
 export type CompositeMode = "none" | "overlay-br" | "overlay-bl" | "sidebyside";
 
@@ -302,6 +305,9 @@ export const FRAME_OPTIONS: FrameOption[] = [
   { value: "cat", label: "猫耳", subscriberOnly: true },
   { value: "sakura", label: "桜", subscriberOnly: true },
   { value: "hologram", label: "ホログラム", subscriberOnly: true },
+  // fix9: effect styles.
+  { value: "fire", label: "ファイア", subscriberOnly: true },
+  { value: "coin", label: "実績", subscriberOnly: true },
 ];
 
 export const COMPOSITE_OPTIONS: { value: CompositeMode; label: string; desc: string }[] = [

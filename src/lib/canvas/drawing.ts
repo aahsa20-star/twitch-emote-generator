@@ -762,6 +762,28 @@ function seededRand(seed: number): number {
   return x - Math.floor(x);
 }
 
+function drawFlame(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  baseY: number,
+  w: number,
+  h: number,
+  seed: number
+) {
+  const tipDx = (seededRand(seed) - 0.5) * w * 0.4;
+  const grad = ctx.createLinearGradient(cx, baseY, cx, baseY - h);
+  grad.addColorStop(0, "#ff2200");
+  grad.addColorStop(0.5, "#ff8800");
+  grad.addColorStop(1, "#ffee00");
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.moveTo(cx - w / 2, baseY);
+  ctx.quadraticCurveTo(cx - w * 0.4, baseY - h * 0.5, cx + tipDx, baseY - h);
+  ctx.quadraticCurveTo(cx + w * 0.4, baseY - h * 0.5, cx + w / 2, baseY);
+  ctx.closePath();
+  ctx.fill();
+}
+
 function drawCatEar(
   ctx: CanvasRenderingContext2D,
   cx: number,
@@ -1126,6 +1148,52 @@ export function applyFrame(
       ctx.shadowBlur = 0;
       const innerOffset = lwOuter + lwInner * 1.5;
       ctx.strokeRect(innerOffset, innerOffset, size - innerOffset * 2, size - innerOffset * 2);
+      ctx.restore();
+      break;
+    }
+
+    case "fire": {
+      const count = 6;
+      const baseY = size;
+      ctx.save();
+      ctx.shadowColor = "#ff6600";
+      ctx.shadowBlur = size * 0.06;
+      for (let i = 0; i < count; i++) {
+        const cx = (size / count) * (i + 0.5);
+        const w = size * (0.14 + seededRand(i * 7) * 0.06);
+        const h = size * (0.18 + seededRand(i * 13) * 0.10);
+        drawFlame(ctx, cx, baseY, w, h, i * 19);
+      }
+      ctx.restore();
+      break;
+    }
+
+    case "coin": {
+      const r = size * 0.10;
+      const off = size * 0.13;
+      const positions: [number, number][] = [
+        [off, off],
+        [size - off, off],
+        [off, size - off],
+        [size - off, size - off],
+      ];
+      ctx.save();
+      for (const [cx, cy] of positions) {
+        const grad = ctx.createRadialGradient(cx - r * 0.3, cy - r * 0.3, r * 0.1, cx, cy, r);
+        grad.addColorStop(0, "#fff5b8");
+        grad.addColorStop(0.5, "#ffd700");
+        grad.addColorStop(1, "#b8860b");
+        ctx.fillStyle = grad;
+        ctx.shadowColor = "#ffd700";
+        ctx.shadowBlur = r * 0.6;
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = "#8b6914";
+        drawStar5(ctx, cx, cy, r * 0.5);
+        ctx.fill();
+      }
       ctx.restore();
       break;
     }
