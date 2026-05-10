@@ -33,7 +33,13 @@ export type FrameType =
   | "gaming"
   | "sparkles"
   | "rainbow"
-  | "dots";
+  | "dots"
+  // fix9: simple/structured styles.
+  | "neon"
+  | "pixel"
+  | "gold"
+  | "silver"
+  | "comic";
 
 export type CompositeMode = "none" | "overlay-br" | "overlay-bl" | "sidebyside";
 
@@ -282,6 +288,12 @@ export const FRAME_OPTIONS: FrameOption[] = [
   { value: "sparkles", label: "キラキラ", subscriberOnly: true },
   { value: "rainbow", label: "レインボー", subscriberOnly: true },
   { value: "dots", label: "ドット", subscriberOnly: true },
+  // fix9: simple/structured styles.
+  { value: "neon", label: "ネオン", subscriberOnly: true },
+  { value: "pixel", label: "レトロ8bit", subscriberOnly: true },
+  { value: "gold", label: "金枠", subscriberOnly: true },
+  { value: "silver", label: "銀枠", subscriberOnly: true },
+  { value: "comic", label: "コミック", subscriberOnly: true },
 ];
 
 export const COMPOSITE_OPTIONS: { value: CompositeMode; label: string; desc: string }[] = [

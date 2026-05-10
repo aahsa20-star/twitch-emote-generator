@@ -762,6 +762,32 @@ function seededRand(seed: number): number {
   return x - Math.floor(x);
 }
 
+function drawClassicFrame(
+  ctx: CanvasRenderingContext2D,
+  size: number,
+  isGold: boolean
+) {
+  const lwOuter = Math.max(2, size * 0.05);
+  const lwInner = Math.max(1, size * 0.012);
+  const grad = ctx.createLinearGradient(0, 0, size, size);
+  if (isGold) {
+    grad.addColorStop(0, "#b8860b");
+    grad.addColorStop(0.5, "#ffd700");
+    grad.addColorStop(1, "#b8860b");
+  } else {
+    grad.addColorStop(0, "#a8a8a8");
+    grad.addColorStop(0.5, "#f0f0f0");
+    grad.addColorStop(1, "#a8a8a8");
+  }
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = lwOuter;
+  ctx.strokeRect(lwOuter / 2, lwOuter / 2, size - lwOuter, size - lwOuter);
+  ctx.strokeStyle = isGold ? "#fff8b0" : "#ffffff";
+  ctx.lineWidth = lwInner;
+  const innerOffset = lwOuter + lwInner * 1.5;
+  ctx.strokeRect(innerOffset, innerOffset, size - innerOffset * 2, size - innerOffset * 2);
+}
+
 export function applyFrame(
   canvas: HTMLCanvasElement,
   frameType: FrameType
@@ -914,6 +940,79 @@ export function applyFrame(
         ctx.fillStyle = `hsl(${(i * 360) / count}, 80%, 60%)`;
         ctx.fill();
       }
+      break;
+    }
+
+    case "neon": {
+      const lwOuter = Math.max(1, size * 0.04);
+      const lwInner = Math.max(1, size * 0.012);
+      ctx.save();
+      ctx.shadowColor = "#00ffff";
+      ctx.shadowBlur = size * 0.12;
+      ctx.strokeStyle = "rgba(0, 255, 255, 0.55)";
+      ctx.lineWidth = lwOuter;
+      ctx.strokeRect(lwOuter / 2, lwOuter / 2, size - lwOuter, size - lwOuter);
+      ctx.shadowColor = "#ff00ff";
+      ctx.shadowBlur = size * 0.08;
+      ctx.strokeStyle = "#ff44ff";
+      ctx.lineWidth = lwInner;
+      const innerOffset = lwOuter + lwInner * 1.2;
+      ctx.strokeRect(innerOffset, innerOffset, size - innerOffset * 2, size - innerOffset * 2);
+      ctx.restore();
+      break;
+    }
+
+    case "pixel": {
+      const pix = Math.max(1, Math.round(size / 16));
+      const colors = ["#ff5252", "#ffd54f", "#66bb6a", "#42a5f5"];
+      let i = 0;
+      for (let x = 0; x < size; x += pix) {
+        ctx.fillStyle = colors[i % colors.length];
+        ctx.fillRect(x, 0, pix, pix);
+        ctx.fillStyle = colors[(i + 2) % colors.length];
+        ctx.fillRect(x, size - pix, pix, pix);
+        i++;
+      }
+      let j = 0;
+      for (let y = pix; y < size - pix; y += pix) {
+        ctx.fillStyle = colors[j % colors.length];
+        ctx.fillRect(0, y, pix, pix);
+        ctx.fillStyle = colors[(j + 1) % colors.length];
+        ctx.fillRect(size - pix, y, pix, pix);
+        j++;
+      }
+      break;
+    }
+
+    case "gold": {
+      drawClassicFrame(ctx, size, true);
+      break;
+    }
+
+    case "silver": {
+      drawClassicFrame(ctx, size, false);
+      break;
+    }
+
+    case "comic": {
+      const cx = size / 2;
+      const cy = size / 2;
+      const count = 16;
+      ctx.save();
+      for (let i = 0; i < count; i++) {
+        const angle = (i / count) * Math.PI * 2 + (seededRand(i * 5) - 0.5) * 0.25;
+        const lw = Math.max(0.5, size * (0.008 + seededRand(i * 11) * 0.02));
+        const startR = size * (0.32 + seededRand(i * 13) * 0.08);
+        const endR = size * 0.55;
+        const isWhite = seededRand(i * 17) < 0.2;
+        ctx.strokeStyle = isWhite ? "rgba(255,255,255,0.85)" : "rgba(20,20,20,0.85)";
+        ctx.lineWidth = lw;
+        ctx.beginPath();
+        ctx.moveTo(cx + startR * Math.cos(angle), cy + startR * Math.sin(angle));
+        ctx.lineTo(cx + endR * Math.cos(angle), cy + endR * Math.sin(angle));
+        ctx.stroke();
+      }
+      ctx.restore();
       break;
     }
   }
