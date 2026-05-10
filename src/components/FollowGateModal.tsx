@@ -143,8 +143,15 @@ export default function FollowGateModal({
 
   // Fallback path: only when token is revoked, fall back to a full signIn.
   // Outside of that branch we never trigger a page reload anymore.
+  //
+  // fix7.1.1: explicit `callbackUrl` and `redirect: true`. The previous
+  // bare `signIn("twitch")` call was reported as "no response" in
+  // production — likely because the implicit window.location-based
+  // callback resolution was being suppressed under certain redirect
+  // chains. Forcing `redirect: true` + an explicit URL makes Auth.js v5
+  // do a full top-level navigation unconditionally.
   const handleSigninFallback = () => {
-    signIn("twitch");
+    void signIn("twitch", { callbackUrl: "/", redirect: true });
   };
 
   const handlePassphraseSubmit = async (e: React.FormEvent) => {
@@ -263,6 +270,7 @@ export default function FollowGateModal({
               Twitch でフォローする →
             </a>
             <button
+              type="button"
               onClick={handleReauth}
               disabled={reauthLoading}
               className="block w-full text-center px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-200 text-sm rounded transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
@@ -295,6 +303,7 @@ export default function FollowGateModal({
                 {reauthFeedback.kind === "warning" &&
                   reauthFeedback.offerSignin && (
                     <button
+                      type="button"
                       onClick={handleSigninFallback}
                       className="mt-2 px-2.5 py-1 text-xs bg-amber-700/60 hover:bg-amber-700/80 text-white rounded transition-colors"
                     >
