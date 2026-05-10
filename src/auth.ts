@@ -124,15 +124,17 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         return token;
       }
 
-      // ---------- fix7.1: client-triggered re-verification ----------
-      // FollowGateModal's "Follow check" button posts /api/follower-recheck
-      // and then calls useSession().update({}) on success. That triggers
-      // this callback with trigger === "update". We deliberately IGNORE the
-      // `session` argument — clients can pass anything in update(),
-      // including a forged `{ isFollower: true }`, so we never trust it.
-      // Instead we re-fetch from Twitch API server-side, just like the
-      // initial sign-in path. This costs one extra Helix call per genuine
-      // re-check but closes the elevation-of-privilege hole.
+      // ---------- fix7.2: client-triggered re-verification ----------
+      // FollowGateModal's "Follow check" button calls useSession().update()
+      // directly (no /api/follower-recheck round-trip — that endpoint was
+      // removed in fix7.2 because Auth.js v5 getToken() is incompatible
+      // with App Router and returned null even for authenticated users).
+      // update() triggers this callback with trigger === "update". We
+      // deliberately IGNORE the `session` argument — clients can pass
+      // anything to update(), including a forged `{ isFollower: true }`,
+      // so we never trust it. The Twitch API re-fetch below is the sole
+      // gate that decides isFollower's new value, eliminating the
+      // elevation-of-privilege risk entirely.
       if (
         trigger === "update" &&
         token.access_token &&
@@ -140,9 +142,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         TWITCH_BROADCASTER_ID
       ) {
         // Throttle: skip if we re-checked within the last 5 seconds.
-        // The endpoint already called Helix once; double-checking inside
-        // 5s is wasteful and would make spam-clicking the button hit
-        // Twitch's rate limit on our key.
+        // Without this, spam-clicking the button could hit Twitch's
+        // rate limit on our Helix client id.
         const lastCheck = token.followCheckedAt;
         const recentlyChecked =
           typeof lastCheck === "number" && Date.now() - lastCheck < 5000;
