@@ -286,6 +286,10 @@ export default function PrivacyPage() {
                   <strong className="text-gray-100">個別投稿の削除：</strong>
                   本サービスにログインし、投稿者として自身が投稿したテンプレートやコンテンツを個別に削除できます。
                 </li>
+                <li>
+                  <strong className="text-gray-100">アカウント全データ削除：</strong>
+                  ログイン状態でギャラリー画面の「アカウント削除」ボタンから、Supabase 上の自身の全投稿者情報・投稿コンテンツ・操作履歴を即時削除できます。
+                </li>
               </ul>
             </div>
 
