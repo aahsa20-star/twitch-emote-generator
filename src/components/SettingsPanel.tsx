@@ -22,6 +22,9 @@ interface SettingsPanelProps {
   isPremium: boolean;
   isLoggedIn: boolean;
   onLoginRequired?: () => void;
+  /** fix7: trial 版で locked な機能をクリックされた時に親が
+   *  FeatureLockHint / FollowGateModal を起動するためのコールバック */
+  onTrialLockClick?: (featureLabel: string) => void;
   subFile: File | null;
   onSubImageSelected: (file: File) => void;
   bgRemovedCanvas?: HTMLCanvasElement | null;
@@ -39,6 +42,7 @@ export default function SettingsPanel({
   isPremium,
   isLoggedIn,
   onLoginRequired,
+  onTrialLockClick,
   subFile,
   onSubImageSelected,
   bgRemovedCanvas,
@@ -52,12 +56,24 @@ export default function SettingsPanel({
         <h3 className="text-sm font-semibold text-gray-300 mb-2">フチ取り</h3>
         <div className="grid grid-cols-2 gap-2">
           {BORDER_OPTIONS.map((opt) => {
-            const locked = opt.subscriberOnly && !isPremium;
+            // fix7 trial 制限: "none" / "white" / "black" のみ常時アンロック、
+            // 他全て (shadow / custom / 7 fix6 styles) は !isPremium で locked
+            const isTrialAllowed =
+              opt.value === "none" ||
+              opt.value === "white" ||
+              opt.value === "black";
+            const locked = !isPremium && !isTrialAllowed;
             const isActiveFromTemplate = locked && config.outline.style === opt.value;
             return (
               <button
                 key={opt.value}
-                onClick={() => !locked && onConfigChange({ outline: { style: opt.value } })}
+                onClick={() => {
+                  if (locked) {
+                    onTrialLockClick?.(opt.label);
+                  } else {
+                    onConfigChange({ outline: { style: opt.value } });
+                  }
+                }}
                 className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
                   isActiveFromTemplate
                     ? "bg-purple-900 text-purple-300 border border-purple-500 cursor-not-allowed"
@@ -67,9 +83,9 @@ export default function SettingsPanel({
                     ? "bg-purple-600 text-white"
                     : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                 }`}
-                title={isActiveFromTemplate ? "テンプレートから適用中。変更するには合言葉が必要です" : locked ? "合言葉を入力すると解放されます" : undefined}
+                title={isActiveFromTemplate ? "テンプレートから適用中。Twitchフォローで解放" : locked ? "Twitchフォローで解放" : undefined}
               >
-                {isActiveFromTemplate ? `🔒 ${opt.label}` : opt.label}
+                {locked ? `🔒 ${opt.label}` : opt.label}
               </button>
             );
           })}
@@ -175,6 +191,8 @@ export default function SettingsPanel({
       <TextSettings
         config={config}
         onConfigChange={onConfigChange}
+        isPremium={isPremium}
+        onTrialLockClick={onTrialLockClick}
         bgRemovedCanvas={bgRemovedCanvas}
         subCanvas={subCanvas}
       />
@@ -188,6 +206,7 @@ export default function SettingsPanel({
           isPremium={isPremium}
           isLoggedIn={isLoggedIn}
           onLoginRequired={onLoginRequired}
+          onTrialLockClick={onTrialLockClick}
           bgRemovedCanvas={bgRemovedCanvas}
         />
       )}

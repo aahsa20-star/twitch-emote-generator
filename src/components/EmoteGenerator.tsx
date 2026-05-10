@@ -21,6 +21,8 @@ import LoginPromptModal from "./LoginPromptModal";
 import PostTemplateModal from "./PostTemplateModal";
 import TrialBadge from "./TrialBadge";
 import ReauthBanner from "./ReauthBanner";
+import FollowGateModal from "./FollowGateModal";
+import FeatureLockHint, { canShowFeatureLockHint } from "./FeatureLockHint";
 import { EmoteConfig, ExportMode, BgRemovalQuality, DEFAULT_BADGE_SETTINGS } from "@/types/emote";
 
 const SUBSCRIBER_KEY = "emote-subscriber";
@@ -117,6 +119,27 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
   const [showPostModal, setShowPostModal] = useState(false);
   const [showLoginPrompt, setShowLoginPrompt] = useState(false);
   const [templateToast, setTemplateToast] = useState<string | null>(null);
+
+  // fix7: 2 層モーダル制御（軽量 = FeatureLockHint / 本格 = FollowGateModal）
+  const [showFollowGate, setShowFollowGate] = useState(false);
+  const [followGateVariant, setFollowGateVariant] = useState<
+    "lock_modal" | "key_icon" | "onboarding"
+  >("lock_modal");
+  const [lockHint, setLockHint] = useState<{ label: string } | null>(null);
+
+  /**
+   * trial 版で locked な機能（フチ・アニメ・テキスト色）をクリックされた時の
+   * 親側ハンドラ。同一セッションで FeatureLockHint が 5 回表示されたら、
+   * 以降は直接 FollowGateModal にプロモートする（key_icon variant で計測）。
+   */
+  const handleTrialLockClick = useCallback((featureLabel: string) => {
+    if (canShowFeatureLockHint()) {
+      setLockHint({ label: featureLabel });
+    } else {
+      setFollowGateVariant("key_icon");
+      setShowFollowGate(true);
+    }
+  }, []);
 
   // Apply template override from gallery
   useEffect(() => {
@@ -624,6 +647,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
           isPremium={isPremium}
           isLoggedIn={!!session}
           onLoginRequired={() => setShowLoginPrompt(true)}
+          onTrialLockClick={handleTrialLockClick}
           subFile={subFile}
           onSubImageSelected={handleSubImageSelected}
           bgRemovedCanvas={bgRemovedCanvas}
@@ -695,6 +719,25 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
       {showLoginPrompt && (
         <LoginPromptModal onClose={() => setShowLoginPrompt(false)} />
       )}
+
+      {/* fix7: 軽量モーダル（鍵マーククリック時、5回まで） */}
+      <FeatureLockHint
+        open={lockHint !== null}
+        onClose={() => setLockHint(null)}
+        featureLabel={lockHint?.label ?? ""}
+        onPromoteToFullModal={() => {
+          setFollowGateVariant("key_icon");
+          setShowFollowGate(true);
+        }}
+      />
+
+      {/* fix7: 本格誘導モーダル（DL クリック時 / FeatureLockHint 経由） */}
+      <FollowGateModal
+        open={showFollowGate}
+        onClose={() => setShowFollowGate(false)}
+        variant={followGateVariant}
+        onSubscribed={() => setIsSubscriber(true)}
+      />
     </div>
     </>
   );

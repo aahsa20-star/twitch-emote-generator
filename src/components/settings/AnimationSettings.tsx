@@ -8,6 +8,7 @@ import {
   AnimationType,
   ANIMATION_OPTIONS,
   ANIMATION_SPEED_OPTIONS,
+  TRIAL_ANIMATIONS,
 } from "@/types/emote";
 import PublishAnimationModal from "@/components/PublishAnimationModal";
 
@@ -33,6 +34,9 @@ interface AnimationSettingsProps {
   isPremium: boolean;
   isLoggedIn: boolean;
   onLoginRequired?: () => void;
+  /** fix7: trial 版で locked な機能をクリックされた時に親（EmoteGenerator）が
+   *  FeatureLockHint / FollowGateModal を起動するためのコールバック */
+  onTrialLockClick?: (featureLabel: string) => void;
   bgRemovedCanvas?: HTMLCanvasElement | null;
 }
 
@@ -42,6 +46,7 @@ export default function AnimationSettings({
   isPremium,
   isLoggedIn,
   onLoginRequired,
+  onTrialLockClick,
   bgRemovedCanvas,
 }: AnimationSettingsProps) {
   const { data: session } = useSession();
@@ -284,19 +289,45 @@ export default function AnimationSettings({
         アニメーション
       </h3>
       <div className="grid grid-cols-2 gap-2">
-        {ANIMATION_OPTIONS.filter((o) => !o.subscriberOnly && !o.loginOnly).map((opt) => (
-          <button
-            key={opt.value}
-            onClick={() => selectAnimation(opt.value)}
-            className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors truncate ${
-              config.animation.type === opt.value
-                ? "bg-purple-600 text-white"
-                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
+        {ANIMATION_OPTIONS.filter((o) => !o.subscriberOnly && !o.loginOnly).map((opt) => {
+          // fix7 trial 制限: "none" と TRIAL_ANIMATIONS のみ常時アンロック、
+          // 他の基本アニメ (sway / blink / zoomin / spin / hearts) は isPremium 必要
+          const isTrialAllowed =
+            opt.value === "none" ||
+            (TRIAL_ANIMATIONS as readonly string[]).includes(opt.value);
+          const locked = !isTrialAllowed && !isPremium;
+          const isActiveFromTemplate = locked && config.animation.type === opt.value;
+          return (
+            <button
+              key={opt.value}
+              onClick={() => {
+                if (locked) {
+                  onTrialLockClick?.(opt.label);
+                } else {
+                  selectAnimation(opt.value);
+                }
+              }}
+              className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors truncate ${
+                isActiveFromTemplate
+                  ? "bg-purple-900 text-purple-300 border border-purple-500 cursor-not-allowed"
+                  : locked
+                  ? "bg-gray-800 text-gray-600 cursor-not-allowed"
+                  : config.animation.type === opt.value
+                  ? "bg-purple-600 text-white"
+                  : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+              }`}
+              title={
+                isActiveFromTemplate
+                  ? "テンプレートから適用中。Twitchフォローで解放"
+                  : locked
+                  ? "Twitchフォローで解放"
+                  : undefined
+              }
+            >
+              {locked ? `🔒 ${opt.label}` : opt.label}
+            </button>
+          );
+        })}
       </div>
 
       {/* Login-only animations */}
@@ -347,7 +378,13 @@ export default function AnimationSettings({
               return (
                 <button
                   key={opt.value}
-                  onClick={() => !locked && selectAnimation(opt.value)}
+                  onClick={() => {
+                    if (locked) {
+                      onTrialLockClick?.(opt.label);
+                    } else {
+                      selectAnimation(opt.value);
+                    }
+                  }}
                   className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors truncate ${
                     isActiveFromTemplate
                       ? "bg-purple-900 text-purple-300 border border-purple-500 cursor-not-allowed"
@@ -357,9 +394,9 @@ export default function AnimationSettings({
                       ? "bg-purple-600 text-white"
                       : "bg-gray-700 text-gray-300 hover:bg-gray-600"
                   }`}
-                  title={isActiveFromTemplate ? "テンプレートから適用中。変更するには合言葉が必要です" : locked ? "合言葉を入力すると解放されます" : undefined}
+                  title={isActiveFromTemplate ? "テンプレートから適用中。Twitchフォローで解放" : locked ? "Twitchフォローで解放" : undefined}
                 >
-                  {isActiveFromTemplate ? `🔒 ${opt.label}` : opt.label}
+                  {locked ? `🔒 ${opt.label}` : opt.label}
                 </button>
               );
             })}

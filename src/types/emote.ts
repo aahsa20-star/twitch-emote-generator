@@ -68,6 +68,17 @@ export const DEFAULT_BADGE_SETTINGS: BadgeSettings = {
   outlineColor: "#FFFFFF",
 };
 
+/**
+ * fix7: trial 版で利用可能なアニメ 2 種。
+ * 設計書 §11 の確定仕様（候補 A: bounce + shake）。
+ *
+ * 変更したくなったらこの 1 行を書き換えるだけ。
+ * - "raw"（直球の数値表示）/ "positive"（残り N 種）等の TrialBadge 文言も
+ *   この配列の長さから自動的に追従する。
+ * - お試し版の体感を変えたい場合の最小コスト切替ポイント。
+ */
+export const TRIAL_ANIMATIONS = ["bounce", "shake"] as const;
+
 export type AnimationSpeed = "slow" | "normal" | "fast";
 
 export type AnimationType = "none" | "sway" | "shake" | "blink" | "bounce" | "zoomin" | "spin" | "hearts"

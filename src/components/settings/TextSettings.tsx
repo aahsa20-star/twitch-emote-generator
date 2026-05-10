@@ -14,6 +14,10 @@ import DragPositionCanvas from "../DragPositionCanvas";
 interface TextSettingsProps {
   config: EmoteConfig;
   onConfigChange: (partial: PartialEmoteConfig) => void;
+  /** fix7: trial 版では fillColor / strokeColor 変更を locked にする */
+  isPremium?: boolean;
+  /** fix7: locked 機能をクリックされた時の親側通知コールバック */
+  onTrialLockClick?: (featureLabel: string) => void;
   bgRemovedCanvas?: HTMLCanvasElement | null;
   subCanvas?: HTMLCanvasElement | null;
 }
@@ -21,6 +25,8 @@ interface TextSettingsProps {
 export default function TextSettings({
   config,
   onConfigChange,
+  isPremium = false,
+  onTrialLockClick,
   bgRemovedCanvas,
   subCanvas,
 }: TextSettingsProps) {
@@ -118,18 +124,32 @@ export default function TextSettings({
           />
         </div>
 
-        {/* Colors row */}
+        {/* Colors row — fix7: trial 版は色変更不可（fillColor/strokeColor 固定） */}
         <div className="flex gap-4">
-          <ColorPicker
-            label="文字色"
-            value={config.text.fillColor}
-            onChange={(c) => updateText({ fillColor: c })}
-          />
-          <ColorPicker
-            label="縁取り色"
-            value={config.text.strokeColor}
-            onChange={(c) => updateText({ strokeColor: c })}
-          />
+          {isPremium ? (
+            <>
+              <ColorPicker
+                label="文字色"
+                value={config.text.fillColor}
+                onChange={(c) => updateText({ fillColor: c })}
+              />
+              <ColorPicker
+                label="縁取り色"
+                value={config.text.strokeColor}
+                onChange={(c) => updateText({ strokeColor: c })}
+              />
+            </>
+          ) : (
+            <button
+              type="button"
+              onClick={() => onTrialLockClick?.("文字色のカスタマイズ")}
+              className="flex-1 flex items-center gap-2 px-3 py-2 text-xs text-gray-500 bg-gray-800/40 border border-gray-700 rounded hover:border-gray-600 transition-colors text-left"
+              title="Twitchフォローで解放"
+            >
+              <span aria-hidden>🔒</span>
+              <span>文字色・縁取り色のカスタマイズはフォロー特典</span>
+            </button>
+          )}
         </div>
 
         {/* Text outline width slider */}
