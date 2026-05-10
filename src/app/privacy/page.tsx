@@ -441,12 +441,12 @@ export default function PrivacyPage() {
               <li>
                 <strong className="text-gray-100">X（Twitter）DM：</strong>{" "}
                 <a
-                  href="https://x.com/datsusara_aki"
+                  href="https://x.com/akiissamurai"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="text-purple-400 hover:text-purple-300"
                 >
-                  @datsusara_aki
+                  @akiissamurai
                 </a>
               </li>
               <li>

@@ -28,7 +28,7 @@
 
 ### 1.1 受付チャネル（PP §10 で公開）
 
-- **X (Twitter) DM**: [@datsusara_aki](https://x.com/datsusara_aki)
+- **X (Twitter) DM**: [@akiissamurai](https://x.com/akiissamurai)
 - **Twitch Whispers**: [@datsusara_aki](https://www.twitch.tv/datsusara_aki)
 
 ### 1.2 初動（受領 24 時間以内）

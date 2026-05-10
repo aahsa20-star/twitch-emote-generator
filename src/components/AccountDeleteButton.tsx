@@ -23,7 +23,7 @@ export default function AccountDeleteButton() {
       const res = await fetch("/api/account/delete", { method: "POST" });
       if (!res.ok) {
         setError(
-          "削除中にエラーが発生しました。時間をおいて再度お試しください。問題が続く場合は X DM @datsusara_aki までお知らせください。",
+          "削除中にエラーが発生しました。時間をおいて再度お試しください。問題が続く場合は X DM @akiissamurai までお知らせください。",
         );
         setIsDeleting(false);
         return;
