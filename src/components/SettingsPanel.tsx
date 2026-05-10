@@ -19,7 +19,7 @@ interface SettingsPanelProps {
   config: EmoteConfig;
   onConfigChange: (partial: PartialEmoteConfig) => void;
   disabled: boolean;
-  isSubscriber: boolean;
+  isPremium: boolean;
   isLoggedIn: boolean;
   onLoginRequired?: () => void;
   subFile: File | null;
@@ -36,7 +36,7 @@ export default function SettingsPanel({
   config,
   onConfigChange,
   disabled,
-  isSubscriber,
+  isPremium,
   isLoggedIn,
   onLoginRequired,
   subFile,
@@ -52,7 +52,7 @@ export default function SettingsPanel({
         <h3 className="text-sm font-semibold text-gray-300 mb-2">フチ取り</h3>
         <div className="grid grid-cols-2 gap-2">
           {BORDER_OPTIONS.map((opt) => {
-            const locked = opt.subscriberOnly && !isSubscriber;
+            const locked = opt.subscriberOnly && !isPremium;
             const isActiveFromTemplate = locked && config.outline.style === opt.value;
             return (
               <button
@@ -96,7 +96,7 @@ export default function SettingsPanel({
           config.outline.style === "outline-only" ||
           config.outline.style === "gradient" ||
           config.outline.style === "dotted") &&
-          isSubscriber && (
+          isPremium && (
             <div className="mt-2">
               <ColorPicker
                 label="フチの色"
@@ -105,7 +105,7 @@ export default function SettingsPanel({
               />
             </div>
           )}
-        {config.outline.style === "custom" && !isSubscriber && (
+        {config.outline.style === "custom" && !isPremium && (
           <div className="mt-2 flex items-center gap-2">
             <span
               className="inline-block w-6 h-6 rounded border border-gray-600"
@@ -132,7 +132,7 @@ export default function SettingsPanel({
       </div>
 
       {/* Frame (subscriber-only) */}
-      {isSubscriber && (
+      {isPremium && (
         <div>
           <h3 className="text-sm font-semibold text-gray-300 mb-2">フレーム</h3>
           <div className="grid grid-cols-2 gap-2">
@@ -152,7 +152,7 @@ export default function SettingsPanel({
           </div>
         </div>
       )}
-      {!isSubscriber && config.frame.type !== "none" && (
+      {!isPremium && config.frame.type !== "none" && (
         <div>
           <h3 className="text-sm font-semibold text-gray-300 mb-2">フレーム</h3>
           <div className="px-3 py-2 rounded text-sm bg-purple-900 text-purple-300 border border-purple-500">
@@ -162,7 +162,7 @@ export default function SettingsPanel({
       )}
 
       {/* Sub-image composite (subscriber-only) */}
-      {isSubscriber && (
+      {isPremium && (
         <SubImageSettings
           config={config}
           onConfigChange={onConfigChange}
@@ -185,7 +185,7 @@ export default function SettingsPanel({
         <AnimationSettings
           config={config}
           onConfigChange={onConfigChange}
-          isSubscriber={isSubscriber}
+          isPremium={isPremium}
           isLoggedIn={isLoggedIn}
           onLoginRequired={onLoginRequired}
           bgRemovedCanvas={bgRemovedCanvas}
@@ -256,7 +256,7 @@ export default function SettingsPanel({
       )}
 
       {/* Badge (subscriber-only) */}
-      {isSubscriber && (
+      {isPremium && (
         <BadgeSettings
           config={config}
           onConfigChange={onConfigChange}

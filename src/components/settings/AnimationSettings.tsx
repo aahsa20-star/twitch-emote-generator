@@ -30,7 +30,7 @@ interface CustomAnimation {
 interface AnimationSettingsProps {
   config: EmoteConfig;
   onConfigChange: (partial: PartialEmoteConfig) => void;
-  isSubscriber: boolean;
+  isPremium: boolean;
   isLoggedIn: boolean;
   onLoginRequired?: () => void;
   bgRemovedCanvas?: HTMLCanvasElement | null;
@@ -39,7 +39,7 @@ interface AnimationSettingsProps {
 export default function AnimationSettings({
   config,
   onConfigChange,
-  isSubscriber,
+  isPremium,
   isLoggedIn,
   onLoginRequired,
   bgRemovedCanvas,
@@ -305,7 +305,7 @@ export default function AnimationSettings({
           <p className="text-xs text-gray-500 mt-3 mb-1">ログイン限定</p>
           <div className="grid grid-cols-2 gap-2">
             {ANIMATION_OPTIONS.filter((o) => o.loginOnly).map((opt) => {
-              const unlocked = isLoggedIn || isSubscriber;
+              const unlocked = isLoggedIn || isPremium;
               const isActiveFromTemplate = !unlocked && config.animation.type === opt.value;
               return (
                 <button
@@ -342,7 +342,7 @@ export default function AnimationSettings({
           <p className="text-xs text-gray-500 mt-3 mb-1">限定</p>
           <div className="grid grid-cols-2 gap-2">
             {ANIMATION_OPTIONS.filter((o) => o.subscriberOnly).map((opt) => {
-              const locked = !isSubscriber;
+              const locked = !isPremium;
               const isActiveFromTemplate = locked && config.animation.type === opt.value;
               return (
                 <button

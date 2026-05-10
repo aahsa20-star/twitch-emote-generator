@@ -19,6 +19,8 @@ import VideoTrimmer from "./VideoTrimmer";
 import type { DecodedVideo } from "@/lib/video/decoder";
 import LoginPromptModal from "./LoginPromptModal";
 import PostTemplateModal from "./PostTemplateModal";
+import TrialBadge from "./TrialBadge";
+import ReauthBanner from "./ReauthBanner";
 import { EmoteConfig, ExportMode, BgRemovalQuality, DEFAULT_BADGE_SETTINGS } from "@/types/emote";
 
 const SUBSCRIBER_KEY = "emote-subscriber";
@@ -95,7 +97,20 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingVideoFile, setPendingVideoFile] = useState<File | null>(null);
   const [showRetryMenu, setShowRetryMenu] = useState(false);
+  // Legacy PASSPHRASE state (localStorage-backed, client-only)
   const [isSubscriber, setIsSubscriber] = useState(false);
+
+  // fix7: derive follower / premium / needsReauth from session.
+  // session.user.{isFollower, scope} is set by src/auth.ts session callback.
+  const sessionUserExt = session?.user as
+    | (Record<string, unknown> & { isFollower?: boolean; scope?: string })
+    | undefined;
+  const isFollower = sessionUserExt?.isFollower ?? false;
+  const sessionScope = sessionUserExt?.scope ?? "";
+  const isPremium = isSubscriber || isFollower;
+  const needsReauth =
+    !!session?.user && !sessionScope.includes("user:read:follows");
+
   const [passphrase, setPassphrase] = useState("");
   const [authToast, setAuthToast] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -251,9 +266,20 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
   }, [sourceFile]);
 
   return (
-    <div className="flex-1 grid grid-cols-1 md:grid-cols-[380px_1fr] gap-4 md:gap-6 p-4 md:p-6 max-w-7xl mx-auto w-full overflow-x-hidden">
+    <>
+      {/* fix7: 旧 scope ログイン者に再認可を促すバナー（× で控えめアイコンに切替） */}
+      {needsReauth && (
+        <ReauthBanner variant={isSubscriber ? "subscriber" : "default"} />
+      )}
+      <div className="flex-1 grid grid-cols-1 md:grid-cols-[380px_1fr] gap-4 md:gap-6 p-4 md:p-6 max-w-7xl mx-auto w-full overflow-x-hidden">
       {/* Upload + toggle + progress (top-left on desktop, 1st on mobile) */}
       <div className="space-y-4 md:space-y-6 order-1 md:order-none self-start">
+        {/* fix7: お試し版（trial）バッジ — 非 premium 時のみ控えめ表示 */}
+        {!isPremium && (
+          <div className="flex items-center justify-start">
+            <TrialBadge variant="badge-only" />
+          </div>
+        )}
         <UploadPanel
           onImageSelected={handleImageSelected}
           hasImage={!!sourceFile || !!pendingFile}
@@ -595,7 +621,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
           config={config}
           onConfigChange={updateConfig}
           disabled={!sourceFile || stage === "removing-background"}
-          isSubscriber={isSubscriber}
+          isPremium={isPremium}
           isLoggedIn={!!session}
           onLoginRequired={() => setShowLoginPrompt(true)}
           subFile={subFile}
@@ -670,5 +696,6 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
         <LoginPromptModal onClose={() => setShowLoginPrompt(false)} />
       )}
     </div>
+    </>
   );
 }
