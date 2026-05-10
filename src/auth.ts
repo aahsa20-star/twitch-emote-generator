@@ -2,6 +2,7 @@ import NextAuth from "next-auth";
 import Twitch from "next-auth/providers/twitch";
 // Side-effect import for next-auth/jwt module augmentation.
 import "@/types/auth";
+import { checkIsFollower } from "@/lib/twitch/follower-check";
 
 const TWITCH_BROADCASTER_ID = process.env.AUTH_TWITCH_BROADCASTER_ID;
 
@@ -29,40 +30,6 @@ async function refreshTwitchToken(refreshToken: string): Promise<{
     throw new Error(`Twitch token refresh failed: ${res.status} ${body}`);
   }
   return res.json();
-}
-
-/**
- * GET /helix/channels/followed?user_id=X&broadcaster_id=AKI_ID
- *
- * Returns null on auth/network failure (caller should fail-safe to false).
- * Stage 2 will replace this with the retry-aware wrapper in
- * `src/lib/twitch/follower-check.ts`. For Stage 1 we keep it inline.
- */
-async function checkFollowingBroadcaster(
-  accessToken: string,
-  userId: string,
-  broadcasterId: string,
-): Promise<{ isFollower: boolean; followedAt?: string } | null> {
-  const url =
-    "https://api.twitch.tv/helix/channels/followed?user_id=" +
-    encodeURIComponent(userId) +
-    "&broadcaster_id=" +
-    encodeURIComponent(broadcasterId);
-  const res = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${accessToken}`,
-      "Client-Id": process.env.AUTH_TWITCH_ID!,
-    },
-  });
-  if (!res.ok) {
-    return null;
-  }
-  const json = await res.json();
-  const followedAt = json?.data?.[0]?.followed_at as string | undefined;
-  return {
-    isFollower: (json?.data?.length ?? 0) > 0,
-    followedAt,
-  };
 }
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
@@ -115,25 +82,33 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           console.error("Twitch /helix/users error:", e);
         }
 
-        // Compute isFollower against the Aki broadcaster id (fail-safe to false)
+        // Compute isFollower against the Aki broadcaster id.
+        // Uses the Stage-2 wrapper with 3x retry + 24h stale-cache fallback.
         if (TWITCH_BROADCASTER_ID && token.sub) {
-          try {
-            const result = await checkFollowingBroadcaster(
-              accessToken,
-              token.sub,
-              TWITCH_BROADCASTER_ID,
-            );
-            if (result) {
-              token.isFollower = result.isFollower;
-              token.followedAt = result.followedAt;
-              token.followCheckedAt = Date.now();
-              delete token.error;
-            } else {
-              token.isFollower = false;
-              token.error = "FollowCheckError";
-            }
-          } catch (e) {
-            console.error("Twitch /helix/channels/followed error:", e);
+          const staleCache =
+            token.isFollower != null && token.followCheckedAt != null
+              ? {
+                  isFollower: token.isFollower,
+                  checkedAt: token.followCheckedAt,
+                }
+              : undefined;
+          const result = await checkIsFollower(
+            accessToken,
+            token.sub,
+            TWITCH_BROADCASTER_ID,
+            staleCache,
+          );
+          if (result.source === "fresh") {
+            token.isFollower = result.isFollower ?? false;
+            token.followedAt = result.followedAt;
+            token.followCheckedAt = Date.now();
+            delete token.error;
+          } else if (result.source === "stale-cache") {
+            // Keep existing cache value, log error but don't surface
+            token.isFollower = result.isFollower ?? false;
+            token.error = "FollowCheckError";
+          } else {
+            // fail-safe: no usable cache, treat as non-follower
             token.isFollower = false;
             token.error = "FollowCheckError";
           }
