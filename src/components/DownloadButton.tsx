@@ -15,6 +15,11 @@ interface DownloadButtonProps {
   onDownloadComplete?: () => void;
   badgeSettings?: BadgeSettings;
   bgRemovedCanvas?: HTMLCanvasElement | null;
+  /**
+   * fix7: DL 前に server check を経由するゲート。trial で 56/112 / 全 GIF が
+   * blocked。false が返ると DL を中断、親がモーダルを開く。
+   */
+  onBeforeDownload?: (size: number, format: "png" | "gif") => Promise<boolean>;
 }
 
 export default function DownloadButton({
@@ -25,6 +30,7 @@ export default function DownloadButton({
   onDownloadComplete,
   badgeSettings,
   bgRemovedCanvas,
+  onBeforeDownload,
 }: DownloadButtonProps) {
   const isReady = stage === "ready";
   const isExporting = stage === "exporting";
@@ -52,9 +58,16 @@ export default function DownloadButton({
   // Get sorted sizes for the current export mode (descending)
   const sortedSizes = [...variants].sort((a, b) => b.size - a.size);
 
-  const handleLargestDownload = useCallback(() => {
+  const handleLargestDownload = useCallback(async () => {
     const vLargest = variants.find((v) => v.size === largestSize);
     if (!vLargest) return;
+
+    // fix7: DL 前 gate
+    if (onBeforeDownload) {
+      const format: "png" | "gif" = vLargest.animatedBlob ? "gif" : "png";
+      const allowed = await onBeforeDownload(vLargest.size, format);
+      if (!allowed) return;
+    }
 
     const { url, needsRevoke } = getVariantUrl(vLargest);
 
@@ -76,9 +89,18 @@ export default function DownloadButton({
       if (needsRevoke) URL.revokeObjectURL(url);
     }, 1000);
     onDownloadComplete?.();
-  }, [variants, largestSize, onDownloadComplete, getVariantUrl, showIosToast]);
+  }, [variants, largestSize, onDownloadComplete, getVariantUrl, showIosToast, onBeforeDownload]);
 
   const handleZipDownload = useCallback(async () => {
+    // fix7: ZIP は全サイズ含むので、最大サイズの format で gate チェック
+    // (premium なら通過、trial なら 56/112 含むので即 block)
+    if (onBeforeDownload) {
+      const vLargest = variants.find((v) => v.size === largestSize);
+      const format: "png" | "gif" = vLargest?.animatedBlob ? "gif" : "png";
+      const allowed = await onBeforeDownload(largestSize, format);
+      if (!allowed) return;
+    }
+
     if (isIOS) {
       // Step-based download for iOS
       const target = sortedSizes[iosStep];
@@ -103,7 +125,7 @@ export default function DownloadButton({
     // Non-iOS: standard ZIP download
     await onExport();
     onDownloadComplete?.();
-  }, [iosStep, sortedSizes, onExport, onDownloadComplete, getVariantUrl, showIosToast]);
+  }, [iosStep, sortedSizes, onExport, onDownloadComplete, getVariantUrl, showIosToast, onBeforeDownload, variants, largestSize]);
 
   const handleBadgeDownload = useCallback(async () => {
     if (!badgeSettings?.enabled || !bgRemovedCanvas) return;

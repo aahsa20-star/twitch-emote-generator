@@ -17,6 +17,8 @@ interface PreviewAreaProps {
   badgeSettings?: BadgeSettings;
   bgRemovedCanvas?: HTMLCanvasElement | null;
   onContentAdjust?: (dx: number, dy: number, ds: number) => void;
+  /** fix7: DL 前 gate（親 EmoteGenerator から渡される、PreviewCard / バッジ DL を統一） */
+  onBeforeDownload?: (size: number, format: "png" | "gif") => Promise<boolean>;
 }
 
 const INPUT_FEATURES = ["画像", "GIF", "動画"];
@@ -314,7 +316,7 @@ const BG_OPTIONS: { mode: BgMode; label: string; className: string }[] = [
   { mode: "light", label: "ライト", className: "bg-white" },
 ];
 
-export default function PreviewArea({ variants, stage, hasText = false, textPosition = "bottom", exportMode = "twitch", onDownloadComplete, badgeSettings, bgRemovedCanvas, onContentAdjust }: PreviewAreaProps) {
+export default function PreviewArea({ variants, stage, hasText = false, textPosition = "bottom", exportMode = "twitch", onDownloadComplete, badgeSettings, bgRemovedCanvas, onContentAdjust, onBeforeDownload }: PreviewAreaProps) {
   const [bgMode, setBgMode] = useState<BgMode>("checker");
 
   const isProcessing = stage === "removing-background" || stage === "processing" || stage === "generating-preview";
@@ -359,7 +361,7 @@ export default function PreviewArea({ variants, stage, hasText = false, textPosi
 
       <div className="pt-2" />
       {[...variants].reverse().map((variant) => (
-        <PreviewCard key={variant.size} variant={variant} hasText={hasText} textPosition={textPosition} bgMode={bgMode} onDownloadComplete={onDownloadComplete} onContentAdjust={variant.size >= 112 ? onContentAdjust : undefined} />
+        <PreviewCard key={variant.size} variant={variant} hasText={hasText} textPosition={textPosition} bgMode={bgMode} onDownloadComplete={onDownloadComplete} onContentAdjust={variant.size >= 112 ? onContentAdjust : undefined} onBeforeDownload={onBeforeDownload} />
       ))}
 
       {/* Badge preview */}

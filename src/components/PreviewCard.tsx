@@ -12,9 +12,15 @@ interface PreviewCardProps {
   bgMode?: BgMode;
   onDownloadComplete?: () => void;
   onContentAdjust?: (dx: number, dy: number, ds: number) => void;
+  /**
+   * fix7: server-side DL ガード。DL 実行前に呼ばれ、false なら DL を中止して
+   * 親（EmoteGenerator）が FollowGateModal を起動する。
+   * (size, format) で /api/download-check を叩く。
+   */
+  onBeforeDownload?: (size: number, format: "png" | "gif") => Promise<boolean>;
 }
 
-export default function PreviewCard({ variant, hasText = false, textPosition = "bottom", bgMode = "checker", onDownloadComplete, onContentAdjust }: PreviewCardProps) {
+export default function PreviewCard({ variant, hasText = false, textPosition = "bottom", bgMode = "checker", onDownloadComplete, onContentAdjust, onBeforeDownload }: PreviewCardProps) {
   const [gifUrl, setGifUrl] = useState<string | null>(null);
   const [visibilityResult, setVisibilityResult] = useState<VisibilityResult | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
@@ -120,7 +126,14 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
 
   const displayUrl = gifUrl || variant.staticDataUrl;
 
-  const handleDownload = useCallback(() => {
+  const handleDownload = useCallback(async () => {
+    // fix7: DL 前に server-side check（gate されたら親がモーダル起動）
+    if (onBeforeDownload) {
+      const format: "png" | "gif" = variant.animatedBlob ? "gif" : "png";
+      const allowed = await onBeforeDownload(variant.size, format);
+      if (!allowed) return;
+    }
+
     let url: string;
     let needsRevoke = false;
 
@@ -141,7 +154,7 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
       if (needsRevoke) URL.revokeObjectURL(url);
     }, 1000);
     onDownloadComplete?.();
-  }, [variant, onDownloadComplete]);
+  }, [variant, onDownloadComplete, onBeforeDownload]);
 
   const format = variant.animatedBlob ? "GIF" : "PNG";
 

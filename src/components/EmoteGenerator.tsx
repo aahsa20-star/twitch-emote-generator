@@ -125,6 +125,9 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
   const [followGateVariant, setFollowGateVariant] = useState<
     "lock_modal" | "key_icon" | "onboarding"
   >("lock_modal");
+  const [followGatePreviewSrc, setFollowGatePreviewSrc] = useState<
+    string | undefined
+  >(undefined);
   const [lockHint, setLockHint] = useState<{ label: string } | null>(null);
 
   /**
@@ -140,6 +143,38 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
       setShowFollowGate(true);
     }
   }, []);
+
+  /**
+   * fix7: DL 実行前の server check ガード。/api/download-check に問い合わせ、
+   * 403 なら FollowGateModal を起動して false を返す。28px PNG プレビューを
+   * モーダルに渡してオンボーディング感を強める。
+   */
+  const onBeforeDownload = useCallback(
+    async (size: number, format: "png" | "gif"): Promise<boolean> => {
+      try {
+        const res = await fetch("/api/download-check", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ size, format }),
+        });
+        if (res.ok) return true;
+
+        // 403: trial 制限。28px プレビューをモーダル先頭に表示
+        const tinyVariant = variants.find((v) => v.size === 28);
+        setFollowGatePreviewSrc(tinyVariant?.staticDataUrl);
+        setFollowGateVariant("lock_modal");
+        setShowFollowGate(true);
+        return false;
+      } catch {
+        // ネットワーク失敗時は fail-safe で block（許可しない）
+        setFollowGatePreviewSrc(undefined);
+        setFollowGateVariant("lock_modal");
+        setShowFollowGate(true);
+        return false;
+      }
+    },
+    [variants],
+  );
 
   // Apply template override from gallery
   useEffect(() => {
@@ -632,6 +667,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
           badgeSettings={config.badge}
           bgRemovedCanvas={bgRemovedCanvas}
           onContentAdjust={handleContentAdjust}
+          onBeforeDownload={onBeforeDownload}
         />
       </div>
 
@@ -657,7 +693,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
         {/* DL + Share + Post Template inside sticky container (desktop only) */}
         {sourceFile && (
           <div className="hidden md:flex flex-col gap-3">
-            <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} badgeSettings={config.badge} bgRemovedCanvas={bgRemovedCanvas} />
+            <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} badgeSettings={config.badge} bgRemovedCanvas={bgRemovedCanvas} onBeforeDownload={onBeforeDownload} />
             <ShareButton imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
             {stage === "ready" && (
               <button
@@ -736,6 +772,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
         open={showFollowGate}
         onClose={() => setShowFollowGate(false)}
         variant={followGateVariant}
+        previewSrc={followGatePreviewSrc}
         onSubscribed={() => setIsSubscriber(true)}
       />
     </div>
