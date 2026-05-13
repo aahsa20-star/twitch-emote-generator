@@ -109,7 +109,13 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
     | undefined;
   const isFollower = sessionUserExt?.isFollower ?? false;
   const sessionScope = sessionUserExt?.scope ?? "";
-  const isPremium = isSubscriber || isFollower;
+  // fix11 緊急縮退: fix7 の UI 判定設計欠陥（client 側 isPremium が killswitch
+  // 環境変数を一切参照しない問題）が判明したため、全員 premium 扱いに一時固定。
+  // 元の式は `isSubscriber || isFollower`。isSubscriber / isFollower 自体は
+  // 上で定義したまま残してあり（needsReauth 等で参照）、ここだけ true 固定。
+  // TODO: fix7 設計欠陥の根本修正後に revert。修正は Option A (Server Component
+  // で flags 評価 → props 流し) が推奨、詳細は fix11 commit の調査経緯参照。
+  const isPremium: boolean = true;
   const needsReauth =
     !!session?.user && !sessionScope.includes("user:read:follows");
 
