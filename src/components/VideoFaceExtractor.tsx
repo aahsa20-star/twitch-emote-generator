@@ -17,6 +17,8 @@ export default function VideoFaceExtractor({ onFaceSelected }: VideoFaceExtracto
   const [selectedIdx, setSelectedIdx] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  // fix12 Stage 4: 処理中キャンセル用の AbortController
+  const abortRef = useRef<AbortController | null>(null);
 
   const handleVideoFile = useCallback(async (file: File) => {
     if (!ACCEPTED_VIDEO_TYPES.includes(file.type)) {
@@ -30,11 +32,18 @@ export default function VideoFaceExtractor({ onFaceSelected }: VideoFaceExtracto
     setCandidates([]);
     setSelectedIdx(null);
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     try {
-      const results = await extractFacesFromVideo(file, (pct, label) => {
-        setProgress(pct);
-        setProgressLabel(label);
-      });
+      const results = await extractFacesFromVideo(
+        file,
+        (pct, label) => {
+          setProgress(pct);
+          setProgressLabel(label);
+        },
+        controller.signal
+      );
 
       if (results.length === 0) {
         setError("顔を検出できませんでした。別の動画をお試しください");
@@ -47,8 +56,19 @@ export default function VideoFaceExtractor({ onFaceSelected }: VideoFaceExtracto
       setStage("selecting");
     } catch (err) {
       const raw = err instanceof Error ? err.message : "";
+      // ユーザーキャンセルは静かに idle に戻すだけ（エラー表示しない）
+      if (raw === "FACE_EXTRACT_ABORTED") {
+        setStage("idle");
+        return;
+      }
       let msg: string;
-      if (raw === "MOBILE_PLAYBACK_FAILED" || raw === "MOBILE_NO_RESULTS") {
+      if (raw === "FACE_DETECTOR_INIT_FAILED") {
+        // fix12 Stage 2: GPU/CPU 両 delegate 初期化失敗 = 環境非対応
+        msg =
+          "お使いの環境（ブラウザ／PC）では動画顔抽出をご利用いただけませんでした。" +
+          "ブラウザのハードウェアアクセラレーションを有効にするか、Chrome などの別ブラウザでお試しください。" +
+          "（画像アップロードでのエモート作成は引き続きご利用いただけます）";
+      } else if (raw === "MOBILE_PLAYBACK_FAILED" || raw === "MOBILE_NO_RESULTS") {
         msg = "動画の読み込みに失敗しました。スマートフォンでは端末の性能によって処理できない場合があります。PCのブラウザからお試しください。";
       } else if (raw) {
         msg = raw;
@@ -57,7 +77,18 @@ export default function VideoFaceExtractor({ onFaceSelected }: VideoFaceExtracto
       }
       setError(msg);
       setStage("idle");
+    } finally {
+      abortRef.current = null;
     }
+  }, []);
+
+  // fix12 Stage 4: 処理中のキャンセル
+  const handleAbortProcessing = useCallback(() => {
+    abortRef.current?.abort();
+    abortRef.current = null;
+    setStage("idle");
+    setProgress(0);
+    setProgressLabel("");
   }, []);
 
   const handleChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -138,7 +169,7 @@ export default function VideoFaceExtractor({ onFaceSelected }: VideoFaceExtracto
           </>
         )}
 
-        {/* Processing: progress bar */}
+        {/* Processing: progress bar + cancel */}
         {stage === "processing" && (
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -154,7 +185,16 @@ export default function VideoFaceExtractor({ onFaceSelected }: VideoFaceExtracto
                 style={{ width: `${Math.round(progress * 100)}%` }}
               />
             </div>
-            <p className="text-xs text-gray-500 text-right">{Math.round(progress * 100)}%</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-gray-500">{Math.round(progress * 100)}%</p>
+              {/* fix12 Stage 4: 処理が重い環境でも逃げ道を用意 */}
+              <button
+                onClick={handleAbortProcessing}
+                className="text-xs text-gray-500 hover:text-red-400 transition-colors min-h-[44px] md:min-h-0 px-2 flex items-center"
+              >
+                キャンセル
+              </button>
+            </div>
           </div>
         )}
 

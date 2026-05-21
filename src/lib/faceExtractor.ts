@@ -312,12 +312,21 @@ function detectFacesInFrame(
   }
 }
 
+/** Error thrown when the user cancels processing mid-flight. */
+export class FaceExtractAbortError extends Error {
+  constructor() {
+    super("FACE_EXTRACT_ABORTED");
+    this.name = "FaceExtractAbortError";
+  }
+}
+
 /** PC: seek-based frame extraction (fast, reliable on desktop browsers) */
 async function extractFramesSeekBased(
   video: HTMLVideoElement,
   duration: number,
   detector: FaceDetector,
-  onProgress: (pct: number, label: string) => void
+  onProgress: (pct: number, label: string) => void,
+  signal?: AbortSignal
 ): Promise<{ rawCandidates: RawCandidate[]; usedCanvases: Set<HTMLCanvasElement>; playbackFailed?: boolean }> {
   const rawCandidates: RawCandidate[] = [];
   const usedCanvases = new Set<HTMLCanvasElement>();
@@ -325,6 +334,14 @@ async function extractFramesSeekBased(
 
   for (let t = 0; t < duration; t += FRAME_INTERVAL_PC) {
     await new Promise<void>((r) => setTimeout(r, 0));
+    // fix12 Stage 4: ユーザーがキャンセルしたら即中断（部分結果を解放）
+    if (signal?.aborted) {
+      for (const c of usedCanvases) {
+        c.width = 0;
+        c.height = 0;
+      }
+      throw new FaceExtractAbortError();
+    }
     const frameCanvas = await extractFrame(video, t);
     detectFacesInFrame(frameCanvas, t, detector, rawCandidates, usedCanvases);
 
@@ -471,7 +488,8 @@ function deduplicateCandidates(
 /** Main pipeline: extract faces from video file */
 export async function extractFacesFromVideo(
   file: File,
-  onProgress: (pct: number, label: string) => void
+  onProgress: (pct: number, label: string) => void,
+  signal?: AbortSignal
 ): Promise<FaceCandidate[]> {
   if (file.size > 50 * 1024 * 1024) {
     throw new Error("動画ファイルは50MB以下にしてください");
@@ -495,7 +513,10 @@ export async function extractFacesFromVideo(
       throw new Error("30秒以内の動画を選択してください");
     }
 
-    onProgress(0.05, "顔を検出中...");
+    if (signal?.aborted) throw new FaceExtractAbortError();
+
+    // fix12 Stage 3: 初期化（getDetector）は遅くなりうるので専用ラベル
+    onProgress(0.05, "顔検出エンジンを初期化中...");
     const detector = await getDetector();
     const duration = Math.min(video.duration, 30);
 
@@ -503,7 +524,7 @@ export async function extractFacesFromVideo(
     const mobile = isMobile();
     const result = mobile
       ? await extractFramesPlaybackBased(video, duration, detector, onProgress)
-      : await extractFramesSeekBased(video, duration, detector, onProgress);
+      : await extractFramesSeekBased(video, duration, detector, onProgress, signal);
 
     // Mobile playback failure (autoplay blocked, codec issue, etc.)
     if (mobile && result.playbackFailed) {
