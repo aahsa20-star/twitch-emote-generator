@@ -19,19 +19,96 @@ let detectorDelegate: "GPU" | "CPU" | null = null;
 const isMobile = () =>
   typeof window !== "undefined" && /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
+/**
+ * WebGL がソフトウェアレンダリング（SwiftShader / llvmpipe 等）で動いているか判定。
+ *
+ * Windows + Edge で GPU ハードウェアアクセラレーションが無効な環境では、
+ * WebGL コンテキスト作成が「成功はするが SwiftShader にフォールバックして
+ * 極端に遅い」ことがある。その場合 MediaPipe の GPU delegate を使うと
+ * detect() が数秒/フレームになりメインスレッドをブロック → フリーズ。
+ * 事前にソフトウェアレンダリングを検出して CPU delegate (XNNPACK) を優先する。
+ *
+ * 取得不能/WebGL 無しは「ソフトウェア扱い（= CPU 優先）」に倒す。
+ */
+function isSoftwareWebGL(): boolean {
+  try {
+    const canvas = document.createElement("canvas");
+    const gl = (canvas.getContext("webgl") ||
+      canvas.getContext("experimental-webgl")) as WebGLRenderingContext | null;
+    if (!gl) return true; // WebGL 自体が使えない → CPU 優先
+    const dbg = gl.getExtension("WEBGL_debug_renderer_info");
+    if (!dbg) return false; // renderer 不明 → ハードウェアと仮定（従来どおり GPU 優先）
+    const renderer = String(
+      gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) ?? "",
+    ).toLowerCase();
+    return (
+      renderer === "" ||
+      renderer.includes("swiftshader") ||
+      renderer.includes("software") ||
+      renderer.includes("llvmpipe") ||
+      renderer.includes("basic render")
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * FaceDetector を取得（delegate フォールバック付き）。
+ *
+ * 動作確定済みの原因（fix12）:
+ *   GPU 非アクセラレーション環境で `delegate: "GPU"` のまま初期化すると
+ *   `emscripten_webgl_create_context() returned error 0; StartGraph failed`
+ *   で初期化が失敗する。これを catch して CPU delegate にフォールバックする。
+ *
+ * delegate 選択順:
+ *   - Mobile           → ["CPU"]
+ *   - PC + ソフトウェアGL → ["CPU"]（SwiftShader の遅い detect を回避）
+ *   - PC + ハードウェアGL → ["GPU", "CPU"]（GPU 失敗時は CPU に降格）
+ *
+ * 全 delegate が失敗したら "FACE_DETECTOR_INIT_FAILED" を throw（UI が
+ * 環境非対応メッセージを表示）。
+ *
+ * キャッシュ: 一度成功した detector はどの delegate でも再利用する。
+ */
 async function getDetector(): Promise<FaceDetector> {
-  const delegate = isMobile() ? "CPU" : "GPU";
-  if (detectorInstance && detectorDelegate === delegate) return detectorInstance;
-  // Re-create if delegate changed
-  if (detectorInstance) detectorInstance.close();
+  if (detectorInstance) return detectorInstance;
+
+  let preferredDelegates: ("GPU" | "CPU")[];
+  if (isMobile()) {
+    preferredDelegates = ["CPU"];
+  } else if (isSoftwareWebGL()) {
+    preferredDelegates = ["CPU"];
+  } else {
+    preferredDelegates = ["GPU", "CPU"];
+  }
+
   const vision = await FilesetResolver.forVisionTasks(WASM_CDN);
-  detectorInstance = await FaceDetector.createFromOptions(vision, {
-    baseOptions: { modelAssetPath: MODEL_CDN, delegate },
-    runningMode: "IMAGE",
-    minDetectionConfidence: 0.15,
-  });
-  detectorDelegate = delegate;
-  return detectorInstance;
+
+  let lastError: unknown = null;
+  for (const delegate of preferredDelegates) {
+    try {
+      const instance = await FaceDetector.createFromOptions(vision, {
+        baseOptions: { modelAssetPath: MODEL_CDN, delegate },
+        runningMode: "IMAGE",
+        minDetectionConfidence: 0.15,
+      });
+      detectorInstance = instance;
+      detectorDelegate = delegate;
+      if (delegate === "CPU" && preferredDelegates[0] === "GPU") {
+        console.warn(
+          "[faceExtractor] GPU delegate 初期化失敗 → CPU フォールバックで動作",
+        );
+      }
+      return instance;
+    } catch (e) {
+      lastError = e;
+      console.warn(`[faceExtractor] ${delegate} delegate 初期化失敗`, e);
+    }
+  }
+
+  console.error("[faceExtractor] 全 delegate の初期化に失敗", lastError);
+  throw new Error("FACE_DETECTOR_INIT_FAILED");
 }
 
 export interface FaceCandidate {
