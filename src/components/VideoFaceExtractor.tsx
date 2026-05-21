@@ -1,7 +1,14 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { extractFacesFromVideo, canvasToFile, FaceCandidate } from "@/lib/faceExtractor";
+import {
+  extractFacesFromVideo,
+  canvasToFile,
+  FaceCandidate,
+  isLowMemoryEnvironment,
+} from "@/lib/faceExtractor";
+
+const LOW_MEM_WARN_SIZE = 30 * 1024 * 1024; // 30MB
 
 const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/quicktime", "video/webm"];
 
@@ -24,6 +31,18 @@ export default function VideoFaceExtractor({ onFaceSelected }: VideoFaceExtracto
     if (!ACCEPTED_VIDEO_TYPES.includes(file.type)) {
       setError("MP4, MOV, WEBM形式の動画を選択してください");
       return;
+    }
+
+    // fix13 Stage 3: 低メモリ環境で大きい動画はメモリ不足の可能性を事前警告
+    // （上限 50MB は維持。続行するかはユーザーに委ねる）
+    if (file.size > LOW_MEM_WARN_SIZE && isLowMemoryEnvironment()) {
+      const sizeMB = Math.round(file.size / (1024 * 1024));
+      const proceed = window.confirm(
+        `お使いの環境ではメモリ不足でページが落ちる可能性があります（動画 ${sizeMB}MB）。\n` +
+          "軽量モードで処理を試みますが、より小さい・短い動画のほうが安定します。\n\n" +
+          "このまま続行しますか？",
+      );
+      if (!proceed) return;
     }
 
     setError(null);
