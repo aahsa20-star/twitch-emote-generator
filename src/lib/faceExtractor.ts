@@ -123,10 +123,34 @@ export interface FaceCandidate {
 }
 
 const MAX_FRAME_WIDTH_PC = 960;
+const MAX_FRAME_WIDTH_PC_LOW = 640; // fix13: 低メモリ環境のフレーム幅
 const MAX_FRAME_WIDTH_MOBILE = 640;
 const FRAME_INTERVAL_PC = 1;
+const FRAME_INTERVAL_PC_LOW = 3; // fix13: 低メモリ環境のフレーム間隔（秒）
 const FRAME_INTERVAL_MOBILE = 3;
 const MOBILE_PLAYBACK_RATE = 2;
+
+/**
+ * fix13: 低メモリ環境の判定（client-side runtime のみで呼ぶこと）。
+ *
+ * ⚠️ module top-level では呼ばない。Next.js の SSR/build 時に評価されると
+ * navigator / document が存在せずクラッシュする。必ず extractFacesFromVideo
+ * など関数内（ブラウザ実行時）で呼ぶ。
+ *
+ * 判定基準:
+ *   - navigator.deviceMemory <= 4 (GB)（Chrome/Edge のみ。Safari は undefined）
+ *   - WebGL がソフトウェアレンダリング（SwiftShader 等、fix12 の検出を再利用）
+ *
+ * いずれかに該当すれば軽量モード（フレーム間引き + 解像度低下）で動作させ、
+ * 30秒動画 60MB+ のフレーム保持による OOM タブ kill を回避する。
+ */
+export function isLowMemoryEnvironment(): boolean {
+  const memory = (navigator as Navigator & { deviceMemory?: number })
+    .deviceMemory;
+  if (typeof memory === "number" && memory <= 4) return true;
+  if (isSoftwareWebGL()) return true;
+  return false;
+}
 
 /** Seek video and wait until frame data is ready (PC only) */
 async function seekTo(video: HTMLVideoElement, time: number): Promise<void> {
@@ -161,10 +185,11 @@ async function seekTo(video: HTMLVideoElement, time: number): Promise<void> {
 /** Extract a single frame from video at the given time via seek (PC only) */
 async function extractFrame(
   video: HTMLVideoElement,
-  time: number
+  time: number,
+  maxWidth: number = MAX_FRAME_WIDTH_PC
 ): Promise<HTMLCanvasElement> {
   await seekTo(video, time);
-  return captureCurrentFrame(video, MAX_FRAME_WIDTH_PC);
+  return captureCurrentFrame(video, maxWidth);
 }
 
 /** Capture the current video frame to a downscaled canvas */
@@ -326,13 +351,16 @@ async function extractFramesSeekBased(
   duration: number,
   detector: FaceDetector,
   onProgress: (pct: number, label: string) => void,
-  signal?: AbortSignal
+  signal: AbortSignal | undefined,
+  frameInterval: number,
+  maxWidth: number,
+  progressLabel: string
 ): Promise<{ rawCandidates: RawCandidate[]; usedCanvases: Set<HTMLCanvasElement>; playbackFailed?: boolean }> {
   const rawCandidates: RawCandidate[] = [];
   const usedCanvases = new Set<HTMLCanvasElement>();
-  const totalFrames = Math.floor(duration / FRAME_INTERVAL_PC);
+  const totalFrames = Math.max(1, Math.floor(duration / frameInterval));
 
-  for (let t = 0; t < duration; t += FRAME_INTERVAL_PC) {
+  for (let t = 0; t < duration; t += frameInterval) {
     await new Promise<void>((r) => setTimeout(r, 0));
     // fix12 Stage 4: ユーザーがキャンセルしたら即中断（部分結果を解放）
     if (signal?.aborted) {
@@ -342,11 +370,11 @@ async function extractFramesSeekBased(
       }
       throw new FaceExtractAbortError();
     }
-    const frameCanvas = await extractFrame(video, t);
+    const frameCanvas = await extractFrame(video, t, maxWidth);
     detectFacesInFrame(frameCanvas, t, detector, rawCandidates, usedCanvases);
 
-    const frameIdx = Math.floor(t / FRAME_INTERVAL_PC) + 1;
-    onProgress(0.05 + (frameIdx / totalFrames) * 0.85, "顔を検出中...");
+    const frameIdx = Math.floor(t / frameInterval) + 1;
+    onProgress(0.05 + (frameIdx / totalFrames) * 0.85, progressLabel);
   }
 
   return { rawCandidates, usedCanvases };
@@ -520,11 +548,27 @@ export async function extractFacesFromVideo(
     const detector = await getDetector();
     const duration = Math.min(video.duration, 30);
 
-    // Mobile: playback-based (no seeking), PC: seek-based (fast)
+    // fix13: 低メモリ環境（runtime 判定）なら軽量モードで間引き + 解像度低下
     const mobile = isMobile();
+    const lowMem = !mobile && isLowMemoryEnvironment();
+    const frameInterval = lowMem ? FRAME_INTERVAL_PC_LOW : FRAME_INTERVAL_PC;
+    const maxWidth = lowMem ? MAX_FRAME_WIDTH_PC_LOW : MAX_FRAME_WIDTH_PC;
+    // fix13 Stage 4: 軽量モード時はその旨を進捗ラベルに明示
+    const seekLabel = lowMem ? "顔を検出中（軽量モード）..." : "顔を検出中...";
+
+    // Mobile: playback-based (no seeking), PC: seek-based (fast)
     const result = mobile
       ? await extractFramesPlaybackBased(video, duration, detector, onProgress)
-      : await extractFramesSeekBased(video, duration, detector, onProgress, signal);
+      : await extractFramesSeekBased(
+          video,
+          duration,
+          detector,
+          onProgress,
+          signal,
+          frameInterval,
+          maxWidth,
+          seekLabel
+        );
 
     // Mobile playback failure (autoplay blocked, codec issue, etc.)
     if (mobile && result.playbackFailed) {
