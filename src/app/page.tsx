@@ -1,85 +1,48 @@
-"use client";
+import { cookies } from "next/headers";
+import { auth } from "@/auth";
+import { evaluateAccess } from "@/lib/auth/premium";
+import { getFeatureFlags } from "@/lib/auth/feature-flags";
+import HomeClient from "@/components/HomeClient";
+import SiteGate from "@/components/SiteGate";
 
-import { useState } from "react";
-import EmoteGenerator from "@/components/EmoteGenerator";
-import Gallery from "@/components/Gallery";
-import Footer from "@/components/Footer";
-import { EmoteConfig } from "@/types/emote";
+/**
+ * fix14: サイト全体ロック。
+ *
+ * page.tsx を Server Component 化し、リクエストごとにサーバー側で
+ * evaluateAccess（follower OR PASSPHRASE-cookie OR killswitch）を評価する。
+ * 未解放なら SiteGate（合言葉入力画面）だけを返し、ツール本体の HTML は
+ * 一切配信しない。解放済みなら従来 UI（HomeClient）を返す。
+ *
+ * これは fix11 コメントで推奨されていた「Option A: Server Component で
+ * flags 評価 → props 流し」の実装でもある。client 側で killswitch 環境
+ * 変数を読めない fix7 の設計欠陥はこの層で解消される。
+ *
+ * 解除手順（緊急時）: Vercel で SITE_LOCK_ENABLED=false → ゲート撤去
+ * （trial/premium の旧 2 階層挙動に戻る）。TRIAL_MODE_ENABLED=false は
+ * 従来どおり全員 premium の full retreat。
+ */
+export default async function Home() {
+  const flags = getFeatureFlags();
+  const session = await auth();
 
-type ActiveTab = "creator" | "gallery";
+  // PASSPHRASE-cookie based isSubscribed (set by /api/auth POST)
+  const cookieStore = await cookies();
+  const isSubscribed = cookieStore.get("emote-subscriber")?.value === "1";
 
-interface TemplateCredit {
-  userName: string;
-  userLogin?: string | null;
-}
+  const access = evaluateAccess({
+    session: session ?? null,
+    isSubscribed,
+    flags,
+  });
 
-export default function Home() {
-  const [activeTab, setActiveTab] = useState<ActiveTab>("creator");
-  const [templateOverride, setTemplateOverride] = useState<EmoteConfig | null>(null);
-  const [templateCredit, setTemplateCredit] = useState<TemplateCredit | null>(null);
+  if (flags.SITE_LOCK_ENABLED && !access.isPremium) {
+    return (
+      <SiteGate
+        isLoggedIn={access.isLoggedIn}
+        needsReauth={access.needsReauth}
+      />
+    );
+  }
 
-  const handleApplyTemplate = (config: EmoteConfig, credit?: TemplateCredit) => {
-    setTemplateOverride(config);
-    setTemplateCredit(credit ?? null);
-    setActiveTab("creator");
-  };
-
-  const handleTemplateApplied = () => {
-    setTemplateOverride(null);
-  };
-
-  return (
-    <div className="min-h-screen flex flex-col">
-      <header className="py-4 px-6 border-b border-gray-800">
-        <div>
-          <h1 className="text-xl font-bold text-gray-100">
-            Twitch Emote Generator
-          </h1>
-          <p className="text-sm text-gray-400 mt-1">
-            エモート制作の面倒を全部省く
-          </p>
-        </div>
-
-        <p className="text-xs text-gray-500 mt-2">
-          視聴者の<span className="text-gray-400 italic">{'"'}スタンプが作れるツールが欲しい{'"'}</span>の一言から生まれました。
-        </p>
-
-        {/* Tab navigation */}
-        <div className="flex gap-1 mt-4 bg-gray-800 rounded-lg p-0.5 w-fit">
-          <button
-            onClick={() => setActiveTab("creator")}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === "creator"
-                ? "bg-purple-600 text-white"
-                : "text-gray-400 hover:text-gray-200"
-            }`}
-          >
-            エモートを作る
-          </button>
-          <button
-            onClick={() => setActiveTab("gallery")}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-              activeTab === "gallery"
-                ? "bg-purple-600 text-white"
-                : "text-gray-400 hover:text-gray-200"
-            }`}
-          >
-            テンプレート
-          </button>
-        </div>
-      </header>
-
-      {activeTab === "creator" ? (
-        <EmoteGenerator
-          templateOverride={templateOverride}
-          templateCredit={templateCredit}
-          onTemplateApplied={handleTemplateApplied}
-        />
-      ) : (
-        <Gallery onApplyTemplate={handleApplyTemplate} onGoToCreator={() => setActiveTab("creator")} />
-      )}
-
-      <Footer />
-    </div>
-  );
+  return <HomeClient />;
 }

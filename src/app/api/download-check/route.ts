@@ -75,12 +75,22 @@ export async function POST(req: Request) {
     return NextResponse.json({ allowed: true, reason: access.reason });
   }
 
-  // 3. Trial allowance: 28px PNG only
+  // 3. fix14: site lock active → trial tier has no allowance at all.
+  //    Gate 前提では未解放ユーザーはそもそも UI に到達しないはずだが、
+  //    devtools 等で直接叩かれた場合の defense-in-depth としてここでも拒否。
+  if (flags.SITE_LOCK_ENABLED) {
+    return NextResponse.json(
+      { allowed: false, reason: "site-locked", tier: access.tier },
+      { status: 403 },
+    );
+  }
+
+  // 4. Legacy trial allowance (SITE_LOCK_ENABLED=false 縮退時のみ): 28px PNG only
   if (size === 28 && format === "png") {
     return NextResponse.json({ allowed: true, reason: "trial-allowance" });
   }
 
-  // 4. Trial blocked
+  // 5. Trial blocked
   return NextResponse.json(
     { allowed: false, reason: "trial-restriction", tier: access.tier },
     { status: 403 },

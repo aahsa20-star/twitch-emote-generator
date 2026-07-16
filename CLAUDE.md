@@ -32,21 +32,29 @@ SUPABASE_SERVICE_ROLE_KEY  # Supabase service_role JWT
 ANTHROPIC_API_KEY          # Claude APIキー
 ```
 
-### killswitch 4 種（fix7、`src/lib/auth/feature-flags.ts`）
+### killswitch 5 種（fix7 + fix14、`src/lib/auth/feature-flags.ts`）
 段階的縮退用。Vercel 環境変数で false に設定すると即座に無効化される。
 ```
+SITE_LOCK_ENABLED     # fix14: サイト全体ロック on/off（false で旧 trial/premium 挙動に縮退）
 TRIAL_MODE_ENABLED    # false で全員 premium（最後の retreat）
 FOLLOW_AUTH_ENABLED   # フォロー判定 path on/off
 PREMIUM_LOCK_ENABLED  # 既存 subscriberOnly 機能 lock on/off
 DOWNLOAD_LOCK_ENABLED # DL ガード on/off（緊急時の最初の手）
 ```
 
-## 機能の階層（fix7 で trial / premium 2 階層モデル導入）
+## 機能の階層（fix14 でサイト全体ロック導入、fix7 の trial/premium は縮退時のみ）
 
 解放判定: `evaluateAccess({ session, isSubscribed, flags })`（`src/lib/auth/premium.ts`）が
 `isFollower OR isSubscribed (PASSPHRASE) OR !TRIAL_MODE_ENABLED` の OR 結合で resolve。
 
-### お試し版（trial、ログイン不要）
+### サイト全体ロック（fix14、通常運用時）
+- `app/page.tsx` が Server Component として毎リクエスト evaluateAccess を評価
+- 未解放（follower でも合言葉済みでもない）→ `SiteGate` 画面のみ配信（ツール本体の HTML は届かない）
+- 解放経路: 合言葉入力（メイン、`/api/auth` → cookie → `router.refresh()`）or Twitch フォロー（併用、fix7.2 の recheck フロー）
+- ロック中は `/api/download-check` の trial 許可（28px PNG）も無効（`site-locked` 403）
+- `/privacy` はゲート対象外（公開のまま）
+
+### お試し版（trial、SITE_LOCK_ENABLED=false 縮退時のみ、ログイン不要）
 - アニメ 2 種（`bounce` / `shake`、`TRIAL_ANIMATIONS` で定義、types/emote.ts:80）
 - フチは白黒のみ
 - テキスト色変更不可

@@ -16,6 +16,7 @@ import type { FeatureFlags } from "@/types/auth";
  */
 export function getFeatureFlags(): FeatureFlags {
   return {
+    SITE_LOCK_ENABLED: parseBoolEnv(process.env.SITE_LOCK_ENABLED, true),
     TRIAL_MODE_ENABLED: parseBoolEnv(process.env.TRIAL_MODE_ENABLED, true),
     FOLLOW_AUTH_ENABLED: parseBoolEnv(process.env.FOLLOW_AUTH_ENABLED, true),
     PREMIUM_LOCK_ENABLED: parseBoolEnv(process.env.PREMIUM_LOCK_ENABLED, true),

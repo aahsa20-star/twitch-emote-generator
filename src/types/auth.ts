@@ -42,6 +42,12 @@ export interface AccessState {
  * full retreat that releases every gated feature.
  */
 export interface FeatureFlags {
+  /**
+   * fix14: サイト全体ロック。true のとき未解放ユーザー（follower でも
+   * PASSPHRASE 済みでもない）にはツール本体の代わりに合言葉ゲート画面を
+   * 表示する。false でゲート撤去 → trial/premium の旧 2 階層挙動に戻る。
+   */
+  SITE_LOCK_ENABLED: boolean;
   /** Master killswitch for trial-mode restrictions. false = everyone is premium. */
   TRIAL_MODE_ENABLED: boolean;
   /** Master killswitch for follower-judgement code paths. */
