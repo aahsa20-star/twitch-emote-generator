@@ -7,18 +7,23 @@ import type { FeatureFlags } from "@/types/auth";
  * from a client component triggers a "process.env undefined" warning).
  *
  * Defaults are tuned so omitting the variables is **safe (locked)**:
+ * - SITE_LOCK_ENABLED defaults to true (fix14: site-wide gate active)
  * - TRIAL_MODE_ENABLED defaults to true (gating active)
- * - FOLLOW_AUTH_ENABLED defaults to true (judgement active)
+ * - FOLLOW_AUTH_ENABLED defaults to false (fix14.1: 合言葉のみ解放。
+ *   フォロー解放を復活させる場合のみ明示的に "true" を設定)
  * - PREMIUM_LOCK_ENABLED defaults to true (legacy gating preserved)
  * - DOWNLOAD_LOCK_ENABLED defaults to true (DL ガード active)
  *
- * To "release" a gate, set the variable explicitly to "false".
+ * To "release" a gate, set the variable explicitly to "false"
+ * (FOLLOW_AUTH_ENABLED のみ逆向き: "true" で有効化).
  */
 export function getFeatureFlags(): FeatureFlags {
   return {
     SITE_LOCK_ENABLED: parseBoolEnv(process.env.SITE_LOCK_ENABLED, true),
     TRIAL_MODE_ENABLED: parseBoolEnv(process.env.TRIAL_MODE_ENABLED, true),
-    FOLLOW_AUTH_ENABLED: parseBoolEnv(process.env.FOLLOW_AUTH_ENABLED, true),
+    // fix14.1: 解放経路を合言葉のみに変更したため default false。
+    // env で FOLLOW_AUTH_ENABLED=true を明示すればフォロー解放が復活する。
+    FOLLOW_AUTH_ENABLED: parseBoolEnv(process.env.FOLLOW_AUTH_ENABLED, false),
     PREMIUM_LOCK_ENABLED: parseBoolEnv(process.env.PREMIUM_LOCK_ENABLED, true),
     DOWNLOAD_LOCK_ENABLED: parseBoolEnv(
       process.env.DOWNLOAD_LOCK_ENABLED,

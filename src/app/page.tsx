@@ -12,6 +12,7 @@ import SiteGate from "@/components/SiteGate";
  * evaluateAccess（follower OR PASSPHRASE-cookie OR killswitch）を評価する。
  * 未解放なら SiteGate（合言葉入力画面）だけを返し、ツール本体の HTML は
  * 一切配信しない。解放済みなら従来 UI（HomeClient）を返す。
+ * fix14.1 で解放経路は合言葉のみ（FOLLOW_AUTH_ENABLED default false）。
  *
  * これは fix11 コメントで推奨されていた「Option A: Server Component で
  * flags 評価 → props 流し」の実装でもある。client 側で killswitch 環境
@@ -36,12 +37,7 @@ export default async function Home() {
   });
 
   if (flags.SITE_LOCK_ENABLED && !access.isPremium) {
-    return (
-      <SiteGate
-        isLoggedIn={access.isLoggedIn}
-        needsReauth={access.needsReauth}
-      />
-    );
+    return <SiteGate />;
   }
 
   return <HomeClient />;

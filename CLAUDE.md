@@ -37,7 +37,7 @@ ANTHROPIC_API_KEY          # Claude APIキー
 ```
 SITE_LOCK_ENABLED     # fix14: サイト全体ロック on/off（false で旧 trial/premium 挙動に縮退）
 TRIAL_MODE_ENABLED    # false で全員 premium（最後の retreat）
-FOLLOW_AUTH_ENABLED   # フォロー判定 path on/off
+FOLLOW_AUTH_ENABLED   # フォロー判定 path on/off（fix14.1 で default false に反転、true 明示で復活）
 PREMIUM_LOCK_ENABLED  # 既存 subscriberOnly 機能 lock on/off
 DOWNLOAD_LOCK_ENABLED # DL ガード on/off（緊急時の最初の手）
 ```
@@ -47,12 +47,14 @@ DOWNLOAD_LOCK_ENABLED # DL ガード on/off（緊急時の最初の手）
 解放判定: `evaluateAccess({ session, isSubscribed, flags })`（`src/lib/auth/premium.ts`）が
 `isFollower OR isSubscribed (PASSPHRASE) OR !TRIAL_MODE_ENABLED` の OR 結合で resolve。
 
-### サイト全体ロック（fix14、通常運用時）
+### サイト全体ロック（fix14 / fix14.1、通常運用時）
 - `app/page.tsx` が Server Component として毎リクエスト evaluateAccess を評価
-- 未解放（follower でも合言葉済みでもない）→ `SiteGate` 画面のみ配信（ツール本体の HTML は届かない）
-- 解放経路: 合言葉入力（メイン、`/api/auth` → cookie → `router.refresh()`）or Twitch フォロー（併用、fix7.2 の recheck フロー）
+- 未解放（合言葉未入力）→ `SiteGate` 画面のみ配信（ツール本体の HTML は届かない）
+- 解放経路: **合言葉のみ**（fix14.1 でフォロー解放を撤去。`/api/auth` → cookie → `router.refresh()`）
+- FOLLOW_AUTH_ENABLED は default false に反転（env で true 明示すればフォロー解放が復活）
 - ロック中は `/api/download-check` の trial 許可（28px PNG）も無効（`site-locked` 403）
 - `/privacy` はゲート対象外（公開のまま）
+- Twitch ログイン自体は残存（テンプレート投稿・AI アニメ生成などログイン必須機能用）
 
 ### お試し版（trial、SITE_LOCK_ENABLED=false 縮退時のみ、ログイン不要）
 - アニメ 2 種（`bounce` / `shake`、`TRIAL_ANIMATIONS` で定義、types/emote.ts:80）
