@@ -6,10 +6,10 @@ import UploadPanel from "./UploadPanel";
 import AdjustView, { type AdjustDecision, type BackgroundChoice } from "./AdjustView";
 import type { AdjustState } from "./ImageAdjustEditor";
 import BrushEditor from "./BrushEditor";
-import SettingsPanel from "./SettingsPanel";
+import SettingsPanel, { type EditorTool } from "./SettingsPanel";
 import PreviewArea from "./PreviewArea";
 import DownloadButton from "./DownloadButton";
-import RecommendedPatterns from "./RecommendedPatterns";
+import MobileDock from "./MobileDock";
 import ShareButton from "./ShareButton";
 import StepNav from "./StepNav";
 import VideoFaceExtractor from "./VideoFaceExtractor";
@@ -23,9 +23,12 @@ import type { DownloadGate } from "@/lib/download/profiles";
 import { requestDownloadPermission } from "@/lib/download/client";
 import FeatureLockHint, { canShowFeatureLockHint } from "./FeatureLockHint";
 import { EmoteConfig, ExportMode, BgRemovalQuality } from "@/types/emote";
+import { ANIMATION_LIST } from "@/lib/animations/catalog";
+import { PLATFORM_LABELS } from "@/lib/ui/export-plan";
 import { canEnterStep, type SourceKind, type StudioStep, stepAfterSelect } from "@/lib/ui/steps";
 import type { UploadKind } from "@/lib/upload/accept";
 import { primaryBtn, secondaryBtn, textBtn } from "@/components/ui/classes";
+import { PLATFORMS } from "@/lib/download/profiles";
 
 function SpinnerIcon() {
   return (
@@ -86,6 +89,7 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
 
   // ---- studio flow state (09 §実装構造: 現在の工程 / 素材 / 調整 draft) ----
   const [step, setStep] = useState<StudioStep>(1);
+  const [tool, setTool] = useState<EditorTool>("animation");
   const [sourceKind, setSourceKind] = useState<SourceKind | null>(null);
   const [sourceName, setSourceName] = useState("");
   /** Raw uploaded image — re-adjusting always starts from this, never from the crop. */
@@ -283,9 +287,18 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
   /** 「位置・背景を調整」 from the editor: re-open step 2 with the last crop as draft. */
   const revisitAdjust = sourceKind === "image" && !!originalFile && originalFile === confirmedOriginal;
 
-  const handleApplyPattern = (patternConfig: EmoteConfig) => {
-    updateConfig(patternConfig);
-  };
+  const selectionLabel = isGifSource
+    ? "GIF の動き"
+    : isVideoSource
+      ? "動画の動き"
+      : config.animation.type === "none"
+        ? "動きなし"
+        : ANIMATION_LIST.find((a) => a.id === config.animation.type)?.label ?? config.animation.type;
+  const largestVariant = variants.length > 0 ? variants.reduce((a, b) => (a.size > b.size ? a : b)) : null;
+
+  const scrollToPreview = useCallback(() => {
+    document.getElementById("preview-area")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  }, []);
 
   const handleContentAdjust = useCallback((dx: number, dy: number, ds: number) => {
     updateConfig({
@@ -362,20 +375,17 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
           />
         )}
 
-        {/* ---------- 3. 編集する / 4. 保存する (U1: existing editor inside the shell) ---------- */}
-        <div hidden={step !== 3 && step !== 4}>
+        {/* ---------- 3. 編集する ---------- */}
+        <div hidden={step !== 3}>
           <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-3 mb-4">
             <div>
-              <p className="text-[10px] tracking-[.15em] font-semibold text-studio-accent mb-1">{step === 3 ? "03 / MAKE IT YOURS" : "04 / READY TO REACT"}</p>
-              <h1 className="text-[23px] md:text-[27px] font-bold leading-tight">{step === 3 ? "表情に、ひと工夫。" : "あとは、保存するだけ。"}</h1>
+              <p className="text-[10px] tracking-[.15em] font-semibold text-studio-accent mb-1">03 / MAKE IT YOURS</p>
+              <h1 className="text-[23px] md:text-[27px] font-bold leading-tight">表情に、ひと工夫。</h1>
             </div>
             <div className="flex items-center gap-2 text-[11px] text-studio-muted">
               <span aria-hidden className="w-1.5 h-1.5 rounded-full bg-studio-good" />
-              <span className="max-w-[200px] truncate">{sourceName}</span>
-              <button type="button" onClick={() => goToStep(1)} className={textBtn}>画像を変更</button>
-              {revisitAdjust && (
-                <button type="button" onClick={() => goToStep(2)} className={textBtn}>位置・背景を調整</button>
-              )}
+              <span className="max-w-[190px] truncate">{sourceName}</span>
+              <button type="button" onClick={() => goToStep(1)} className={`${textBtn} ml-auto`}>画像を変更</button>
             </div>
           </div>
 
@@ -414,7 +424,7 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
           )}
           {isGifSource && (
             <div className="mb-4 text-[12px] px-4 py-3 rounded-[10px] bg-studio-surface border border-studio-stroke text-studio-muted">
-              <span className="font-semibold text-studio-text">GIF の動きをそのまま使います</span> — {gifFrameCount} フレームを各サイズで再エンコードします。
+              <span className="font-semibold text-studio-text">GIF の動きをそのまま使います</span> — {gifFrameCount} フレームを各サイズで再エンコードします。フチ・文字・フレームは全フレームに掛かります。
               {gifNotice && <span className="block mt-1 text-studio-warn">{gifNotice}</span>}
             </div>
           )}
@@ -433,72 +443,73 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-[380px_1fr] gap-4 md:gap-6 w-full overflow-x-hidden">
-            <div id="preview-area" className="bg-studio-surface border border-studio-stroke rounded-studio p-4 md:p-6 flex flex-col items-center min-h-[300px] order-1 md:order-2 self-start md:sticky md:top-4">
-              <div className="flex w-full mb-4 bg-studio-raised rounded-lg p-0.5">
-                {([
-                  { mode: "twitch" as ExportMode, label: "Twitch" },
-                  { mode: "discord" as ExportMode, label: "Discord" },
-                  { mode: "7tv" as ExportMode, label: "7TV" },
-                  { mode: "bttv" as ExportMode, label: "BTTV" },
-                  { mode: "ffz" as ExportMode, label: "FFZ" },
-                ]).map(({ mode, label }) => (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setExportMode(mode)}
-                    aria-pressed={exportMode === mode}
-                    className={`flex-1 py-1.5 px-1 rounded-md text-xs font-medium transition-colors ${exportMode === mode ? "bg-studio-accent text-studio-accent-ink" : "text-studio-muted hover:text-studio-text"}`}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-              {bgRemovedCanvas && stage === "ready" && !isGifSource && !isVideoSource && (
-                <div className="mb-3 flex items-center gap-2 flex-wrap">
-                  <button type="button" onClick={retryBgRemoval} className={`${secondaryBtn} min-h-[34px] text-[11px] px-3 py-1`}>もう一度背景を消す</button>
-                  <button type="button" onClick={useOriginalImage} className={`${secondaryBtn} min-h-[34px] text-[11px] px-3 py-1`}>元画像をそのまま使う</button>
-                  {hasPositionAdjustment && (
-                    <button type="button" onClick={handleResetPosition} className={`${secondaryBtn} min-h-[34px] text-[11px] px-3 py-1`}>位置をリセット</button>
-                  )}
-                </div>
-              )}
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(290px,.82fr)_minmax(410px,1.18fr)] gap-4 md:gap-6 items-start">
+            <div id="preview-area" className="md:sticky md:top-4 scroll-mt-4">
               <PreviewArea
                 variants={variants}
                 stage={stage}
+                exportMode={exportMode}
+                selectionLabel={selectionLabel}
                 hasText={!!(config.text.customText.trim() || config.text.preset)}
                 textPosition={config.text.position}
-                exportMode={exportMode}
                 badgeSettings={config.badge}
                 bgRemovedCanvas={bgRemovedCanvas}
-                onContentAdjust={handleContentAdjust}
-                onBeforeDownload={onBeforeDownload}
+                onContentAdjust={isGifSource || isVideoSource ? undefined : handleContentAdjust}
+                onGoAdjust={revisitAdjust ? () => goToStep(2) : null}
+                onGoExport={() => goToStep(4)}
               />
-              {sourceFile && (
-                <div className="w-full mt-4 flex flex-col gap-3">
-                  <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} badgeSettings={config.badge} bgRemovedCanvas={bgRemovedCanvas} onBeforeDownload={onBeforeDownload} />
-                  <ShareButton imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
-                </div>
-              )}
             </div>
+            <SettingsPanel
+              config={config}
+              onConfigChange={updateConfig}
+              disabled={!sourceFile || isRemoving}
+              isPremium={isPremium}
+              onTrialLockClick={handleTrialLockClick}
+              subFile={subFile}
+              onSubImageSelected={handleSubImageSelected}
+              bgRemovedCanvas={bgRemovedCanvas}
+              subCanvas={subCanvas}
+              isAnimatedSource={isGifSource || isVideoSource}
+              tool={tool}
+              onToolChange={setTool}
+              onGoAdjust={revisitAdjust ? () => goToStep(2) : null}
+              onRetryBgRemoval={retryBgRemoval}
+              onUseOriginal={useOriginalImage}
+              onResetPosition={handleResetPosition}
+              hasPositionAdjustment={hasPositionAdjustment}
+              canRedoBackground={!!bgRemovedCanvas && stage === "ready" && !isGifSource && !isVideoSource}
+              onBeforeDownload={onBeforeDownload}
+            />
+          </div>
+          <div className="h-20 md:h-0" aria-hidden />
+        </div>
+        {step === 3 && (
+          <MobileDock previewSrc={largestVariant?.staticDataUrl ?? null} onPreview={scrollToPreview} onExport={() => goToStep(4)} />
+        )}
 
-            <div className={`space-y-5 order-2 md:order-1 self-start ${!sourceFile ? "opacity-40 pointer-events-none select-none" : ""}`}>
-              <SettingsPanel
-                config={config}
-                onConfigChange={updateConfig}
-                disabled={!sourceFile || isRemoving}
-                isPremium={isPremium}
-                onTrialLockClick={handleTrialLockClick}
-                subFile={subFile}
-                onSubImageSelected={handleSubImageSelected}
-                bgRemovedCanvas={bgRemovedCanvas}
-                subCanvas={subCanvas}
-                isAnimatedSource={isGifSource || isVideoSource}
-              />
-              {bgRemovedCanvas && (
-                <RecommendedPatterns bgRemovedCanvas={bgRemovedCanvas} onApply={handleApplyPattern} onBeforeDownload={onBeforeDownload} />
-              )}
+        {/* ---------- 4. 保存する (U2 placeholder: existing save controls; replaced in U3) ---------- */}
+        <div hidden={step !== 4}>
+          <div className="flex items-start justify-between gap-3 mb-4">
+            <div>
+              <p className="text-[10px] tracking-[.15em] font-semibold text-studio-accent mb-1">04 / READY TO REACT</p>
+              <h1 className="text-[23px] md:text-[27px] font-bold leading-tight">あとは、保存するだけ。</h1>
             </div>
+            <button type="button" onClick={() => goToStep(3)} className={`${secondaryBtn} min-h-[40px] text-[12px]`}>← 編集に戻る</button>
+          </div>
+          <div className="max-w-[640px] mx-auto bg-studio-surface border border-studio-stroke rounded-studio p-4 md:p-6 space-y-4">
+            <div className="flex w-full bg-studio-raised rounded-lg p-0.5" role="group" aria-label="どこで使いますか">
+              {PLATFORMS.map((mode) => (
+                <button key={mode} type="button" onClick={() => setExportMode(mode)} aria-pressed={exportMode === mode} className={`flex-1 py-2 px-1 rounded-md text-xs font-medium transition-colors ${exportMode === mode ? "bg-studio-accent text-studio-accent-ink" : "text-studio-muted hover:text-studio-text"}`}>
+                  {PLATFORM_LABELS[mode]}
+                </button>
+              ))}
+            </div>
+            {sourceFile && (
+              <>
+                <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} badgeSettings={config.badge} bgRemovedCanvas={bgRemovedCanvas} onBeforeDownload={onBeforeDownload} />
+                <ShareButton imageDataUrl={largestVariant?.staticDataUrl ?? null} />
+              </>
+            )}
           </div>
         </div>
       </div>

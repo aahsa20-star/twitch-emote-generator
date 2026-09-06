@@ -1,206 +1,155 @@
 "use client";
 
-import {
-  EmoteConfig,
-  PartialEmoteConfig,
-  TextConfig,
-  TEXT_PRESETS,
-  FONT_OPTIONS,
-  FontCategory,
-} from "@/types/emote";
+import { useId } from "react";
+import { EmoteConfig, PartialEmoteConfig, TextConfig, TEXT_PRESETS, FONT_OPTIONS, FontCategory } from "@/types/emote";
 import ColorPicker from "./ColorPicker";
 import DragPositionCanvas from "../DragPositionCanvas";
+import { chipBtn, chipBtnActive, fieldLabel, inputCls, segmented, segmentedBtn, segmentedBtnActive } from "@/components/ui/classes";
 
 interface TextSettingsProps {
   config: EmoteConfig;
   onConfigChange: (partial: PartialEmoteConfig) => void;
   /** fix7: trial 版では fillColor / strokeColor 変更を locked にする */
   isPremium?: boolean;
-  /** fix7: locked 機能をクリックされた時の親側通知コールバック */
   onTrialLockClick?: (featureLabel: string) => void;
   bgRemovedCanvas?: HTMLCanvasElement | null;
   subCanvas?: HTMLCanvasElement | null;
 }
 
-export default function TextSettings({
-  config,
-  onConfigChange,
-  isPremium = false,
-  onTrialLockClick,
-  bgRemovedCanvas,
-  subCanvas,
-}: TextSettingsProps) {
-  const updateText = (partial: Partial<TextConfig>) => {
-    onConfigChange({ text: { ...config.text, ...partial } });
-  };
+const POSITIONS = [
+  { label: "上", offsetY: -40 },
+  { label: "中央", offsetY: 0 },
+  { label: "下", offsetY: 40 },
+] as const;
 
+/**
+ * 「文字」 tab (09 §3): input, short presets, position and colour first; font,
+ * text outline, size and free placement under 詳細設定.
+ */
+export default function TextSettings({ config, onConfigChange, isPremium = false, onTrialLockClick, bgRemovedCanvas, subCanvas }: TextSettingsProps) {
+  const captionId = useId();
+  const fontId = useId();
+  const updateText = (partial: Partial<TextConfig>) => onConfigChange({ text: { ...config.text, ...partial } });
   const hasText = !!(config.text.customText.trim() || config.text.preset);
+  const activePreset = config.text.customText ? null : config.text.preset;
 
   return (
-    <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-gray-300">テキスト</h3>
+    <div>
+      <div className="mb-4">
+        <h2 className="text-[15px] md:text-[17px] font-bold">ひと言で、もっと伝わる。</h2>
+        <p className="text-[11px] md:text-[12px] text-studio-muted mt-1">文字は入力するとすぐプレビューに反映。</p>
+      </div>
 
-      <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+      <label className={fieldLabel} htmlFor={captionId}>入れたい文字</label>
+      <input
+        id={captionId}
+        type="text"
+        maxLength={24}
+        placeholder="例：GG、ないす、草"
+        value={config.text.customText}
+        onChange={(e) => {
+          const val = e.target.value;
+          updateText({ customText: val, preset: val ? null : config.text.preset });
+        }}
+        className={`${inputCls} min-h-[48px] text-[14px]`}
+      />
+      <div className="flex flex-wrap gap-2 mt-3">
         {TEXT_PRESETS.map((preset) => (
           <button
             key={preset.id}
-            onClick={() => {
-              updateText({
-                preset: config.text.preset === preset.id ? null : preset.id,
-                customText: "",
-              });
-            }}
-            className={`px-2 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
-              config.text.preset === preset.id && !config.text.customText
-                ? "bg-purple-600 text-white"
-                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-            }`}
+            type="button"
+            aria-pressed={activePreset === preset.id}
+            onClick={() => updateText({ preset: activePreset === preset.id ? null : preset.id, customText: "" })}
+            className={`${chipBtn} ${activePreset === preset.id ? chipBtnActive : ""}`}
           >
             {preset.label}
           </button>
         ))}
-      </div>
-
-
-      {/* Custom text input */}
-      <input
-        type="text"
-        placeholder="自由入力テキスト..."
-        value={config.text.customText}
-        onChange={(e) => {
-          const val = e.target.value;
-          updateText({
-            customText: val,
-            preset: val ? null : config.text.preset,
-          });
-        }}
-        className="w-full px-3 py-2 rounded bg-gray-700 text-gray-100 text-sm placeholder-gray-500 border border-gray-600 focus:border-purple-500 focus:outline-none"
-      />
-
-      {/* Font select */}
-      <div>
-        <label className="text-xs text-gray-400 block mb-1">フォント</label>
-        <select
-          value={config.text.font}
-          onChange={(e) => updateText({ font: e.target.value })}
-          className="w-full px-3 py-2 rounded bg-gray-700 text-gray-100 text-sm border border-gray-600 focus:border-purple-500 focus:outline-none"
+        <button
+          type="button"
+          aria-pressed={!hasText}
+          onClick={() => updateText({ preset: null, customText: "" })}
+          className={`${chipBtn} ${!hasText ? chipBtnActive : ""}`}
         >
-          {(["標準", "日本語", "英字"] as FontCategory[]).map((cat) => {
-            const opts = FONT_OPTIONS.filter((o) => o.category === cat);
-            if (opts.length === 0) return null;
-            return (
-              <optgroup key={cat} label={cat}>
-                {opts.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </optgroup>
-            );
-          })}
-        </select>
+          文字なし
+        </button>
       </div>
 
-      {/* Text detail settings — always rendered, expand/collapse with transition */}
-      <div
-        className={`space-y-3 transition-all duration-200 ease-in-out ${
-          hasText
-            ? "max-h-[600px] opacity-100"
-            : "max-h-0 opacity-0 overflow-hidden pointer-events-none"
-        }`}
-      >
-        {/* Font size slider */}
-        <div>
-          <label className="text-xs text-gray-400 block mb-1">
-            文字サイズ: {config.text.fontSize}px
-          </label>
-          <input
-            type="range"
-            min={8}
-            max={72}
-            value={config.text.fontSize}
-            onChange={(e) => updateText({ fontSize: Number(e.target.value) })}
-            className="w-full accent-purple-500"
-          />
-        </div>
-
-        {/* Colors row — fix7: trial 版は色変更不可（fillColor/strokeColor 固定） */}
-        <div className="flex gap-4">
-          {isPremium ? (
-            <>
-              <ColorPicker
-                label="文字色"
-                value={config.text.fillColor}
-                onChange={(c) => updateText({ fillColor: c })}
-              />
-              <ColorPicker
-                label="縁取り色"
-                value={config.text.strokeColor}
-                onChange={(c) => updateText({ strokeColor: c })}
-              />
-            </>
-          ) : (
+      <span className={`${fieldLabel} mt-6`} id="text-pos-label">文字の位置</span>
+      <div className={`${segmented} w-full`} role="group" aria-labelledby="text-pos-label">
+        {POSITIONS.map((opt) => {
+          const on = config.text.offsetY === opt.offsetY && config.text.offsetX === 0;
+          return (
             <button
+              key={opt.label}
               type="button"
-              onClick={() => onTrialLockClick?.("文字色のカスタマイズ")}
-              className="flex-1 flex items-center gap-2 px-3 py-2 text-xs text-gray-500 bg-gray-800/40 border border-gray-700 rounded hover:border-gray-600 transition-colors text-left"
-              title="Twitchフォローで解放"
+              onClick={() => updateText({ offsetX: 0, offsetY: opt.offsetY })}
+              aria-pressed={on}
+              className={`${segmentedBtn} flex-1 min-h-[40px] ${on ? segmentedBtnActive : ""}`}
             >
-              <span aria-hidden>🔒</span>
-              <span>文字色・縁取り色のカスタマイズはフォロー特典</span>
+              {opt.label}
             </button>
+          );
+        })}
+      </div>
+
+      <span className={`${fieldLabel} mt-6`}>文字の色</span>
+      {isPremium ? (
+        <div className="flex flex-wrap items-center gap-4 text-[11px] text-studio-muted">
+          <ColorPicker label="文字色" value={config.text.fillColor} onChange={(c) => updateText({ fillColor: c })} />
+          <span>フチ付きで、小さくても読みやすく</span>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => onTrialLockClick?.("文字色のカスタマイズ")}
+          className="w-full flex items-center gap-2 px-3 py-2.5 text-[12px] text-studio-muted bg-[#1f1e26] border border-studio-stroke rounded-[10px] text-left"
+        >
+          <span aria-hidden>🔒</span>
+          <span>文字色・縁取り色のカスタマイズはフォロー / 合言葉で使えます</span>
+        </button>
+      )}
+
+      <details className="mt-7 pt-4 border-t border-[#3b3543] text-[12px]">
+        <summary className="cursor-pointer min-h-[34px] text-[#ddd5e8]">文字の詳細設定（フォント・縁取り・大きさ・自由配置）</summary>
+        <div className="space-y-4 mt-3">
+          <div>
+            <label className="text-[11px] text-studio-muted block mb-1" htmlFor={fontId}>フォント</label>
+            <select id={fontId} value={config.text.font} onChange={(e) => updateText({ font: e.target.value })} className={`${inputCls} text-[13px]`}>
+              {(["標準", "日本語", "英字"] as FontCategory[]).map((cat) => {
+                const opts = FONT_OPTIONS.filter((o) => o.category === cat);
+                if (opts.length === 0) return null;
+                return (
+                  <optgroup key={cat} label={cat}>
+                    {opts.map((opt) => (
+                      <option key={opt.value} value={opt.value}>{opt.label}</option>
+                    ))}
+                  </optgroup>
+                );
+              })}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] text-studio-muted block mb-1">文字の大きさ: {config.text.fontSize}px</label>
+            <input type="range" min={8} max={72} value={config.text.fontSize} onChange={(e) => updateText({ fontSize: Number(e.target.value) })} className="w-full" />
+          </div>
+          <div>
+            <label className="text-[11px] text-studio-muted block mb-1">
+              文字の縁の幅: {config.text.outlineWidth}px{config.text.outlineWidth === 0 ? "（なし）" : ""}
+            </label>
+            <input type="range" min={0} max={10} value={config.text.outlineWidth} onChange={(e) => updateText({ outlineWidth: Number(e.target.value) })} className="w-full" />
+          </div>
+          {isPremium && (
+            <ColorPicker label="縁取りの色" value={config.text.strokeColor} onChange={(c) => updateText({ strokeColor: c })} />
+          )}
+          {bgRemovedCanvas && (
+            <div>
+              <p className="text-[11px] text-studio-muted mb-1">自由配置（文字や重ねた画像をドラッグ）</p>
+              <DragPositionCanvas bgRemovedCanvas={bgRemovedCanvas} config={config} subCanvas={subCanvas} onConfigChange={onConfigChange} />
+            </div>
           )}
         </div>
-
-        {/* Text outline width slider */}
-        <div>
-          <label className="text-xs text-gray-400 block mb-1">
-            縁の幅: {config.text.outlineWidth}px{config.text.outlineWidth === 0 ? "（なし）" : ""}
-          </label>
-          <input
-            type="range"
-            min={0}
-            max={10}
-            value={config.text.outlineWidth}
-            onChange={(e) => updateText({ outlineWidth: Number(e.target.value) })}
-            className="w-full accent-purple-500"
-          />
-        </div>
-
-        {/* Text position shortcuts */}
-        <div>
-          <label className="text-xs text-gray-400 block mb-1">テキスト位置</label>
-          <div className="grid grid-cols-3 gap-2">
-            {([
-              { label: "上", offsetY: -40 },
-              { label: "中央", offsetY: 0 },
-              { label: "下", offsetY: 40 },
-            ] as const).map((opt) => (
-              <button
-                key={opt.label}
-                onClick={() => updateText({ offsetX: 0, offsetY: opt.offsetY })}
-                className={`px-3 py-1.5 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
-                  config.text.offsetY === opt.offsetY && config.text.offsetX === 0
-                    ? "bg-purple-600 text-white"
-                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Drag position canvas (shown when text or sub-image overlay is active) */}
-      {bgRemovedCanvas && (
-        <DragPositionCanvas
-          bgRemovedCanvas={bgRemovedCanvas}
-          config={config}
-          subCanvas={subCanvas}
-          onConfigChange={onConfigChange}
-        />
-      )}
+      </details>
     </div>
   );
 }

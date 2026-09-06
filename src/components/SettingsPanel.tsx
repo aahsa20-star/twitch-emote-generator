@@ -1,280 +1,104 @@
-import {
-  EmoteConfig,
-  PartialEmoteConfig,
-  BORDER_OPTIONS,
-  FRAME_OPTIONS,
-  ANIMATED_SPEED_PRESETS,
-  ANIMATED_SPEED_MIN,
-  ANIMATED_SPEED_MAX,
-  ANIMATED_SPEED_STEP,
-  ANIMATED_LOOP_OPTIONS,
-} from "@/types/emote";
-import ColorPicker from "./settings/ColorPicker";
-import TextSettings from "./settings/TextSettings";
+"use client";
+
+import type { EmoteConfig, PartialEmoteConfig } from "@/types/emote";
+import type { DownloadGate } from "@/lib/download/profiles";
 import AnimationSettings from "./settings/AnimationSettings";
-import BadgeSettings from "./settings/BadgeSettings";
-import SubImageSettings from "./settings/SubImageSettings";
+import TextSettings from "./settings/TextSettings";
+import DecorSettings from "./settings/DecorSettings";
+import MoreSettings, { PlaybackSettings } from "./settings/MoreSettings";
+
+export type EditorTool = "animation" | "text" | "decor" | "more";
 
 interface SettingsPanelProps {
   config: EmoteConfig;
   onConfigChange: (partial: PartialEmoteConfig) => void;
   disabled: boolean;
   isPremium: boolean;
-  /** fix7: trial 版で locked な機能をクリックされた時に親が
-   *  FeatureLockHint / FollowGateModal を起動するためのコールバック */
   onTrialLockClick?: (featureLabel: string) => void;
   subFile: File | null;
   onSubImageSelected: (file: File) => void;
   bgRemovedCanvas?: HTMLCanvasElement | null;
   subCanvas?: HTMLCanvasElement | null;
-  /** True when the source is an animated GIF or extracted video frames.
-   *  Gates the "再生設定" section (speed + loop count) which only applies
-   *  to those source types. */
-  isAnimatedSource?: boolean;
+  /** GIF / video source: 「動き」 becomes 「再生」 (playback settings). */
+  isAnimatedSource: boolean;
+  tool: EditorTool;
+  onToolChange: (tool: EditorTool) => void;
+  onGoAdjust: (() => void) | null;
+  onRetryBgRemoval: () => void;
+  onUseOriginal: () => void;
+  onResetPosition: () => void;
+  hasPositionAdjustment: boolean;
+  canRedoBackground: boolean;
+  onBeforeDownload?: DownloadGate;
 }
 
-export default function SettingsPanel({
-  config,
-  onConfigChange,
-  disabled,
-  isPremium,
-  onTrialLockClick,
-  subFile,
-  onSubImageSelected,
-  bgRemovedCanvas,
-  subCanvas,
-  isAnimatedSource = false,
-}: SettingsPanelProps) {
+/**
+ * Editor inspector (09 §3): 動き / 文字 / 飾り / その他. Every panel stays
+ * mounted (hidden, not unmounted) so search text, scroll and drafts survive
+ * tab switches; previews inside hidden panels stop because they are offscreen.
+ */
+export default function SettingsPanel(p: SettingsPanelProps) {
+  const tabs: { id: EditorTool; label: string; icon: string }[] = [
+    { id: "animation", label: p.isAnimatedSource ? "再生" : "動き", icon: p.isAnimatedSource ? "▶" : "◉" },
+    { id: "text", label: "文字", icon: "T" },
+    { id: "decor", label: "飾り", icon: "✧" },
+    { id: "more", label: "その他", icon: "⚙" },
+  ];
+
   return (
-    <div className={`space-y-5 ${disabled ? "opacity-50 pointer-events-none" : ""}`}>
-      {/* Border */}
-      <div>
-        <h3 className="text-sm font-semibold text-gray-300 mb-2">フチ取り</h3>
-        <div className="grid grid-cols-2 gap-2">
-          {BORDER_OPTIONS.map((opt) => {
-            // fix7 trial 制限: "none" / "white" / "black" のみ常時アンロック、
-            // 他全て (shadow / custom / 7 fix6 styles) は !isPremium で locked
-            const isTrialAllowed =
-              opt.value === "none" ||
-              opt.value === "white" ||
-              opt.value === "black";
-            const locked = !isPremium && !isTrialAllowed;
-            const isActiveFromTemplate = locked && config.outline.style === opt.value;
-            return (
-              <button
-                key={opt.value}
-                onClick={() => {
-                  if (locked) {
-                    onTrialLockClick?.(opt.label);
-                  } else {
-                    onConfigChange({ outline: { style: opt.value } });
-                  }
-                }}
-                className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
-                  isActiveFromTemplate
-                    ? "bg-purple-900 text-purple-300 border border-purple-500 cursor-not-allowed"
-                    : locked
-                    ? "bg-gray-800 text-gray-600 cursor-not-allowed"
-                    : config.outline.style === opt.value
-                    ? "bg-purple-600 text-white"
-                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                }`}
-                title={isActiveFromTemplate ? "テンプレートから適用中。Twitchフォローで解放" : locked ? "Twitchフォローで解放" : undefined}
-              >
-                {locked ? `🔒 ${opt.label}` : opt.label}
-              </button>
-            );
-          })}
-        </div>
-        {config.outline.style !== "none" && (
-          <div className="mt-2">
-            <label className="text-xs text-gray-400 block mb-1">
-              縁の幅: {config.outline.width}px
-            </label>
-            <input
-              type="range"
-              min={1}
-              max={20}
-              value={config.outline.width}
-              onChange={(e) => onConfigChange({ outline: { width: Number(e.target.value) } })}
-              className="w-full accent-purple-500"
+    <section className={`bg-studio-surface border border-studio-stroke rounded-studio overflow-hidden ${p.disabled ? "opacity-60" : ""}`} aria-label="編集設定" aria-busy={p.disabled}>
+      <nav className="sticky top-0 z-[2] grid grid-cols-4 gap-2 px-2.5 md:px-4 bg-studio-surface border-b border-studio-stroke" aria-label="編集項目">
+        {tabs.map((t) => {
+          const on = p.tool === t.id;
+          return (
+            <button
+              key={t.id}
+              type="button"
+              aria-pressed={on}
+              onClick={() => p.onToolChange(t.id)}
+              className={`flex items-center justify-center gap-1.5 min-h-[52px] py-3 text-[12px] md:text-[13px] border-b-2 -mb-px transition-colors ${
+                on ? "text-studio-accent border-studio-accent font-semibold" : "text-studio-muted border-transparent hover:text-studio-text"
+              }`}
+            >
+              <span aria-hidden className="text-[15px]">{t.icon}</span>
+              {t.label}
+            </button>
+          );
+        })}
+      </nav>
+
+      <div className={`p-4 md:p-6 ${p.disabled ? "pointer-events-none" : ""}`}>
+        <div hidden={p.tool !== "animation"}>
+          {p.isAnimatedSource ? (
+            <PlaybackSettings config={p.config} onConfigChange={p.onConfigChange} />
+          ) : (
+            <AnimationSettings
+              config={p.config}
+              onConfigChange={p.onConfigChange}
+              isPremium={p.isPremium}
+              onTrialLockClick={p.onTrialLockClick}
+              bgRemovedCanvas={p.bgRemovedCanvas}
+              active={p.tool === "animation" && !p.disabled}
             />
-          </div>
-        )}
-        {(config.outline.style === "custom" ||
-          config.outline.style === "neon" ||
-          config.outline.style === "double" ||
-          config.outline.style === "sticker" ||
-          config.outline.style === "outline-only" ||
-          config.outline.style === "gradient" ||
-          config.outline.style === "dotted") &&
-          isPremium && (
-            <div className="mt-2">
-              <ColorPicker
-                label="フチの色"
-                value={config.outline.color}
-                onChange={(c) => onConfigChange({ outline: { color: c } })}
-              />
-            </div>
           )}
-        {config.outline.style === "custom" && !isPremium && (
-          <div className="mt-2 flex items-center gap-2">
-            <span
-              className="inline-block w-6 h-6 rounded border border-gray-600"
-              style={{ backgroundColor: config.outline.color }}
-            />
-            <span className="text-xs text-gray-400">テンプレートの色を使用中</span>
-          </div>
-        )}
+        </div>
+        <div hidden={p.tool !== "text"}>
+          <TextSettings
+            config={p.config}
+            onConfigChange={p.onConfigChange}
+            isPremium={p.isPremium}
+            onTrialLockClick={p.onTrialLockClick}
+            bgRemovedCanvas={p.bgRemovedCanvas}
+            subCanvas={p.subCanvas}
+          />
+        </div>
+        <div hidden={p.tool !== "decor"}>
+          <DecorSettings config={p.config} onConfigChange={p.onConfigChange} isPremium={p.isPremium} onTrialLockClick={p.onTrialLockClick} />
+        </div>
+        <div hidden={p.tool !== "more"}>
+          <MoreSettings {...p} />
+        </div>
       </div>
-
-      {/* Padding */}
-      <div>
-        <label className="text-xs text-gray-400 block mb-1">
-          余白: {Math.round(config.padding * 100)}%
-        </label>
-        <input
-          type="range"
-          min={0}
-          max={15}
-          value={Math.round(config.padding * 100)}
-          onChange={(e) => onConfigChange({ padding: Number(e.target.value) / 100 })}
-          className="w-full accent-purple-500"
-        />
-      </div>
-
-      {/* Frame (subscriber-only) */}
-      {isPremium && (
-        <div>
-          <h3 className="text-sm font-semibold text-gray-300 mb-2">フレーム</h3>
-          <div className="grid grid-cols-2 gap-2">
-            {FRAME_OPTIONS.map((opt) => (
-              <button
-                key={opt.value}
-                onClick={() => onConfigChange({ frame: { type: opt.value } })}
-                className={`px-3 py-2 min-h-[44px] md:min-h-0 rounded text-sm transition-colors ${
-                  config.frame.type === opt.value
-                    ? "bg-purple-600 text-white"
-                    : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                }`}
-              >
-                {opt.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {!isPremium && config.frame.type !== "none" && (
-        <div>
-          <h3 className="text-sm font-semibold text-gray-300 mb-2">フレーム</h3>
-          <div className="px-3 py-2 rounded text-sm bg-purple-900 text-purple-300 border border-purple-500">
-            🔒 {FRAME_OPTIONS.find((o) => o.value === config.frame.type)?.label ?? config.frame.type} — テンプレートから適用中
-          </div>
-        </div>
-      )}
-
-      {/* Sub-image composite (subscriber-only) */}
-      {isPremium && (
-        <SubImageSettings
-          config={config}
-          onConfigChange={onConfigChange}
-          subFile={subFile}
-          onSubImageSelected={onSubImageSelected}
-        />
-      )}
-
-      {/* Text */}
-      <TextSettings
-        config={config}
-        onConfigChange={onConfigChange}
-        isPremium={isPremium}
-        onTrialLockClick={onTrialLockClick}
-        bgRemovedCanvas={bgRemovedCanvas}
-        subCanvas={subCanvas}
-      />
-
-      {/* Animation — hidden for animated sources (the source IS the animation;
-          the 52-pattern animation system would be a no-op in that branch). */}
-      {!isAnimatedSource && (
-        <AnimationSettings
-          config={config}
-          onConfigChange={onConfigChange}
-          isPremium={isPremium}
-          onTrialLockClick={onTrialLockClick}
-          bgRemovedCanvas={bgRemovedCanvas}
-        />
-      )}
-
-      {/* Playback settings (animated sources only) */}
-      {isAnimatedSource && (
-        <div>
-          <h3 className="text-sm font-semibold text-gray-300 mb-2">再生設定</h3>
-          <div className="space-y-3">
-            {/* Speed */}
-            <div className="space-y-1.5">
-              <label className="text-xs text-gray-400 flex justify-between">
-                <span>速度</span>
-                <span className="font-mono text-gray-300">{config.animatedSpeed.toFixed(2)}x</span>
-              </label>
-              <input
-                type="range"
-                min={ANIMATED_SPEED_MIN}
-                max={ANIMATED_SPEED_MAX}
-                step={ANIMATED_SPEED_STEP}
-                value={config.animatedSpeed}
-                onChange={(e) => onConfigChange({ animatedSpeed: Number(e.target.value) } as PartialEmoteConfig)}
-                className="w-full accent-purple-500"
-              />
-              <div className="flex gap-1.5">
-                {ANIMATED_SPEED_PRESETS.map((p) => (
-                  <button
-                    key={p}
-                    onClick={() => onConfigChange({ animatedSpeed: p } as PartialEmoteConfig)}
-                    className={`flex-1 py-1 rounded text-xs transition-colors ${
-                      Math.abs(config.animatedSpeed - p) < 0.001
-                        ? "bg-purple-600 text-white"
-                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    }`}
-                  >
-                    {p}x
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Loop count */}
-            <div className="space-y-1.5">
-              <label className="text-xs text-gray-400 block">ループ回数</label>
-              <div className="grid grid-cols-4 gap-1.5">
-                {ANIMATED_LOOP_OPTIONS.map((opt) => (
-                  <button
-                    key={opt.value}
-                    onClick={() => onConfigChange({ animatedLoopCount: opt.value } as PartialEmoteConfig)}
-                    className={`py-1.5 rounded text-xs transition-colors ${
-                      config.animatedLoopCount === opt.value
-                        ? "bg-purple-600 text-white"
-                        : "bg-gray-700 text-gray-300 hover:bg-gray-600"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-              <p className="text-[11px] text-gray-500 leading-snug">
-                Twitchエモートとして使う場合は無限ループ推奨
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Badge (subscriber-only) */}
-      {isPremium && (
-        <BadgeSettings
-          config={config}
-          onConfigChange={onConfigChange}
-        />
-      )}
-    </div>
+    </section>
   );
 }
