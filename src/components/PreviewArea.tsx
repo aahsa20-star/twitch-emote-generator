@@ -1,5 +1,6 @@
 "use client";
 
+import type { DownloadGate } from "@/lib/download/profiles";
 import { useEffect, useRef, useState } from "react";
 import { BadgeSettings, BADGE_SIZES, EmoteVariant, ExportMode, ProcessingStage, TextPosition } from "@/types/emote";
 import { applyBorder, applyTextOverlay, centerAndResize, renderBadge } from "@/lib/canvasPipeline";
@@ -18,7 +19,7 @@ interface PreviewAreaProps {
   bgRemovedCanvas?: HTMLCanvasElement | null;
   onContentAdjust?: (dx: number, dy: number, ds: number) => void;
   /** fix7: DL 前 gate（親 EmoteGenerator から渡される、PreviewCard / バッジ DL を統一） */
-  onBeforeDownload?: (size: number, format: "png" | "gif") => Promise<boolean>;
+  onBeforeDownload?: DownloadGate;
 }
 
 const INPUT_FEATURES = ["画像", "GIF", "動画"];
@@ -214,9 +215,11 @@ function SampleShowcase() {
 function BadgePreviewSection({
   bgRemovedCanvas,
   badgeSettings,
+  onBeforeDownload,
 }: {
   bgRemovedCanvas: HTMLCanvasElement;
   badgeSettings: BadgeSettings;
+  onBeforeDownload?: DownloadGate;
 }) {
   const canvasRefs = useRef<(HTMLCanvasElement | null)[]>([]);
 
@@ -233,9 +236,11 @@ function BadgePreviewSection({
     });
   }, [bgRemovedCanvas, badgeSettings]);
 
-  const handleDownload = (size: number, idx: number) => {
+  const handleDownload = async (size: number, idx: number) => {
     const target = canvasRefs.current[idx];
     if (!target) return;
+    // R1c: バッジのサイズ別保存も共通ゲートを通す
+    if (onBeforeDownload && !(await onBeforeDownload([{ size, format: "png" }], "badge"))) return;
     const url = target.toDataURL("image/png");
     const a = document.createElement("a");
     a.href = url;
@@ -366,7 +371,7 @@ export default function PreviewArea({ variants, stage, hasText = false, textPosi
 
       {/* Badge preview */}
       {badgeSettings?.enabled && bgRemovedCanvas && (
-        <BadgePreviewSection bgRemovedCanvas={bgRemovedCanvas} badgeSettings={badgeSettings} />
+        <BadgePreviewSection bgRemovedCanvas={bgRemovedCanvas} badgeSettings={badgeSettings} onBeforeDownload={onBeforeDownload} />
       )}
     </div>
   );

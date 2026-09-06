@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useSession } from "next-auth/react";
 import { useEmoteProcessor } from "@/hooks/useEmoteProcessor";
 import UploadPanel from "./UploadPanel";
 import ImageAdjustEditor from "./ImageAdjustEditor";
@@ -10,22 +9,21 @@ import SettingsPanel from "./SettingsPanel";
 import PreviewArea from "./PreviewArea";
 import DownloadButton from "./DownloadButton";
 import RecommendedPatterns from "./RecommendedPatterns";
-import PopularTemplates from "./PopularTemplates";
 import ShareButton from "./ShareButton";
 import ShareAfterDownloadModal from "./ShareAfterDownloadModal";
 import FloatingMiniPreview from "./FloatingMiniPreview";
 import VideoFaceExtractor from "./VideoFaceExtractor";
 import VideoTrimmer from "./VideoTrimmer";
 import type { DecodedVideo } from "@/lib/video/decoder";
-import LoginPromptModal from "./LoginPromptModal";
-import PostTemplateModal from "./PostTemplateModal";
 import TrialBadge from "./TrialBadge";
 import ReauthBanner from "./ReauthBanner";
 import FollowGateModal from "./FollowGateModal";
+import AccessStatusPanel from "./AccessStatusPanel";
+import { useAccess } from "./providers/AccessProvider";
+import type { DownloadGate } from "@/lib/download/profiles";
+import { requestDownloadPermission } from "@/lib/download/client";
 import FeatureLockHint, { canShowFeatureLockHint } from "./FeatureLockHint";
-import { EmoteConfig, ExportMode, BgRemovalQuality, DEFAULT_BADGE_SETTINGS } from "@/types/emote";
-
-const SUBSCRIBER_KEY = "emote-subscriber";
+import { EmoteConfig, ExportMode, BgRemovalQuality } from "@/types/emote";
 
 function SpinnerIcon() {
   return (
@@ -36,19 +34,8 @@ function SpinnerIcon() {
   );
 }
 
-interface TemplateCredit {
-  userName: string;
-  userLogin?: string | null;
-}
-
-interface EmoteGeneratorProps {
-  templateOverride?: EmoteConfig | null;
-  templateCredit?: TemplateCredit | null;
-  onTemplateApplied?: () => void;
-}
-
-export default function EmoteGenerator({ templateOverride, templateCredit, onTemplateApplied }: EmoteGeneratorProps) {
-  const { data: session } = useSession();
+export default function EmoteGenerator() {
+  const { access, ensureFollowerFresh } = useAccess();
   const [exportMode, setExportMode] = useState<ExportMode>("twitch");
   const [subFile, setSubFile] = useState<File | null>(null);
   const [subCanvas, setSubCanvas] = useState<HTMLCanvasElement | null>(null);
@@ -99,32 +86,13 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingVideoFile, setPendingVideoFile] = useState<File | null>(null);
   const [showRetryMenu, setShowRetryMenu] = useState(false);
-  // Legacy PASSPHRASE state (localStorage-backed, client-only)
-  const [isSubscriber, setIsSubscriber] = useState(false);
-
-  // fix7: derive follower / premium / needsReauth from session.
-  // session.user.{isFollower, scope} is set by src/auth.ts session callback.
-  const sessionUserExt = session?.user as
-    | (Record<string, unknown> & { isFollower?: boolean; scope?: string })
-    | undefined;
-  const isFollower = sessionUserExt?.isFollower ?? false;
-  const sessionScope = sessionUserExt?.scope ?? "";
-  // fix11 で一時固定した isPremium=true は、fix14 のサイト全体ロックにより
-  // 実態と整合するようになった: page.tsx (Server Component) が evaluateAccess
-  // で未解放ユーザーを SiteGate に隔離するため、この component に到達する
-  // ユーザーは premium 解放済み（または SITE_LOCK_ENABLED=false の縮退時で、
-  // その場合も fix11 と同じ全員 premium 挙動を維持）。fix11 コメントが推奨
-  // していた Option A（Server Component で flags 評価）は page.tsx 側で実装済み。
-  const isPremium: boolean = true;
-  const needsReauth =
-    !!session?.user && !sessionScope.includes("user:read:follows");
-
-  const [passphrase, setPassphrase] = useState("");
+  // R1b: 解放状態はサーバー由来の AccessSnapshot（AccessProvider）が単一の源。
+  // localStorage や固定 true は使わない。SITE_LOCK_ENABLED=false の縮退時は
+  // isUnlocked=false のまま trial 制限が UI に反映される（設計 §9）。
+  const isPremium: boolean = access.isUnlocked;
+  const needsReauth = access.followEnabled && access.needsReauth;
   const [authToast, setAuthToast] = useState<string | null>(null);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [showPostModal, setShowPostModal] = useState(false);
-  const [showLoginPrompt, setShowLoginPrompt] = useState(false);
-  const [templateToast, setTemplateToast] = useState<string | null>(null);
 
   // fix7: 2 層モーダル制御（軽量 = FeatureLockHint / 本格 = FollowGateModal）
   const [showFollowGate, setShowFollowGate] = useState(false);
@@ -151,110 +119,42 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
   }, []);
 
   /**
-   * fix7: DL 実行前の server check ガード。/api/download-check に問い合わせ、
-   * 403 なら FollowGateModal を起動して false を返す。28px PNG プレビューを
-   * モーダルに渡してオンボーディング感を強める。
+   * 全保存経路共通のゲート (R1c, 仕様書 §9)。含まれる全ファイルを
+   * /api/download-check で検証。403 access-required → 再認証パネル、
+   * 400/429/503/通信失敗 → それぞれの説明（フォロー勧誘に変換しない）。
    */
-  const onBeforeDownload = useCallback(
-    async (size: number, format: "png" | "gif"): Promise<boolean> => {
-      try {
-        const res = await fetch("/api/download-check", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ size, format }),
-        });
-        if (res.ok) return true;
-
-        // 403: trial 制限。28px プレビューをモーダル先頭に表示
+  const onBeforeDownload = useCallback<DownloadGate>(
+    async (files, assetType = "emote", platform = exportMode) => {
+      // 04 指示: 期限切れ直後は「確認中」→ 再確認を待ってから保護操作へ進む。
+      if (!access.isUnlocked && access.followerPending) {
+        showAuthToast("フォロー状態を確認しています…");
+        const fresh = await ensureFollowerFresh();
+        if (!fresh?.isUnlocked) {
+          setFollowGateVariant("lock_modal");
+          setShowFollowGate(true);
+          return false;
+        }
+      }
+      const result = await requestDownloadPermission({ platform, assetType, files });
+      if (result.allowed) return true;
+      if (result.reason === "access-required" || result.reason === "site-locked") {
         const tinyVariant = variants.find((v) => v.size === 28);
         setFollowGatePreviewSrc(tinyVariant?.staticDataUrl);
         setFollowGateVariant("lock_modal");
         setShowFollowGate(true);
         return false;
-      } catch {
-        // ネットワーク失敗時は fail-safe で block（許可しない）
-        setFollowGatePreviewSrc(undefined);
-        setFollowGateVariant("lock_modal");
-        setShowFollowGate(true);
-        return false;
       }
+      showAuthToast(result.message);
+      return false;
     },
-    [variants],
+    [variants, exportMode, access.isUnlocked, access.followerPending, ensureFollowerFresh],
   );
-
-  // Apply template override from gallery
-  useEffect(() => {
-    if (templateOverride) {
-      updateConfig(templateOverride);
-      setTemplateToast("テンプレートを適用しました");
-      setTimeout(() => setTemplateToast(null), 3000);
-      onTemplateApplied?.();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [templateOverride]);
-
-  const handlePostTemplate = () => {
-    if (!session?.user) {
-      setShowLoginPrompt(true);
-      return;
-    }
-    setShowPostModal(true);
-  };
-
-  const handlePostSuccess = () => {
-    setShowPostModal(false);
-    setTemplateToast("🎉 テンプレートを投稿しました！ギャラリーで公開中");
-    setTimeout(() => setTemplateToast(null), 4000);
-  };
 
   const handleDownloadComplete = () => setShowShareModal(true);
 
-  // Restore subscriber status from localStorage
-  useEffect(() => {
-    try {
-      if (localStorage.getItem(SUBSCRIBER_KEY) === "true") {
-        setIsSubscriber(true);
-      }
-    } catch {}
-  }, []);
-
-  const handleAuth = async () => {
-    try {
-      const res = await fetch("/api/auth", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ passphrase: passphrase.trim() }),
-      });
-      if (res.ok) {
-        setIsSubscriber(true);
-        setPassphrase("");
-        try { localStorage.setItem(SUBSCRIBER_KEY, "true"); } catch {}
-        setAuthToast("特典機能が解放されました！");
-      } else {
-        setAuthToast("合言葉が違います");
-      }
-    } catch {
-      setAuthToast("認証エラーが発生しました");
-    }
-    setTimeout(() => setAuthToast(null), 3000);
-  };
-
-  const handleLogout = () => {
-    setIsSubscriber(false);
-    try { localStorage.removeItem(SUBSCRIBER_KEY); } catch {}
-    // fix7: server-side cookie もクリア（/api/auth DELETE で HttpOnly cookie 削除）
-    fetch("/api/auth", { method: "DELETE" }).catch(() => {
-      // ignore — cookie expires in 30 days anyway
-    });
-    // Reset subscriber-only config values to defaults
-    const subscriberAnimations = ["sparkle", "afterimage", "fastspin", "float", "wobble", "vhs", "snow", "fire", "matrix", "drunk", "confetti", "hypno", "tv", "earthquake", "party", "flip", "ghost", "glitch2", "spiral", "heartbeat", "spring", "jelly"];
-    updateConfig({
-      outline: { style: config.outline.style === "custom" ? "none" : config.outline.style, color: "#ffffff" },
-      frame: { type: "none" },
-      subImage: { mode: "none", scale: 38, offsetX: 0, offsetY: 0 },
-      badge: { ...DEFAULT_BADGE_SETTINGS },
-      animation: { type: subscriberAnimations.includes(config.animation.type) ? "none" : config.animation.type },
-    });
+  const showAuthToast = (msg: string) => {
+    setAuthToast(msg);
+    setTimeout(() => setAuthToast(null), 6000);
   };
 
   const handleImageSelected = (file: File) => {
@@ -337,7 +237,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
     <>
       {/* fix7: 旧 scope ログイン者に再認可を促すバナー（× で控えめアイコンに切替） */}
       {needsReauth && (
-        <ReauthBanner variant={isSubscriber ? "subscriber" : "default"} />
+        <ReauthBanner variant={access.grants.includes("passphrase") ? "subscriber" : "default"} />
       )}
       <div className="flex-1 grid grid-cols-1 md:grid-cols-[380px_1fr] gap-4 md:gap-6 p-4 md:p-6 max-w-7xl mx-auto w-full overflow-x-hidden">
       {/* Upload + toggle + progress (top-left on desktop, 1st on mobile) */}
@@ -376,81 +276,19 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
           onFaceSelected={handleImageSelected}
         />
 
-        {/* Subscriber auth */}
-        {isSubscriber ? (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-emerald-400/80">特典 解放済み — 5つの限定機能が利用可能</span>
-            <button
-              onClick={handleLogout}
-              className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-            >
-              解除
-            </button>
-          </div>
-        ) : (
-          <div className="bg-gray-800/60 rounded-lg p-3 space-y-2.5">
-            <label className="text-xs text-gray-300 font-medium block">特典機能</label>
-            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
-              <span className="text-xs text-gray-400 flex items-center gap-1.5">
-                <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
-                限定アニメーション 42種
-              </span>
-              <span className="text-xs text-gray-400 flex items-center gap-1.5">
-                <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
-                エモートフレーム 16種
-              </span>
-              <span className="text-xs text-gray-400 flex items-center gap-1.5">
-                <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
-                2画像合成
-              </span>
-              <span className="text-xs text-gray-400 flex items-center gap-1.5">
-                <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
-                カスタムフチ色
-              </span>
-              <span className="text-xs text-gray-400 flex items-center gap-1.5">
-                <svg className="w-3 h-3 text-gray-500 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4" /></svg>
-                サブスクバッジ作成
-              </span>
-            </div>
-            <a
-              href="https://www.twitch.tv/datsusara_aki"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-purple-400 hover:underline block"
-            >
-              Twitch で @datsusara_aki をフォローして解放（無料）
-            </a>
-            <a
-              href="https://discord.gg/9ktJgFrYKe"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-purple-400 hover:underline block"
-            >
-              合言葉はダツ皿アキのDiscordサーバーのサブスク限定チャットで配布中
-            </a>
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={passphrase}
-                onChange={(e) => setPassphrase(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleAuth()}
-                placeholder="合言葉..."
-                className="flex-1 px-2 py-1.5 rounded bg-gray-700 text-gray-100 text-sm placeholder-gray-500 border border-gray-600 focus:border-purple-500 focus:outline-none"
-              />
-              <button
-                onClick={handleAuth}
-                className="px-3 py-1.5 rounded bg-purple-600 text-white text-sm hover:bg-purple-500 transition-colors"
-              >
-                解除
-              </button>
-            </div>
-          </div>
-        )}
+        {/* R1b: 解放状態の表示・解除（フォロー / 合言葉を別々に扱う） */}
+        <AccessStatusPanel
+          onOpenGate={() => {
+            setFollowGateVariant("onboarding");
+            setFollowGatePreviewSrc(undefined);
+            setShowFollowGate(true);
+          }}
+        />
 
         {/* Auth toast */}
         {authToast && (
           <div className={`text-xs px-3 py-2 rounded-lg text-center ${
-            authToast.includes("解放") ? "bg-purple-600/30 text-purple-300" : "bg-red-600/30 text-red-300"
+            "bg-red-600/30 text-red-300"
           }`}>
             {authToast}
           </div>
@@ -465,12 +303,6 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
         {adjustToast && (
           <div className="text-xs px-3 py-2 rounded-lg text-center bg-yellow-600/30 text-yellow-300">
             {adjustToast}
-          </div>
-        )}
-        {/* Template toast (fixed top for mobile visibility) */}
-        {templateToast && (
-          <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 text-sm px-5 py-3 rounded-lg text-center bg-green-600 text-white shadow-lg animate-fade-in font-medium">
-            {templateToast}
           </div>
         )}
 
@@ -699,8 +531,6 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
           onConfigChange={updateConfig}
           disabled={!sourceFile || stage === "removing-background"}
           isPremium={isPremium}
-          isLoggedIn={!!session}
-          onLoginRequired={() => setShowLoginPrompt(true)}
           onTrialLockClick={handleTrialLockClick}
           subFile={subFile}
           onSubImageSelected={handleSubImageSelected}
@@ -708,19 +538,11 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
           subCanvas={subCanvas}
           isAnimatedSource={isGifSource || isVideoSource}
         />
-        {/* DL + Share + Post Template inside sticky container (desktop only) */}
+        {/* DL + Share inside sticky container (desktop only) */}
         {sourceFile && (
           <div className="hidden md:flex flex-col gap-3">
             <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} badgeSettings={config.badge} bgRemovedCanvas={bgRemovedCanvas} onBeforeDownload={onBeforeDownload} />
             <ShareButton imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
-            {stage === "ready" && (
-              <button
-                onClick={handlePostTemplate}
-                className="w-full px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-gray-200 transition-colors border border-gray-700 hover:border-gray-500"
-              >
-                テンプレートとして投稿
-              </button>
-            )}
           </div>
         )}
       </div>
@@ -731,24 +553,16 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
           <RecommendedPatterns
             bgRemovedCanvas={bgRemovedCanvas}
             onApply={handleApplyPattern}
+            onBeforeDownload={onBeforeDownload}
           />
-          <PopularTemplates onApply={handleApplyPattern} />
         </div>
       )}
 
-      {/* DL + Share + Post Template (mobile only: order-2) */}
+      {/* DL + Share (mobile only: order-2) */}
       {sourceFile && (
         <div className="space-y-3 order-2 md:hidden self-start">
-          <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} badgeSettings={config.badge} bgRemovedCanvas={bgRemovedCanvas} />
+          <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} onDownloadComplete={handleDownloadComplete} badgeSettings={config.badge} bgRemovedCanvas={bgRemovedCanvas} onBeforeDownload={onBeforeDownload} />
           <ShareButton imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
-          {stage === "ready" && (
-            <button
-              onClick={handlePostTemplate}
-              className="w-full px-3 py-2 rounded-lg text-sm text-gray-400 hover:text-gray-200 transition-colors border border-gray-700 hover:border-gray-500"
-            >
-              テンプレートとして投稿
-            </button>
-          )}
         </div>
       )}
 
@@ -757,21 +571,7 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
 
       {/* Share after download modal */}
       {showShareModal && (
-        <ShareAfterDownloadModal onClose={() => setShowShareModal(false)} imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} templateCredit={templateCredit} />
-      )}
-
-      {/* Post template modal */}
-      {showPostModal && (
-        <PostTemplateModal
-          config={config}
-          onClose={() => setShowPostModal(false)}
-          onSuccess={handlePostSuccess}
-        />
-      )}
-
-      {/* Login prompt modal */}
-      {showLoginPrompt && (
-        <LoginPromptModal onClose={() => setShowLoginPrompt(false)} />
+        <ShareAfterDownloadModal onClose={() => setShowShareModal(false)} imageDataUrl={variants.length > 0 ? variants.reduce((a, b) => a.size > b.size ? a : b).staticDataUrl : null} />
       )}
 
       {/* fix7: 軽量モーダル（鍵マーククリック時、5回まで） */}
@@ -791,7 +591,6 @@ export default function EmoteGenerator({ templateOverride, templateCredit, onTem
         onClose={() => setShowFollowGate(false)}
         variant={followGateVariant}
         previewSrc={followGatePreviewSrc}
-        onSubscribed={() => setIsSubscriber(true)}
       />
     </div>
     </>

@@ -1,44 +1,43 @@
 import { cookies } from "next/headers";
 import { auth } from "@/auth";
-import { evaluateAccess } from "@/lib/auth/premium";
 import { getFeatureFlags } from "@/lib/auth/feature-flags";
+import { ACCESS_COOKIE_NAME } from "@/lib/auth/passphrase-token";
+import { resolveAccess } from "@/lib/auth/resolve-access";
 import HomeClient from "@/components/HomeClient";
 import SiteGate from "@/components/SiteGate";
 
 /**
- * fix14: サイト全体ロック。
+ * Site-wide gate (fix14 → R1b).
  *
- * page.tsx を Server Component 化し、リクエストごとにサーバー側で
- * evaluateAccess（follower OR PASSPHRASE-cookie OR killswitch）を評価する。
- * 未解放なら SiteGate（合言葉入力画面）だけを返し、ツール本体の HTML は
- * 一切配信しない。解放済みなら従来 UI（HomeClient）を返す。
- * fix14.1 で解放経路は合言葉のみ（FOLLOW_AUTH_ENABLED default false）。
+ * Server Component: evaluates the signed passphrase cookie first (offline),
+ * then the Twitch session only when needed. Unlocked → HomeClient, otherwise
+ * SiteGate. The public AccessSnapshot is passed down as initial client state.
  *
- * これは fix11 コメントで推奨されていた「Option A: Server Component で
- * flags 評価 → props 流し」の実装でもある。client 側で killswitch 環境
- * 変数を読めない fix7 の設計欠陥はこの層で解消される。
+ * The follower TTL re-verification is NOT done here (RSC cannot persist the
+ * refreshed JWT cookie); the client triggers it through
+ * `useSession().update()` when `followerRecheckDue` is set.
  *
- * 解除手順（緊急時）: Vercel で SITE_LOCK_ENABLED=false → ゲート撤去
- * （trial/premium の旧 2 階層挙動に戻る）。TRIAL_MODE_ENABLED=false は
- * 従来どおり全員 premium の full retreat。
+ * 解除手順（緊急時）: Vercel で SITE_LOCK_ENABLED=false → ゲート撤去（trial 縮退）、
+ * FOLLOW_AUTH_ENABLED=false → 合言葉経路のみ、TRIAL_MODE_ENABLED=false → 全解放。
  */
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const flags = getFeatureFlags();
-  const session = await auth();
-
-  // PASSPHRASE-cookie based isSubscribed (set by /api/auth POST)
   const cookieStore = await cookies();
-  const isSubscribed = cookieStore.get("emote-subscriber")?.value === "1";
-
-  const access = evaluateAccess({
-    session: session ?? null,
-    isSubscribed,
+  const access = await resolveAccess({
+    accessCookie: cookieStore.get(ACCESS_COOKIE_NAME)?.value,
+    getSession: auth,
+    skipSessionWhenPassphraseValid: true,
     flags,
   });
 
-  if (flags.SITE_LOCK_ENABLED && !access.isPremium) {
-    return <SiteGate />;
+  // followerPending: last confirmed "following" is older than 24h and not yet
+  // re-verified. Render the creator so the client can re-verify in place
+  // ("確認中"); protected operations wait for the result (04 指示).
+  if (flags.SITE_LOCK_ENABLED && !access.isUnlocked && !access.followerPending) {
+    return <SiteGate initialAccess={access} />;
   }
 
-  return <HomeClient />;
+  return <HomeClient initialAccess={access} />;
 }

@@ -20,6 +20,7 @@ import { generateGif } from "@/lib/gifEncoder";
 import { exportAsZip } from "@/lib/zipExporter";
 import { decodeGif, releaseDecodedGif, MAX_FRAMES, type DecodedGif } from "@/lib/gif/decoder";
 import { encodeAnimatedGif, applySpeedToDelays, loopCountToRepeat } from "@/lib/gif/animatedEncoder";
+import { GifEncodeCancelledError, GifEncodeError } from "@/lib/gif/encode";
 import { releaseDecodedVideo, type DecodedVideo } from "@/lib/video/decoder";
 
 export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: HTMLCanvasElement | null = null) {
@@ -266,17 +267,33 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
   }, [sourceFile, skipBgRemoval, bgRemovalQuality, fileToCanvas, setGifSource, setVideoSource]);
 
   // Effect 2: Render previews when bgRemovedCanvas or config changes
+  //
+  // B06 (コミット B): every effect run is a *generation*. The cleanup marks the
+  // generation cancelled synchronously (the old code created `cancelled` inside
+  // the setTimeout callback and returned the cleanup from the timer, so React
+  // never saw it and finished async GIF jobs wrote stale results). Every await
+  // is followed by `isStale()`; stale jobs neither set variants/stage nor
+  // touch loading state.
+  const renderGenRef = useRef(0);
   useEffect(() => {
     if (!bgRemovedCanvas) return;
 
-    // Debounce rendering
+    const generation = ++renderGenRef.current;
+    let cancelled = false;
+    const isStale = () => cancelled || generation !== renderGenRef.current;
+    // 07 §2: waiting encode jobs of this generation are dropped on cleanup;
+    // the "editor-preview" owner keeps at most one waiting job in the queue.
+    const abort = new AbortController();
+    const encodeJob = { owner: "editor-preview", signal: abort.signal };
+
     if (renderTimeoutRef.current) {
       clearTimeout(renderTimeoutRef.current);
     }
 
     // 150ms debounce: prevents excessive re-renders during drag/scroll adjustments
     renderTimeoutRef.current = setTimeout(() => {
-      let cancelled = false;
+      renderTimeoutRef.current = null;
+      if (isStale()) return;
 
       async function render() {
         // Only show "processing" spinner on initial render (no existing variants).
@@ -284,7 +301,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
         if (stageDelayRef.current) clearTimeout(stageDelayRef.current);
         if (variantsRef.current.length === 0) {
           stageDelayRef.current = setTimeout(() => {
-            if (!cancelled) setStage("processing");
+            if (!isStale()) setStage("processing");
           }, 300);
         }
 
@@ -293,6 +310,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
         try {
           // Ensure fonts are loaded before Canvas text rendering
           await document.fonts.ready;
+          if (isStale()) return; // R2 §4: never start heavy work for an old generation
 
           const sizes =
             exportMode === "discord" || exportMode === "ffz" ? DISCORD_SIZES :
@@ -316,26 +334,27 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
             const repeat = loopCountToRepeat(config.animatedLoopCount);
 
             for (const size of sizes) {
-              if (cancelled) return;
+              if (isStale()) return;
               setStage("generating-preview");
 
-              // Run pipeline on each frame at output size.
+              // Run pipeline on each frame at output size. Frames are owned by
+              // this loop iteration and released in `finally` on every exit
+              // path (stale, encode failure, success) — R2 §4.
               const processedFrames: HTMLCanvasElement[] = [];
-              for (const frame of animated.frames) {
-                processedFrames.push(processFrameWithBounds(frame, size, config, bounds));
-              }
-              if (cancelled) {
+              let animatedBlob: Blob;
+              let staticDataUrl: string;
+              try {
+                for (const frame of animated.frames) {
+                  processedFrames.push(processFrameWithBounds(frame, size, config, bounds));
+                }
+                if (isStale()) return;
+                // Encoding cannot be aborted; a stale result is simply discarded below.
+                animatedBlob = await encodeAnimatedGif(processedFrames, adjustedDelays, size, repeat, encodeJob);
+                if (isStale()) return;
+                staticDataUrl = processedFrames[0].toDataURL("image/png");
+              } finally {
                 for (const f of processedFrames) { f.width = 0; f.height = 0; }
-                return;
               }
-
-              const animatedBlob = await encodeAnimatedGif(processedFrames, adjustedDelays, size, repeat);
-
-              // Static preview = first processed frame as PNG data URL.
-              const staticDataUrl = processedFrames[0].toDataURL("image/png");
-
-              // Free per-frame canvases now that they're encoded into the blob.
-              for (const f of processedFrames) { f.width = 0; f.height = 0; }
 
               newVariants.push({
                 size,
@@ -345,7 +364,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
               });
             }
 
-            if (!cancelled) {
+            if (!isStale()) {
               if (stageDelayRef.current) clearTimeout(stageDelayRef.current);
               setVariants(newVariants);
               variantsRef.current = newVariants;
@@ -357,74 +376,84 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
           // If animation enabled, build a shared hi-res canvas for GIF frame generation
           const needsAnimation = config.animation.type !== "none";
           let sharedHiRes: HTMLCanvasElement | null = null;
-          if (needsAnimation) {
-            // Generate a 256px hi-res canvas for animation frames (separate from PNG pipeline)
-            const hiResResult = processEmoteWithHiRes(bgRemovedCanvas!, 256, config, subCanvas ?? undefined);
-            sharedHiRes = hiResResult.hiRes;
-            // Release the downscaled output (we don't need it; PNG uses processEmote at HI_RES=224)
-            if (hiResResult.output !== hiResResult.hiRes) {
-              hiResResult.output.width = 0;
-              hiResResult.output.height = 0;
-            }
-          }
-
-          for (const size of sizes) {
-            const canvas = processEmote(bgRemovedCanvas!, size, config, subCanvas ?? undefined);
-            const staticDataUrl = canvas.toDataURL("image/png");
-
-            let animatedBlob: Blob | null = null;
+          try {
             if (needsAnimation) {
-              if (!cancelled) setStage("generating-preview");
-              animatedBlob = await generateGif(canvas, config.animation.type, size, config.animation.speed, sharedHiRes ?? undefined, config.animation.aiAnimationCode);
+              // Generate a 256px hi-res canvas for animation frames (separate from PNG pipeline)
+              const hiResResult = processEmoteWithHiRes(bgRemovedCanvas!, 256, config, subCanvas ?? undefined);
+              sharedHiRes = hiResResult.hiRes;
+              // Release the downscaled output (we don't need it; PNG uses processEmote at HI_RES=224)
+              if (hiResResult.output !== hiResResult.hiRes) {
+                hiResResult.output.width = 0;
+                hiResResult.output.height = 0;
+              }
             }
 
-            if (cancelled) return;
+            for (const size of sizes) {
+              if (isStale()) return; // R2 §4: an old generation never advances to the next size
+              const canvas = processEmote(bgRemovedCanvas!, size, config, subCanvas ?? undefined);
+              const staticDataUrl = canvas.toDataURL("image/png");
 
-            const ext = animatedBlob ? "gif" : "png";
+              let animatedBlob: Blob | null = null;
+              if (needsAnimation) {
+                if (!isStale()) setStage("generating-preview");
+                animatedBlob = await generateGif(canvas, config.animation.type, size, config.animation.speed, sharedHiRes ?? undefined, encodeJob);
+              }
 
-            newVariants.push({
-              size,
-              staticDataUrl,
-              animatedBlob,
-              filename: `emote_${size}px.${ext}`,
-            });
+              if (isStale()) return;
+
+              const ext = animatedBlob ? "gif" : "png";
+
+              newVariants.push({
+                size,
+                staticDataUrl,
+                animatedBlob,
+                filename: `emote_${size}px.${ext}`,
+              });
+            }
+          } finally {
+            // Release the shared hi-res canvas on every exit path (stale / error / success)
+            if (sharedHiRes) {
+              sharedHiRes.width = 0;
+              sharedHiRes.height = 0;
+              sharedHiRes = null;
+            }
           }
 
-          // Release shared hi-res canvas after all sizes are generated
-          if (sharedHiRes) {
-            sharedHiRes.width = 0;
-            sharedHiRes.height = 0;
-            sharedHiRes = null;
-          }
-
-          if (!cancelled) {
+          if (!isStale()) {
             if (stageDelayRef.current) clearTimeout(stageDelayRef.current);
             setVariants(newVariants);
             variantsRef.current = newVariants;
             setStage("ready");
           }
         } catch (err) {
+          if (err instanceof GifEncodeCancelledError) return; // superseded / aborted: expected
           console.error("Rendering failed:", err);
-          if (!cancelled) {
+          if (!isStale()) {
             if (stageDelayRef.current) clearTimeout(stageDelayRef.current);
             setStage("ready");
+            setErrorMessage(
+              err instanceof GifEncodeError
+                ? "GIF の生成に失敗しました。設定を少し変えるか、もう一度お試しください"
+                : "プレビューの生成に失敗しました。もう一度お試しください",
+            );
+            setTimeout(() => setErrorMessage(null), 8000);
           }
         }
       }
 
       render();
-
-      return () => {
-        cancelled = true;
-      };
     }, 150);
 
     return () => {
+      cancelled = true;
+      abort.abort();
       if (renderTimeoutRef.current) {
         clearTimeout(renderTimeoutRef.current);
+        renderTimeoutRef.current = null;
       }
       if (stageDelayRef.current) {
         clearTimeout(stageDelayRef.current);
+        stageDelayRef.current = null;
       }
     };
   }, [bgRemovedCanvas, config, sourceFile, exportMode, subCanvas, gifSource, videoSource]);
@@ -494,26 +523,46 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     }
   }, [sourceFile, fileToCanvas]);
 
-  const handleExport = useCallback(async () => {
-    if (variants.length === 0) return;
+  /**
+   * ZIP export. Resolves `true` only when the browser download was actually
+   * started; callers must not show "saved" UI otherwise (R1c / B24).
+   */
+  const handleExport = useCallback(async (): Promise<boolean> => {
+    if (variants.length === 0) return false;
     setStage("exporting");
-    try {
-      const zipName =
-        exportMode === "discord" ? "discord_emotes.zip" :
-        exportMode === "7tv" ? "7tv_emotes.zip" :
-        exportMode === "bttv" ? "bttv_emotes.zip" :
-        exportMode === "ffz" ? "ffz_emotes.zip" :
-        "emotes.zip";
-      await exportAsZip(variants, zipName);
-    } catch (err) {
-      console.error("Export failed:", err);
-      setErrorMessage("書き出しに失敗しました。もう一度お試しください");
-      setTimeout(() => setErrorMessage(null), 5000);
-    }
+    const zipName =
+      exportMode === "discord" ? "discord_emotes.zip" :
+      exportMode === "7tv" ? "7tv_emotes.zip" :
+      exportMode === "bttv" ? "bttv_emotes.zip" :
+      exportMode === "ffz" ? "ffz_emotes.zip" :
+      "emotes.zip";
+    const result = await exportAsZip(variants, zipName);
     setStage("ready");
+    if (!result.ok) {
+      console.error("Export failed:", result.error);
+      setErrorMessage("書き出しに失敗しました。もう一度お試しください");
+      setTimeout(() => setErrorMessage(null), 8000);
+      return false;
+    }
+    return true;
   }, [variants, exportMode]);
 
   const updateConfig = useCallback((partial: PartialEmoteConfig) => {
+    // コミット A: 旧 AI 生成設定（ai-custom / aiAnimationCode）は入力境界で破棄し、
+    // アニメーションを none に正規化して短く案内する。他の設定はそのまま適用する。
+    const legacyAnim = partial.animation as { type?: string; aiAnimationCode?: unknown } | undefined;
+    if (legacyAnim && (legacyAnim.type === "ai-custom" || "aiAnimationCode" in legacyAnim)) {
+      const { aiAnimationCode: _dropped, ...rest } = legacyAnim as Record<string, unknown>;
+      void _dropped;
+      partial = {
+        ...partial,
+        animation: { ...(rest as Partial<EmoteConfig["animation"]>), ...(legacyAnim.type === "ai-custom" ? { type: "none" as const } : {}) },
+      };
+      if (legacyAnim.type === "ai-custom") {
+        setErrorMessage("AI 生成アニメーションは終了しました。アニメーションを「なし」に戻しました");
+        setTimeout(() => setErrorMessage(null), 6000);
+      }
+    }
     setConfig((prev) => {
       const next = { ...prev };
       for (const key of Object.keys(partial) as (keyof EmoteConfig)[]) {

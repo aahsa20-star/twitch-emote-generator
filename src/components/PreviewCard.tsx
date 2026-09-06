@@ -2,6 +2,7 @@ import { EmoteVariant, TextPosition } from "@/types/emote";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { checkVisibility, VisibilityResult } from "@/lib/visibilityChecker";
+import type { DownloadGate } from "@/lib/download/profiles";
 
 type BgMode = "checker" | "dark" | "light";
 
@@ -12,12 +13,8 @@ interface PreviewCardProps {
   bgMode?: BgMode;
   onDownloadComplete?: () => void;
   onContentAdjust?: (dx: number, dy: number, ds: number) => void;
-  /**
-   * fix7: server-side DL ガード。DL 実行前に呼ばれ、false なら DL を中止して
-   * 親（EmoteGenerator）が FollowGateModal を起動する。
-   * (size, format) で /api/download-check を叩く。
-   */
-  onBeforeDownload?: (size: number, format: "png" | "gif") => Promise<boolean>;
+  /** R1c: 共通の保存ゲート。false なら DL を中止（親が再認証パネル等を出す）。 */
+  onBeforeDownload?: DownloadGate;
 }
 
 export default function PreviewCard({ variant, hasText = false, textPosition = "bottom", bgMode = "checker", onDownloadComplete, onContentAdjust, onBeforeDownload }: PreviewCardProps) {
@@ -130,7 +127,7 @@ export default function PreviewCard({ variant, hasText = false, textPosition = "
     // fix7: DL 前に server-side check（gate されたら親がモーダル起動）
     if (onBeforeDownload) {
       const format: "png" | "gif" = variant.animatedBlob ? "gif" : "png";
-      const allowed = await onBeforeDownload(variant.size, format);
+      const allowed = await onBeforeDownload([{ size: variant.size, format }]);
       if (!allowed) return;
     }
 

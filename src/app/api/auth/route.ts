@@ -1,67 +1,91 @@
 import { NextRequest, NextResponse } from "next/server";
+import {
+  ACCESS_COOKIE_NAME,
+  LEGACY_COOKIE_NAME,
+  MAX_PASSPHRASE_LEN,
+  PASSPHRASE_TTL_SEC,
+  accessCookieOptions,
+  getPassphraseConfig,
+  issuePassphraseToken,
+  normalizePassphrase,
+  passphraseMatches,
+} from "@/lib/auth/passphrase-token";
+import { checkRequestOrigin, readJsonBody } from "@/lib/auth/origin-check";
+import { consumeRateLimit, getClientIp, rateLimitKey } from "@/lib/auth/rate-limit";
 
 /**
- * PASSPHRASE 認証エンドポイント。
+ * PASSPHRASE 認証エンドポイント (R1b: 署名付き Cookie + 試行制限).
  *
- * fix7 で server 側からも PASSPHRASE 状態を判別できるよう、認証成功時に
- * HttpOnly cookie `emote-subscriber=1` を設定する。クライアント側は引き続き
- * localStorage `emote-subscriber=true` も使う（SSR 不要な UI gating 用）。
+ * POST   body {passphrase} → 200 {ok, expiresAt} + Set-Cookie emote-access-v1
+ *        400 形式不正 / 401 不一致 / 403 Origin 不一致 / 429 試行過多 / 503 設定不備
+ * DELETE 新旧 Cookie を削除（Twitch session には触らない）
  *
- * Security note: cookie 値は単なるフラグ ("1") で署名なし。攻撃者が手で
- * cookie をセットすれば PASSPHRASE 無しで通る。これは既存の localStorage
- * フラグと同等の名誉システム水準。完全な server-side 検証が必要な高セキュリティ
- * 用途なら Phase 2 で HMAC 署名を追加する。
+ * - 旧固定値 Cookie `emote-subscriber=1` からの自動昇格はしない（A05）。
+ * - 試行は成功/失敗を問わず送信元単位で 10 回 / 15 分。
+ * - 正解・設定値はレスポンスにもログにも出さない。
  */
-const COOKIE_NAME = "emote-subscriber";
-const COOKIE_MAX_AGE_SEC = 60 * 60 * 24 * 30; // 30 days
+const MAX_BODY_BYTES = 2048;
+const ATTEMPT_LIMIT = 10;
+const ATTEMPT_WINDOW_SEC = 15 * 60;
 
-/**
- * fix14: 合言葉照合の正規化。長文フレーズ運用に耐えるよう、
- * 空白（半角/全角）を全除去 + 大文字小文字無視で比較する。
- * 句読点（、。）は合言葉の一部として一致必須のまま。
- */
-function normalizePassphrase(s: string): string {
-  return s.replace(/\s/g, "").toLowerCase();
+function clearCookies(res: NextResponse) {
+  res.cookies.set(ACCESS_COOKIE_NAME, "", accessCookieOptions(0));
+  res.cookies.set(LEGACY_COOKIE_NAME, "", accessCookieOptions(0));
 }
 
 export async function POST(req: NextRequest) {
-  const { passphrase } = await req.json();
-  const correct = process.env.PASSPHRASE ?? "";
-
-  if (!correct) {
-    return NextResponse.json({ ok: false, error: "サーバー設定エラー" }, { status: 500 });
+  const origin = checkRequestOrigin(req);
+  if (!origin.ok) {
+    return NextResponse.json({ ok: false, reason: "origin-mismatch" }, { status: 403 });
   }
 
+  const body = await readJsonBody(req, MAX_BODY_BYTES);
+  const passphrase = (body as { passphrase?: unknown } | undefined)?.passphrase;
   if (
-    typeof passphrase === "string" &&
-    normalizePassphrase(passphrase) === normalizePassphrase(correct)
+    typeof passphrase !== "string" ||
+    passphrase.length === 0 ||
+    passphrase.length > MAX_PASSPHRASE_LEN ||
+    normalizePassphrase(passphrase) === ""
   ) {
-    const res = NextResponse.json({ ok: true });
-    res.cookies.set(COOKIE_NAME, "1", {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      path: "/",
-      maxAge: COOKIE_MAX_AGE_SEC,
-    });
-    return res;
+    return NextResponse.json({ ok: false, reason: "invalid-body" }, { status: 400 });
   }
 
-  return NextResponse.json({ ok: false }, { status: 401 });
+  const cfg = getPassphraseConfig();
+  if (!cfg.ok) {
+    console.error(`[api/auth] passphrase config error: ${cfg.reason}`);
+    return NextResponse.json({ ok: false, reason: "temporarily-unavailable" }, { status: 503 });
+  }
+
+  const rl = await consumeRateLimit({
+    key: rateLimitKey("passphrase", getClientIp(req.headers)),
+    limit: ATTEMPT_LIMIT,
+    windowSec: ATTEMPT_WINDOW_SEC,
+  });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { ok: false, reason: "rate-limited", retryAfter: rl.retryAfterSec },
+      { status: 429, headers: { "Retry-After": String(rl.retryAfterSec) } },
+    );
+  }
+
+  if (!passphraseMatches(passphrase, cfg.passphrase, cfg.key)) {
+    return NextResponse.json({ ok: false, reason: "mismatch" }, { status: 401 });
+  }
+
+  const issued = issuePassphraseToken(cfg.key, Date.now());
+  const res = NextResponse.json({ ok: true, expiresAt: issued.expiresAtMs });
+  res.cookies.set(ACCESS_COOKIE_NAME, issued.token, accessCookieOptions(PASSPHRASE_TTL_SEC));
+  // Remove the legacy fixed-value cookie so it can never be mistaken for a grant.
+  res.cookies.set(LEGACY_COOKIE_NAME, "", accessCookieOptions(0));
+  return res;
 }
 
-/**
- * DELETE: PASSPHRASE 解除（cookie をクリア）。
- * 既存の localStorage 解除と並行して呼ぶ想定。
- */
-export async function DELETE() {
+export async function DELETE(req: NextRequest) {
+  const origin = checkRequestOrigin(req);
+  if (!origin.ok) {
+    return NextResponse.json({ ok: false, reason: "origin-mismatch" }, { status: 403 });
+  }
   const res = NextResponse.json({ ok: true });
-  res.cookies.set(COOKIE_NAME, "", {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
-    path: "/",
-    maxAge: 0,
-  });
+  clearCookies(res);
   return res;
 }

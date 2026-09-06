@@ -30,7 +30,7 @@ export default function PrivacyPage() {
               プライバシーポリシー
             </h1>
             <p className="text-sm text-gray-400">
-              最終更新日：2026年5月10日
+              最終更新日：2026年9月5日
             </p>
             <p className="text-sm text-gray-300 leading-relaxed">
               Twitch Emote Generator（以下「本サービス」）における個人情報の取り扱いについて、以下のとおりプライバシーポリシーを定めます。本ポリシーは日本の個人情報保護法に準拠して作成されています。
@@ -73,30 +73,11 @@ export default function PrivacyPage() {
                 1-2. ユーザーの操作によって取得する情報
               </h3>
               <p className="text-sm leading-relaxed">
-                ユーザーが本サービス内で以下の操作を行った場合、Twitch アカウント情報（ユーザー ID、ユーザー名、表示名、プロフィール画像 URL）と関連付けて以下の情報を取得・保存します。
+                2026 年 9 月の更新で、テンプレート投稿・カスタムアニメーション投稿・いいね・通報・AI アニメーション生成の各機能を終了しました。現在の本サービスは、これらの操作に伴う情報（投稿内容、説明文、AI への指示プロンプト、いいね・通報の履歴）を取得・保存しません。
               </p>
-              <ul className="list-disc list-inside text-sm leading-relaxed space-y-1 pl-2">
-                <li>
-                  <strong className="text-gray-100">テンプレート投稿時：</strong>
-                  投稿者情報、投稿したテンプレートの内容、説明文
-                </li>
-                <li>
-                  <strong className="text-gray-100">AI アニメーション生成時：</strong>
-                  生成リクエストの内容、AI への指示プロンプト（自由記入テキストを含む）
-                </li>
-                <li>
-                  <strong className="text-gray-100">カスタムアニメーション投稿時：</strong>
-                  アニメーション名、説明文、生成元プロンプト
-                </li>
-                <li>
-                  <strong className="text-gray-100">「いいね」操作時：</strong>
-                  いいねした対象のテンプレート ID
-                </li>
-                <li>
-                  <strong className="text-gray-100">通報操作時：</strong>
-                  通報対象、通報理由
-                </li>
-              </ul>
+              <p className="text-sm leading-relaxed">
+                終了前に投稿されたデータの取り扱いは第 3-2 条をご確認ください。
+              </p>
             </div>
 
             <div className="space-y-3">
@@ -107,12 +88,24 @@ export default function PrivacyPage() {
                 本サービスはユーザーの利便性のため、ブラウザの Cookie およびローカルストレージに以下の情報を保存します。
               </p>
               <ul className="list-disc list-inside text-sm leading-relaxed space-y-1 pl-2">
-                <li>セッショントークン（ログイン状態の維持）</li>
-                <li>ユーザーが選択した UI 設定（テーマ、表示設定等）</li>
-                <li>アクセス権限に関するキャッシュ情報</li>
+                <li>
+                  <strong className="text-gray-100">Twitch セッション Cookie：</strong>
+                  ログイン状態の維持。Twitch から取得したアクセストークン、および指定チャンネルをフォローしているかの確認結果（確認日時を含む）を暗号化して保持します。フォロー確認の結果は通常 24 時間、Twitch 側の一時的な障害時は最長 48 時間まで有効として扱います。
+                </li>
+                <li>
+                  <strong className="text-gray-100">合言葉 Cookie（emote-access-v1）：</strong>
+                  合言葉で解放した状態の維持。合言葉そのものは含まず、サーバーの署名と有効期限（発行から 30 日）だけを持ちます。閲覧で期限は延長されません。
+                </li>
+                <li>ユーザーが選択した UI 設定（表示設定等）</li>
               </ul>
               <p className="text-sm leading-relaxed">
-                これらの情報はユーザー自身のブラウザにのみ保存され、サーバーには送信されません（セッショントークンを除く）。
+                上記の Cookie は、アクセスのたびにブラウザからサーバーへ送信され、サーバー側で利用可否の判定に使われます。UI 設定はブラウザ内にのみ保存され、サーバーには送信されません。
+              </p>
+              <p className="text-sm leading-relaxed">
+                合言葉の入力には、総当たり対策として送信元（IP アドレスをハッシュ化した値）ごとに 15 分あたり 10 回までの試行制限を設けています。この記録はサーバーのメモリ上にのみ、IP アドレスを復元できない形で一時的に保持され、制限期間（15 分）の経過またはサーバーの再起動で破棄されます。データベース等への永続保存は行いません。
+              </p>
+              <p className="text-sm leading-relaxed">
+                「Twitch からログアウト」と「この端末の合言葉認証を解除」は別の操作です。片方を行っても、もう一方の Cookie は削除されません。
               </p>
             </div>
 
@@ -151,11 +144,8 @@ export default function PrivacyPage() {
             </p>
             <ul className="list-disc list-inside text-sm leading-relaxed space-y-1 pl-2">
               <li>ユーザーアカウントの識別および表示</li>
-              <li>一部機能（ダウンロード機能、サブスク特典機能等）の利用権限の判定</li>
-              <li>テンプレートギャラリーにおける投稿者表示</li>
-              <li>重複投稿の防止およびスパム対策</li>
-              <li>AI 機能の利用回数制限（レート制限）</li>
-              <li>不適切コンテンツの自動非公開処理</li>
+              <li>作成・保存機能の利用権限の判定（指定チャンネルのフォロー確認、合言葉認証）</li>
+              <li>合言葉入力の総当たり対策（試行制限）</li>
               <li>サービスの改善および不具合対応</li>
               <li>利用状況の統計分析</li>
             </ul>
@@ -191,28 +181,14 @@ export default function PrivacyPage() {
 
             <div className="space-y-2">
               <h3 className="text-lg font-semibold text-gray-100">
-                3-2. 投稿コンテンツに紐づく個人情報
+                3-2. 終了した共有機能（テンプレート・カスタムアニメーション）のデータ
               </h3>
               <p className="text-sm leading-relaxed">
-                ユーザーが本サービス内でテンプレート投稿、AI アニメーション生成、いいね、通報等の操作を行った場合、Supabase 社が提供するデータベースサービスに
-                <strong className="text-gray-100">永続的に保存されます</strong>
-                。
+                2026 年 9 月の更新以降、本サービスのアプリケーションはデータベースに接続せず、新たな投稿データを保存しません。
               </p>
-              <ul className="list-disc list-inside text-sm leading-relaxed space-y-1 pl-2">
-                <li>
-                  <strong className="text-gray-100">保存場所：</strong>
-                  Supabase（クラウドデータベース）
-                </li>
-                <li>
-                  <strong className="text-gray-100">保持期間：</strong>
-                  原則として永続。ただし、以下の場合に削除されます。
-                  <ul className="list-disc list-inside pl-4 mt-1 space-y-1 text-gray-300">
-                    <li>ユーザーが投稿の個別削除操作を行った場合</li>
-                    <li>ユーザーが本ポリシー第 5 条に基づき削除請求を行った場合</li>
-                    <li>本サービスの終了時</li>
-                  </ul>
-                </li>
-              </ul>
+              <p className="text-sm leading-relaxed">
+                機能終了前に投稿されたテンプレート・カスタムアニメーション・いいね・通報・AI 生成履歴のデータは、当時利用していたデータベースサービス（Supabase）上に残存している可能性があります。これらは現在アプリから閲覧・編集・削除できず、他のユーザーにも公開されていません。残存データの保持または削除の方針は運営者が決定し、削除を希望されるユーザーには第 5 条の手順で対応します。
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -245,9 +221,6 @@ export default function PrivacyPage() {
               <strong className="text-gray-100">サーバーには送信されず</strong>
               、すべてユーザー自身のブラウザ内で処理されます。本サービスはアップロード画像を保存しません。
             </p>
-            <p className="text-sm leading-relaxed">
-              ただし、ユーザーがテンプレートとして投稿する操作を明示的に行った場合に限り、生成結果のテンプレート情報が Supabase に保存されます。この場合の保存内容については第 1-2 条をご確認ください。
-            </p>
           </section>
 
           {/* §5 */}
@@ -277,14 +250,13 @@ export default function PrivacyPage() {
                   ブラウザの設定から Cookie やローカルストレージを削除することで、ブラウザに保存された情報を消去できます。
                 </li>
                 <li>
-                  <strong className="text-gray-100">個別投稿の削除：</strong>
-                  本サービスにログインし、投稿者として自身が投稿したテンプレートやコンテンツを個別に削除できます。
-                </li>
-                <li>
-                  <strong className="text-gray-100">アカウント全データ削除：</strong>
-                  ログイン状態でギャラリー画面の「アカウント削除」ボタンから、Supabase 上の自身の全投稿者情報・投稿コンテンツ・操作履歴を即時削除できます。
+                  <strong className="text-gray-100">合言葉認証の解除：</strong>
+                  「アカウント・データ管理」画面または編集画面の「この端末の合言葉認証を解除」から、合言葉 Cookie を削除できます。
                 </li>
               </ul>
+              <p className="text-sm leading-relaxed">
+                共有機能の終了に伴い、アプリ内からの「個別投稿の削除」「アカウント全データ削除」は提供していません。終了前の投稿データの削除は第 5-2 条の請求で対応します。
+              </p>
             </div>
 
             <div className="space-y-2">
@@ -292,7 +264,7 @@ export default function PrivacyPage() {
                 5-2. 一括削除請求
               </h3>
               <p className="text-sm leading-relaxed">
-                Supabase に保存された投稿者情報および関連データの一括削除を希望される場合は、第 10 条に記載の連絡先までご連絡ください。
+                機能終了前に投稿された投稿者情報および関連データ（第 3-2 条）の削除を希望される場合は、第 10 条に記載の連絡先までご連絡ください。
               </p>
               <p className="text-sm leading-relaxed">
                 ご連絡いただく際は以下の情報をお伝えください。
@@ -322,9 +294,6 @@ export default function PrivacyPage() {
               <li>法令に基づき開示が要求される場合</li>
               <li>ユーザー本人の同意がある場合</li>
             </ul>
-            <p className="text-sm leading-relaxed">
-              なお、テンプレートギャラリーに投稿されたコンテンツに含まれる投稿者情報（Twitch ユーザー名、表示名、プロフィール画像）は、ギャラリーの公開機能により、本サービスを利用する他のユーザーが閲覧できる状態となります。これは「第三者への提供」ではなく、ユーザー自身が公開を選択した投稿の一部としての公開となります。
-            </p>
           </section>
 
           {/* §7 */}
@@ -362,7 +331,7 @@ export default function PrivacyPage() {
               </li>
               <li>
                 <strong className="text-gray-100">Supabase</strong>
-                （データベース）：
+                （終了した共有機能の残存データの保管。アプリからの接続はありません）：
                 <a
                   href="https://supabase.com/privacy"
                   target="_blank"
@@ -384,18 +353,6 @@ export default function PrivacyPage() {
                   https://umami.is/privacy
                 </a>
               </li>
-              <li>
-                <strong className="text-gray-100">Anthropic</strong>
-                （AI アニメーション生成）：
-                <a
-                  href="https://www.anthropic.com/legal/privacy"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-purple-400 hover:text-purple-300 break-all"
-                >
-                  https://www.anthropic.com/legal/privacy
-                </a>
-              </li>
             </ul>
           </section>
 
@@ -408,9 +365,8 @@ export default function PrivacyPage() {
               本サービスは以下の目的で Cookie を使用します。
             </p>
             <ul className="list-disc list-inside text-sm leading-relaxed space-y-1 pl-2">
-              <li>セッション管理（ログイン状態の維持）</li>
-              <li>ユーザー設定の保存</li>
-              <li>アクセス権限のキャッシュ</li>
+              <li>セッション管理（ログイン状態の維持、フォロー確認結果の保持）</li>
+              <li>合言葉認証の状態の保持（署名付き Cookie）</li>
             </ul>
             <p className="text-sm leading-relaxed">
               ブラウザの設定により Cookie を無効にすることができますが、その場合、ログイン機能等の一部機能が利用できなくなります。

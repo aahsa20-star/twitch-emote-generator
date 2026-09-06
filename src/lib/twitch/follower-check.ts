@@ -1,128 +1,185 @@
 /**
- * Twitch /helix/channels/followed wrapper.
+ * Twitch follower / token helpers (R1b rewrite, 実装設計 §5).
  *
- * Pure function (no JWT read/write side effects). The caller (auth.ts) is
- * responsible for reading the stale-cache from JWT and persisting the
- * fresh result back. Keeping this side-effect-free makes unit testing
- * trivial and avoids confusing fetch/JWT coupling.
+ * Pure-ish functions: no JWT reads/writes. The caller (src/auth.ts) decides
+ * how to persist outcomes. Every network call has a hard timeout so the
+ * whole re-verification stays under the 8s operation deadline.
  *
- * Failure handling (FOLLOWER_AUTH_DESIGN.md §3.1):
- * - 401 → token failed; result.error = "unauthorized"
- *         caller should mark needsReauth on the JWT
- * - 429 → rate-limited; up to 3 retries with backoff [1s, 3s, 10s]
- *         after exhausting retries, fall back to staleCache (24h window)
- * - 5xx / network → same cache-fallback path, error="server" / "network"
+ * API: GET https://api.twitch.tv/helix/channels/followed?user_id=&broadcaster_id=
+ *      (scope `user:read:follows`; NOT "Get Channel Followers").
  *
- * Result fields:
- * - isFollower: boolean | null (null only on unauthorized)
- * - source: "fresh" | "stale-cache" | "fail-safe"
- *   "stale-cache" means we returned cache.isFollower because the API
- *   was temporarily unreachable; "fail-safe" means cache was missing
- *   or expired (24h+ old) so we returned false to be safe.
+ * Outcomes:
+ *  - following / not-following : definitive answer from Twitch (success)
+ *  - unauthorized              : 401 — token revoked / scope missing → re-auth
+ *  - temporary-error           : 429 / 5xx / network / timeout — never treated
+ *                                as "not following"; caller keeps last success
  */
 
-export type FollowerCheckError =
-  | "unauthorized"
-  | "rate-limited"
-  | "network"
-  | "server";
+export type FollowerCheckResult =
+  | { outcome: "following"; followedAt?: string }
+  | { outcome: "not-following" }
+  | { outcome: "unauthorized" }
+  | {
+      outcome: "temporary-error";
+      error: "rate-limited" | "network" | "server" | "timeout" | "bad-response";
+      retryAfterSec?: number;
+    };
 
-export interface FollowerCheckResult {
-  isFollower: boolean | null;
-  followedAt?: string;
-  error?: FollowerCheckError;
-  source: "fresh" | "stale-cache" | "fail-safe";
+export interface FollowerCheckOptions {
+  fetchImpl?: typeof fetch;
+  /** Overall budget for this call (default 8000ms). */
+  deadlineMs?: number;
+  /** Per-attempt timeout (default 3000ms). */
+  attemptTimeoutMs?: number;
+  /** Max attempts including the first (default 2). */
+  maxAttempts?: number;
+  clientId?: string;
+  now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
 }
 
-const TWENTY_FOUR_HOURS_MS = 24 * 60 * 60 * 1000;
-const BACKOFFS_MS = [1000, 3000, 10000];
+const defaultSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
-const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-function cacheFallback(
-  cache: { isFollower: boolean; checkedAt: number } | undefined,
-  error: FollowerCheckError,
-): FollowerCheckResult {
-  if (cache && Date.now() - cache.checkedAt < TWENTY_FOUR_HOURS_MS) {
-    return { isFollower: cache.isFollower, error, source: "stale-cache" };
+async function fetchWithTimeout(
+  fetchImpl: typeof fetch,
+  url: string,
+  init: RequestInit,
+  timeoutMs: number,
+): Promise<Response> {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    return await fetchImpl(url, { ...init, signal: ctrl.signal });
+  } finally {
+    clearTimeout(t);
   }
-  return { isFollower: false, error, source: "fail-safe" };
+}
+
+function parseRetryAfter(res: Response): number | undefined {
+  const v = res.headers.get("retry-after");
+  if (!v) return undefined;
+  const n = Number(v);
+  if (Number.isFinite(n) && n >= 0) return Math.ceil(n);
+  const date = Date.parse(v);
+  if (!Number.isNaN(date)) return Math.max(0, Math.ceil((date - Date.now()) / 1000));
+  return undefined;
 }
 
 /**
- * Check whether `userId` follows `broadcasterId` on Twitch.
- *
- * @param userAccessToken  User access token (must include `user:read:follows`)
- * @param userId           Twitch user id (numeric string) to check
- * @param broadcasterId    Twitch broadcaster id (numeric string) — Aki's channel
- * @param staleCache       Optional previous { isFollower, checkedAt } for 24h fallback
- *                         (caller pulls this from JWT, e.g., token.isFollower +
- *                         token.followCheckedAt).
+ * Check whether `userId` follows `broadcasterId`.
  */
 export async function checkIsFollower(
   userAccessToken: string,
   userId: string,
   broadcasterId: string,
-  staleCache?: { isFollower: boolean; checkedAt: number },
+  opts: FollowerCheckOptions = {},
 ): Promise<FollowerCheckResult> {
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  const now = opts.now ?? Date.now;
+  const sleep = opts.sleep ?? defaultSleep;
+  const deadlineMs = opts.deadlineMs ?? 8000;
+  const attemptTimeoutMs = opts.attemptTimeoutMs ?? 3000;
+  const maxAttempts = opts.maxAttempts ?? 2;
+  const clientId = opts.clientId ?? process.env.AUTH_TWITCH_ID ?? "";
+  const started = now();
+
   const url =
     "https://api.twitch.tv/helix/channels/followed?user_id=" +
     encodeURIComponent(userId) +
     "&broadcaster_id=" +
     encodeURIComponent(broadcasterId);
-  const headers = {
-    Authorization: `Bearer ${userAccessToken}`,
-    "Client-Id": process.env.AUTH_TWITCH_ID ?? "",
-  };
+  const headers = { Authorization: `Bearer ${userAccessToken}`, "Client-Id": clientId };
 
-  let lastError: FollowerCheckError | undefined;
+  let last: FollowerCheckResult = { outcome: "temporary-error", error: "network" };
 
-  for (let attempt = 0; attempt <= BACKOFFS_MS.length; attempt++) {
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const remaining = deadlineMs - (now() - started);
+    if (remaining <= 0) return { outcome: "temporary-error", error: "timeout" };
+    const timeout = Math.min(attemptTimeoutMs, remaining);
+
     try {
-      const res = await fetch(url, { headers });
+      const res = await fetchWithTimeout(fetchImpl, url, { headers }, timeout);
 
-      if (res.status === 401) {
-        // Token failed (revoked, scope missing, etc.) — caller marks needsReauth
-        return { isFollower: null, error: "unauthorized", source: "fail-safe" };
-      }
+      if (res.status === 401) return { outcome: "unauthorized" };
 
-      if (res.status === 429) {
-        if (attempt < BACKOFFS_MS.length) {
-          await sleep(BACKOFFS_MS[attempt]);
-          lastError = "rate-limited";
-          continue;
+      if (res.status === 429 || res.status >= 500) {
+        const retryAfterSec = parseRetryAfter(res);
+        last = {
+          outcome: "temporary-error",
+          error: res.status === 429 ? "rate-limited" : "server",
+          retryAfterSec,
+        };
+      } else if (!res.ok) {
+        // Other 4xx (e.g. 400 bad broadcaster id): not retryable, not a "no".
+        return { outcome: "temporary-error", error: "bad-response" };
+      } else {
+        let json: unknown;
+        try {
+          json = await res.json();
+        } catch {
+          return { outcome: "temporary-error", error: "bad-response" };
         }
-        return cacheFallback(staleCache, "rate-limited");
+        const data = (json as { data?: Array<{ followed_at?: string; broadcaster_id?: string }> })?.data;
+        if (!Array.isArray(data)) return { outcome: "temporary-error", error: "bad-response" };
+        const hit = data.find((d) => !d.broadcaster_id || d.broadcaster_id === broadcasterId);
+        return hit ? { outcome: "following", followedAt: hit.followed_at } : { outcome: "not-following" };
       }
+    } catch (e) {
+      const aborted = e instanceof Error && e.name === "AbortError";
+      last = { outcome: "temporary-error", error: aborted ? "timeout" : "network" };
+    }
 
-      if (res.status >= 500) {
-        if (attempt < BACKOFFS_MS.length) {
-          await sleep(BACKOFFS_MS[attempt]);
-          lastError = "server";
-          continue;
-        }
-        return cacheFallback(staleCache, "server");
+    if (attempt < maxAttempts) {
+      const remainingAfter = deadlineMs - (now() - started);
+      const wantWait = last.outcome === "temporary-error" && last.retryAfterSec !== undefined
+        ? last.retryAfterSec * 1000
+        : 500;
+      if (wantWait > remainingAfter - attemptTimeoutMs / 2) {
+        // Waiting would blow the deadline: report the retry hint instead.
+        return last;
       }
-
-      if (!res.ok) {
-        // 4xx other than 401/429 — non-retryable
-        return cacheFallback(staleCache, "server");
-      }
-
-      const json = await res.json();
-      const isFollower = (json?.data?.length ?? 0) > 0;
-      const followedAt = json?.data?.[0]?.followed_at as string | undefined;
-      return { isFollower, followedAt, source: "fresh" };
-    } catch {
-      lastError = "network";
-      if (attempt < BACKOFFS_MS.length) {
-        await sleep(BACKOFFS_MS[attempt]);
-        continue;
-      }
-      return cacheFallback(staleCache, "network");
+      await sleep(Math.min(wantWait, 2000));
     }
   }
+  return last;
+}
 
-  // Unreachable in practice — TypeScript wants an explicit return
-  return cacheFallback(staleCache, lastError ?? "network");
+export type TokenValidation =
+  | { ok: true; clientId: string; userId: string; scopes: string[]; expiresInSec: number }
+  | { ok: false; reason: "unauthorized" | "temporary-error" | "bad-response" };
+
+/**
+ * GET https://id.twitch.tv/oauth2/validate — Twitch requires apps to validate
+ * user tokens hourly. Independent from the follower TTL (仕様書 §6).
+ */
+export async function validateTwitchToken(
+  userAccessToken: string,
+  opts: { fetchImpl?: typeof fetch; timeoutMs?: number } = {},
+): Promise<TokenValidation> {
+  const fetchImpl = opts.fetchImpl ?? fetch;
+  try {
+    const res = await fetchWithTimeout(
+      fetchImpl,
+      "https://id.twitch.tv/oauth2/validate",
+      { headers: { Authorization: `OAuth ${userAccessToken}` } },
+      opts.timeoutMs ?? 3000,
+    );
+    if (res.status === 401) return { ok: false, reason: "unauthorized" };
+    if (!res.ok) return { ok: false, reason: "temporary-error" };
+    const j = (await res.json()) as {
+      client_id?: string; user_id?: string; scopes?: string[]; expires_in?: number;
+    };
+    if (!j || typeof j.client_id !== "string" || typeof j.user_id !== "string") {
+      return { ok: false, reason: "bad-response" };
+    }
+    return {
+      ok: true,
+      clientId: j.client_id,
+      userId: j.user_id,
+      scopes: Array.isArray(j.scopes) ? j.scopes : [],
+      expiresInSec: typeof j.expires_in === "number" ? j.expires_in : 0,
+    };
+  } catch {
+    return { ok: false, reason: "temporary-error" };
+  }
 }

@@ -1,4 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { AssetType, DownloadFile, DownloadGate } from "@/lib/download/profiles";
+import { triggerAnchorDownload } from "@/lib/download/client";
 import { BadgeSettings, BADGE_SIZES, EmoteVariant, ExportMode, ProcessingStage } from "@/types/emote";
 import { renderBadge } from "@/lib/canvasPipeline";
 
@@ -9,17 +11,18 @@ const isIOS = typeof navigator !== "undefined" && (
 
 interface DownloadButtonProps {
   stage: ProcessingStage;
-  onExport: () => void;
+  /** ZIP export; resolves true only when the browser download actually started. */
+  onExport: () => Promise<boolean>;
   variants: EmoteVariant[];
   exportMode?: ExportMode;
   onDownloadComplete?: () => void;
   badgeSettings?: BadgeSettings;
   bgRemovedCanvas?: HTMLCanvasElement | null;
   /**
-   * fix7: DL 前に server check を経由するゲート。trial で 56/112 / 全 GIF が
-   * blocked。false が返ると DL を中断、親がモーダルを開く。
+   * R1c: 全保存経路共通のゲート。含まれる全ファイルを /api/download-check で
+   * 検証し、false なら中断（親が再認証パネルや説明を出す）。
    */
-  onBeforeDownload?: (size: number, format: "png" | "gif") => Promise<boolean>;
+  onBeforeDownload?: DownloadGate;
 }
 
 export default function DownloadButton({
@@ -58,63 +61,101 @@ export default function DownloadButton({
   // Get sorted sizes for the current export mode (descending)
   const sortedSizes = [...variants].sort((a, b) => b.size - a.size);
 
+  // ---- R1c: shared gate + iOS two-tap flow ----
+  const fileOf = (v: EmoteVariant): DownloadFile => ({ size: v.size, format: v.animatedBlob ? "gif" : "png" });
+  const latestVariants = useRef(variants);
+  useEffect(() => {
+    latestVariants.current = variants;
+  }, [variants]);
+  /**
+   * iOS: which action has passed the async permission check, bound to the
+   * outputs it was checked for. A new render of `variants` disarms it
+   * without an effect (derived state).
+   */
+  type IosAction = "largest" | "zip" | "badge";
+  const [armed, setArmed] = useState<{ forVariants: EmoteVariant[]; action: IosAction } | null>(null);
+  const iosArmed: IosAction | null = armed && armed.forVariants === variants ? armed.action : null;
+  const setIosArmed = useCallback((action: IosAction) => setArmed({ forVariants: variants, action }), [variants]);
+
+  /**
+   * Permission gate with a revision guard: if the outputs changed while the
+   * server was answering, do not mix old and new files — ask for a re-press.
+   */
+  const gate = useCallback(
+    async (files: DownloadFile[], assetType: AssetType = "emote"): Promise<boolean> => {
+      const snapshot = latestVariants.current;
+      if (onBeforeDownload) {
+        const ok = await onBeforeDownload(files, assetType);
+        if (!ok) return false;
+      }
+      if (assetType === "emote" && latestVariants.current !== snapshot) {
+        showIosToast("出力が更新されました。もう一度押してください");
+        return false;
+      }
+      return true;
+    },
+    [onBeforeDownload, showIosToast],
+  );
+
+  /** iOS: open synchronously from the click (no await before window.open). */
+  const openOnIos = useCallback(
+    (url: string, needsRevoke: boolean): boolean => {
+      const w = window.open(url, "_blank");
+      if (!w) {
+        showIosToast("ポップアップがブロックされました。Safari の設定で許可するか、プレビューの画像を長押しして保存してください");
+        if (needsRevoke) URL.revokeObjectURL(url);
+        return false;
+      }
+      if (needsRevoke) setTimeout(() => URL.revokeObjectURL(url), 5000);
+      return true;
+    },
+    [showIosToast],
+  );
+
   const handleLargestDownload = useCallback(async () => {
     const vLargest = variants.find((v) => v.size === largestSize);
     if (!vLargest) return;
 
-    // fix7: DL 前 gate
-    if (onBeforeDownload) {
-      const format: "png" | "gif" = vLargest.animatedBlob ? "gif" : "png";
-      const allowed = await onBeforeDownload(vLargest.size, format);
-      if (!allowed) return;
-    }
-
-    const { url, needsRevoke } = getVariantUrl(vLargest);
-
     if (isIOS) {
-      window.open(url, "_blank");
+      if (iosArmed !== "largest") {
+        if (!(await gate([fileOf(vLargest)]))) return;
+        setIosArmed("largest");
+        showIosToast(`準備できました。もう一度押すと ${vLargest.size}px を開きます`);
+        return;
+      }
+      const { url, needsRevoke } = getVariantUrl(vLargest);
+      if (!openOnIos(url, needsRevoke)) return;
       showIosToast("長押し →「写真に追加」で保存できます");
-      if (needsRevoke) setTimeout(() => URL.revokeObjectURL(url), 5000);
       onDownloadComplete?.();
       return;
     }
 
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = vLargest.filename;
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => {
-      document.body.removeChild(a);
-      if (needsRevoke) URL.revokeObjectURL(url);
-    }, 1000);
+    if (!(await gate([fileOf(vLargest)]))) return;
+    const { url, needsRevoke } = getVariantUrl(vLargest);
+    triggerAnchorDownload(url, vLargest.filename, needsRevoke);
     onDownloadComplete?.();
-  }, [variants, largestSize, onDownloadComplete, getVariantUrl, showIosToast, onBeforeDownload]);
+  }, [variants, largestSize, onDownloadComplete, getVariantUrl, showIosToast, gate, iosArmed, setIosArmed, openOnIos]);
 
   const handleZipDownload = useCallback(async () => {
-    // fix7: ZIP は全サイズ含むので、最大サイズの format で gate チェック
-    // (premium なら通過、trial なら 56/112 含むので即 block)
-    if (onBeforeDownload) {
-      const vLargest = variants.find((v) => v.size === largestSize);
-      const format: "png" | "gif" = vLargest?.animatedBlob ? "gif" : "png";
-      const allowed = await onBeforeDownload(largestSize, format);
-      if (!allowed) return;
-    }
+    // R1c: ZIP は含む全ファイルを検証する（最大サイズだけではない）
+    const files = variants.map(fileOf);
 
     if (isIOS) {
-      // Step-based download for iOS
+      if (iosArmed !== "zip") {
+        if (!(await gate(files))) return;
+        setIosArmed("zip");
+        showIosToast("準備できました。もう一度押すと最初のサイズを開きます");
+        return;
+      }
       const target = sortedSizes[iosStep];
       if (!target) return;
-
       const { url, needsRevoke } = getVariantUrl(target);
-      window.open(url, "_blank");
-      if (needsRevoke) setTimeout(() => URL.revokeObjectURL(url), 5000);
+      if (!openOnIos(url, needsRevoke)) return;
 
       if (iosStep < sortedSizes.length - 1) {
         setIosStep(iosStep + 1);
         showIosToast(`${target.size}pxを開きました。長押しで保存後、次のサイズを押してください`);
       } else {
-        // All done
         setIosStep(0);
         showIosToast("全サイズ完了！長押し →「写真に追加」で保存できます");
         onDownloadComplete?.();
@@ -122,22 +163,27 @@ export default function DownloadButton({
       return;
     }
 
-    // Non-iOS: standard ZIP download
-    await onExport();
-    onDownloadComplete?.();
-  }, [iosStep, sortedSizes, onExport, onDownloadComplete, getVariantUrl, showIosToast, onBeforeDownload, variants, largestSize]);
+    if (!(await gate(files))) return;
+    const ok = await onExport();
+    if (ok) onDownloadComplete?.();
+  }, [iosStep, sortedSizes, onExport, onDownloadComplete, getVariantUrl, showIosToast, variants, gate, iosArmed, setIosArmed, openOnIos]);
 
   const handleBadgeDownload = useCallback(async () => {
     if (!badgeSettings?.enabled || !bgRemovedCanvas) return;
+    const badgeFiles: DownloadFile[] = BADGE_SIZES.map((size) => ({ size, format: "png" }));
 
     if (isIOS) {
-      // Step-based download for iOS
+      if (iosArmed !== "badge") {
+        if (!(await gate(badgeFiles, "badge"))) return;
+        setIosArmed("badge");
+        showIosToast("準備できました。もう一度押すと最初のバッジを開きます");
+        return;
+      }
       const targetSize = BADGE_SIZES[iosBadgeStep];
       if (targetSize === undefined) return;
-
       const canvas = renderBadge(bgRemovedCanvas, badgeSettings, targetSize);
       const dataUrl = canvas.toDataURL("image/png");
-      window.open(dataUrl, "_blank");
+      if (!openOnIos(dataUrl, false)) return;
 
       if (iosBadgeStep < BADGE_SIZES.length - 1) {
         setIosBadgeStep(iosBadgeStep + 1);
@@ -150,24 +196,24 @@ export default function DownloadButton({
       return;
     }
 
-    const { default: JSZip } = await import("jszip");
-    const zip = new JSZip();
-    for (const size of BADGE_SIZES) {
-      const canvas = renderBadge(bgRemovedCanvas, badgeSettings, size);
-      const dataUrl = canvas.toDataURL("image/png");
-      const base64 = dataUrl.split(",")[1];
-      zip.file(`badge_${size}.png`, base64, { base64: true });
+    if (!(await gate(badgeFiles, "badge"))) return;
+    try {
+      const { default: JSZip } = await import("jszip");
+      const zip = new JSZip();
+      for (const size of BADGE_SIZES) {
+        const canvas = renderBadge(bgRemovedCanvas, badgeSettings, size);
+        const dataUrl = canvas.toDataURL("image/png");
+        const base64 = dataUrl.split(",")[1];
+        zip.file(`badge_${size}.png`, base64, { base64: true });
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      triggerAnchorDownload(URL.createObjectURL(blob), "badge.zip", true);
+      onDownloadComplete?.();
+    } catch (e) {
+      console.error("badge zip failed:", e);
+      showIosToast("バッジの書き出しに失敗しました。もう一度お試しください");
     }
-    const blob = await zip.generateAsync({ type: "blob" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "badge.zip";
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
-    onDownloadComplete?.();
-  }, [badgeSettings, bgRemovedCanvas, onDownloadComplete, showIosToast, iosBadgeStep]);
+  }, [badgeSettings, bgRemovedCanvas, onDownloadComplete, showIosToast, iosBadgeStep, gate, iosArmed, setIosArmed, openOnIos]);
 
   const vLargest = variants.find((v) => v.size === largestSize);
   const formatLargest = vLargest?.animatedBlob ? "GIF" : "PNG";

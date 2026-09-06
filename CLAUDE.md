@@ -8,55 +8,66 @@ Twitch Emote Generator - ブラウザだけでTwitchエモートを作成でき�
 ## 技術スタック
 - **フレームワーク**: Next.js 16 (App Router) + TypeScript + Tailwind CSS v3
 - **認証**: Auth.js v5 (next-auth@beta) + Twitch OAuth (JWT戦略)
-- **DB**: Supabase (PostgreSQL, service_role keyでRLSバイパス)
-- **AI**: Anthropic SDK (@anthropic-ai/sdk) + Claude Sonnet
+- **DB / 外部 AI API**: なし（2026-09 コミット A で Supabase・Anthropic を撤去。復活させない）
 - **画像処理**: @imgly/background-removal (WASM), gif.js, MediaPipe (顔検出)
 - **デプロイ**: Vercel (GitHub pushで自動デプロイ)
 
 ## 開発ルール
 - **REPORT.md**: 機能追加・バグ修正時は必ず同コミットで更新する
-- **既存機能の非破壊**: 変更時は既存の50種アニメーション・サブスク機能に影響がないことを確認
+- **既存機能の非破壊**: 変更時は既存 52 種アニメーション（ID 保持）・解放機能に影響がないことを確認
+- **Supabase / Anthropic / 任意コード実行を再導入しない**: 固定アニメーションのみ。実装コード文字列の保存・評価は禁止
 - **サーバーに画像を送らない**: 画像処理はすべてクライアントサイド。この原則を破る変更は不可
 - **コミットメッセージ**: 日本語で簡潔に。Co-Authored-Byを付ける
 - **Turbopackキャッシュ破損**: `next build` 後に `npm run dev` するとキャッシュが壊れる。`.next` を削除して再起動。それでもダメなら `rm -rf .next node_modules && npm install`
 
 ## 環境変数
 ```
-PASSPHRASE                 # 合言葉（特典解放のレガシー経路）
+PASSPHRASE                 # 合言葉（解放経路の一つ。サーバーのみで照合）
+PASSPHRASE_COOKIE_SECRET   # R1b: 合言葉 Cookie の署名鍵（32 文字以上）。変更で全 Cookie 失効
+APP_ORIGIN                 # R1b（任意）: 変更系 API の Origin 検証で追加許可するオリジン
 AUTH_SECRET                # Auth.jsセッション暗号化キー
 AUTH_TWITCH_ID             # Twitch OAuthアプリID
 AUTH_TWITCH_SECRET         # Twitch OAuthシークレット
 AUTH_TWITCH_BROADCASTER_ID # フォロー判定対象 (@datsusara_aki の Twitch user id、fix7)
-SUPABASE_URL               # SupabaseプロジェクトURL
-SUPABASE_SERVICE_ROLE_KEY  # Supabase service_role JWT
-ANTHROPIC_API_KEY          # Claude APIキー
 ```
 
-### killswitch 5 種（fix7 + fix14、`src/lib/auth/feature-flags.ts`）
-段階的縮退用。Vercel 環境変数で false に設定すると即座に無効化される。
+### killswitch 5 種（fix7 + fix14 + R1b、`src/lib/auth/feature-flags.ts`）
+値は true/1/yes/on・false/0/no/off のみ。それ以外は警告ログ + 既定値（黙って true にしない）。
 ```
-SITE_LOCK_ENABLED     # fix14: サイト全体ロック on/off（false で旧 trial/premium 挙動に縮退）
-TRIAL_MODE_ENABLED    # false で全員 premium（最後の retreat）
-FOLLOW_AUTH_ENABLED   # フォロー判定 path on/off（fix14.1 で default false に反転、true 明示で復活）
-PREMIUM_LOCK_ENABLED  # 既存 subscriberOnly 機能 lock on/off
-DOWNLOAD_LOCK_ENABLED # DL ガード on/off（緊急時の最初の手）
+SITE_LOCK_ENABLED     # サイト全体ロック（default true）。false で trial 縮退（未解放でも編集可、保存は Twitch 28px PNG のみ）
+TRIAL_MODE_ENABLED    # false で解放を全許可（emergency grant）。投稿・AI・削除の本人認証は外れない
+FOLLOW_AUTH_ENABLED   # フォロー経路（コード default false、本番で true 明示）。false でフォロー照会・CTA も停止
+PREMIUM_LOCK_ENABLED  # deprecated: 実効なし（互換のため読むだけ）
+DOWNLOAD_LOCK_ENABLED # false で保存の権限ゲートのみ解除（入力検証は維持）
 ```
+問題時は FOLLOW_AUTH_ENABLED=false → DOWNLOAD_LOCK_ENABLED=false → SITE_LOCK_ENABLED=false → TRIAL_MODE_ENABLED=false の順。署名なし Cookie を信頼する旧コードへの rollback は復旧策にしない。
 
-## 機能の階層（fix14 でサイト全体ロック導入、fix7 の trial/premium は縮退時のみ）
+## 機能の階層（R1b: フォロー解放 + 合言葉併用、fix7 の trial は縮退時のみ）
 
-解放判定: `evaluateAccess({ session, isSubscribed, flags })`（`src/lib/auth/premium.ts`）が
-`isFollower OR isSubscribed (PASSPHRASE) OR !TRIAL_MODE_ENABLED` の OR 結合で resolve。
+解放判定: `resolveAccess()`（`src/lib/auth/resolve-access.ts`、server-only）→ `evaluateAccess()`（`src/lib/auth/evaluate-access.ts`、純関数）が
+`follower OR passphrase OR emergency(TRIAL_MODE_ENABLED=false)` で `AccessSnapshot`（`src/types/auth.ts`）を返す。
+クライアントは `AccessProvider`（`useAccess()`）経由でのみ解放状態を知る。localStorage は認証に使わない。
 
-### サイト全体ロック（fix14 / fix14.1、通常運用時）
-- `app/page.tsx` が Server Component として毎リクエスト evaluateAccess を評価
-- 未解放（合言葉未入力）→ `SiteGate` 画面のみ配信（ツール本体の HTML は届かない）
-- 解放経路: **合言葉のみ**（fix14.1 でフォロー解放を撤去。`/api/auth` → cookie → `router.refresh()`）
-- FOLLOW_AUTH_ENABLED は default false に反転（env で true 明示すればフォロー解放が復活）
-- ロック中は `/api/download-check` の trial 許可（28px PNG）も無効（`site-locked` 403）
-- `/privacy` はゲート対象外（公開のまま）
-- Twitch ログイン自体は残存（テンプレート投稿・AI アニメ生成などログイン必須機能用）
+### サイト全体ロック（通常運用時）
+- `app/page.tsx` が Server Component として毎リクエスト `resolveAccess` を評価（合言葉 Cookie を先に、Twitch session は必要時のみ）
+- 未解放 → `SiteGate`（「フォロー、または合言葉で使えます」）のみ配信
+- 解放経路: **Twitch ログイン + @datsusara_aki フォロー**（FOLLOW_AUTH_ENABLED=true 時）**または合言葉**。両方は要求しない
+- 合言葉 Cookie `emote-access-v1` は HMAC 署名付き・30 日固定（`src/lib/auth/passphrase-token.ts`）。旧 `emote-subscriber=1` は信頼しない
+- フォロー結果は成功から 24h 有効、Twitch 一時障害時は最後の成功から 48h まで猶予。非フォロー確定・token 失効は即時失効
+- フォロー再確認は `useSession().update({ trigger: "follower-recheck" | "follower-ttl" })` のみ（RSC では Cookie を書き戻せないため）
+- `/privacy` と `/account` はゲート対象外
+- Twitch ログインは本人認証（投稿・いいね・通報・AI・削除）用。合言葉は本人 ID を発行しない
+
+### API 権限（`src/lib/auth/api-guards.ts`）
+| API | 必要条件 |
+|---|---|
+| `/api/auth` POST/DELETE | 不要（Origin 検証 + 試行制限 10 回/15 分/送信元） |
+| `/api/access` GET, `/api/download-check` POST | 解放権限（フォロー or 合言葉）。download-check は入力検証が先（400 は入力エラー） |
+| テンプレート/アニメの GET | 公開 |
+| （廃止）投稿・いいね・通報・AI・削除 | ルート自体を削除（404） |
 
 ### お試し版（trial、SITE_LOCK_ENABLED=false 縮退時のみ、ログイン不要）
+（`isPremium = access.isUnlocked` が false のときの UI 制限。fix11 の固定 true は撤去済み）
 - アニメ 2 種（`bounce` / `shake`、`TRIAL_ANIMATIONS` で定義、types/emote.ts:80）
 - フチは白黒のみ
 - テキスト色変更不可
@@ -65,30 +76,26 @@ DOWNLOAD_LOCK_ENABLED # DL ガード on/off（緊急時の最初の手）
 ### 無料機能（誰でも使える）
 - 画像/GIF/動画アップロード、背景透過、ブラシ補正
 - 5 プラットフォーム同時出力（Twitch / Discord / 7TV / BTTV / FFZ）
-- ログイン限定 3 種（`gaming` / `glitch` / `neon`）
 - フチスタイル 7 種（fix6: `neon` / `double` / `sticker` / `outline-only` / `gradient` / `chrome` / `dotted`、全部無料）
 - フォント 22 種
 
-### 特典機能（Twitch フォロー or 合言葉で解放、fix10 で UI 文言を「特典」に統一）
-- 限定アニメーション 42 種（fix10 で 45→42 に実数訂正、ANIMATION_OPTIONS 53 - none 1 - free 7 - loginOnly 3）
+### 特典機能（フォロー or 合言葉で解放 = `access.isUnlocked`）
+- アニメーション 100 種（trial は bounce / shake の 2 種、残り 98 種はフォロー or 合言葉）
 - エモートフレーム 16 種（fix9 で 6→16、stars/hearts/gaming/sparkles/rainbow/dots + neon/pixel/gold/silver/comic/cat/sakura/hologram/fire/coin）
 - カスタムフチ色
 - 2 画像合成（右下重ねる / 左下重ねる / 左右に並べる）
 - サブスクバッジ作成（Twitch サブスクバッジの作成、機能名そのまま）
 
-## DBテーブル（Supabase）
-- `templates` — ユーザー投稿テンプレート
-- `likes` — テンプレートいいね（UNIQUE: user_id + template_id）
-- `custom_animations` — AI生成アニメーション（code上限5000文字）
-- `animation_likes` — アニメーションいいね
-- `animation_reports` — 通報（3件で自動非公開、DBトリガー）
-- `ai_animation_logs` — AI生成レート制限（5回/日/ユーザー）
+## DB テーブル
+なし。2026-09（コミット A）で Supabase を撤去。旧テーブル（templates / likes / custom_animations / animation_likes / animation_reports / ai_animation_logs）のデータは旧プロジェクトに残存している可能性があるが、アプリからは接続しない。
 
 ## アニメーションシステム
 - `FrameGenerator`: `(baseCanvas, frameIndex, totalFrames) => HTMLCanvasElement`
-- 52種のアニメーション（basic/effects/motion/reactions）+ AI-custom
-- AI-custom: iframe sandbox (`allow-scripts`) + postMessage通信で安全実行
-- GIF: 20フレーム、256px生成 → マルチステップ縮小 → gif.js
+- 固定アニメーション 100 種（既存 52 + v2 48）。定義は `src/lib/animations/catalog.ts`（型付き）、実装は `generators: Record<AnimationId, FrameGenerator>`（不一致は型エラー）
+- 追加手順: catalog に entry → generator 実装 → index.ts の generators に登録 → `npm test`（100 件・一意性を検査）
+- お気に入りは localStorage `emote-animation-favorites-v1`（端末内のみ）。プレビューは `preview.ts`（gif.js 不使用、最大 2 件同時、LRU 12）
+- dev ページ: `/dev/animations`（100 種のフレーム帯 + GIF 検証）、`/dev/gif-check`（B12）。本番では 404
+- GIF: 20フレーム、256px生成 → マルチステップ縮小 → `src/lib/gif/encoder-core.ts`（gif.js の GIFEncoder を直接駆動し、量子化後にアルファマスクでインデックスを書き換える。Worker `encode.worker.ts`）。gif.js の `transparent` オプションだけに頼らない（不透明画像が透明化される）
 - 速度: slow=80ms / normal=50ms / fast=25ms
 
 ## Canvas処理パイプライン
@@ -100,36 +107,29 @@ DOWNLOAD_LOCK_ENABLED # DL ガード on/off（緊急時の最初の手）
 ```
 
 ## API Routes
-- `POST /api/auth` — 合言葉認証 → HttpOnly cookie `emote-subscriber=1` を 30 日 set
-- `DELETE /api/auth` — 合言葉解除（cookie クリア、fix7）
-- `POST /api/download-check` — DL 権限の server-side 再検証（fix7、`evaluateAccess` で判定）
-- `POST /api/account/delete` — 全テーブル横断削除（fix8、Supabase 6 テーブル順次削除 + ログ）
-- `GET/POST /api/templates` — テンプレートCRUD
-- `DELETE /api/templates/[id]` — テンプレート削除（本人のみ）
-- `POST /api/templates/[id]/like` — いいねトグル
-- `GET /api/generate-animation` — 残り生成回数取得
-- `POST /api/generate-animation` — AIアニメーション生成
-- `GET/POST /api/custom-animations` — カスタムアニメーションCRUD
-- `DELETE /api/custom-animations/[id]` — 削除（本人のみ）
-- `POST /api/custom-animations/[id]/like` — いいねトグル
-- `POST /api/custom-animations/[id]/report` — 通報
+- `POST /api/auth` — 合言葉認証 → 署名付き HttpOnly cookie `emote-access-v1`（30 日）。400/401/403(origin)/429/503
+- `DELETE /api/auth` — 合言葉 Cookie（新旧）削除。Twitch session には触らない
+- `GET /api/access` — 公開 `AccessSnapshot`（no-store）。`auth(handler)` ラッパーで JWT 書き戻し
+- `POST /api/download-check` — `{platform, assetType, files[]}` を共通仕様（`src/lib/download/profiles.ts`）で検証 → 解放権限判定
+- 廃止（404）: `/api/templates*`、`/api/custom-animations*`、`/api/generate-animation`、`/api/account/delete`
 
-## 認証・権限アーキテクチャ（fix7 / fix7.1 / fix7.2）
+## 認証・権限アーキテクチャ（fix7 → R1b で再設計）
 
 - **認証**: Auth.js v5 (next-auth@beta) + Twitch OAuth、JWT 戦略
-- **JWT 内容** (`types/auth.ts:59-83`): access_token / refresh_token / expires_at / scope / isFollower / followCheckedAt / followedAt
+- **JWT 内容** (`types/auth.ts`): access_token / refresh_token / expires_at / scope / tokenValidatedAt / isFollower（最後の成功結果）/ followCheckedAt（成功時のみ更新）/ followAttemptedAt / followAttemptOutcome / followBroadcasterId / followedAt / error
 - **scope**: `openid user:read:email user:read:follows`（fix7 で `user:read:follows` 追加）
-- **フォロー判定**: `src/lib/twitch/follower-check.ts` の純関数 `checkIsFollower` が `/helix/channels/followed` を 1s/3s/10s リトライ + 24h stale-cache フォールバック付きで叩く
-- **フォロー再検証フロー**（fix7.2 確定）:
-  1. client が `useSession().update({ trigger: "follower-recheck" })` を呼ぶ
-  2. Auth.js が jwt callback を `trigger === "update"` で起動
-  3. callback が `token.access_token` を直接使い Twitch API を再叩き（**`getToken` は使わない**、後述）
-  4. 結果を token に書き戻し、5 秒スロットリングで連打抑制
-  5. `session` 引数の client 供給値は **完全に無視**（elevation-of-privilege 対策）
-- **PASSPHRASE 経路**: `/api/auth POST` で HttpOnly cookie `emote-subscriber=1` を set、`evaluateAccess` が cookie を読んで `isSubscribed` 判定
-- **DL ガード**: `/api/download-check` POST が trial / premium / size を見て 200 / 403 を返す
-- **アカウント削除フロー**（fix8）: `/api/account/delete` POST が Supabase 6 テーブル横断削除 + サーバーログに steps 記録 + 14 日 SLA の手動削除請求受付（`ADMIN_DELETION_SOP.md`、機密 SQL は `.admin-sop-private.md`）
-- **CASCADE 設定**: `supabase-cascades.sql` で templates → likes 等の自動削除を保証（fix8、Aki が Supabase 管理画面で適用）
+- **フォロー判定**: `src/lib/twitch/follower-check.ts` の `checkIsFollower` が `/helix/channels/followed` を 1 fetch 3 秒・最大 2 回・全体 8 秒 deadline で叩き、`following / not-following / unauthorized / temporary-error` を返す（一時失敗を「非フォロー」に潰さない）。`validateTwitchToken` で 1 時間ごとに `/oauth2/validate`
+- **フォロー再検証フロー**（R1b）:
+  1. client（`AccessProvider.recheckFollower`）が `useSession().update({ trigger: "follower-recheck" | "follower-ttl" })` を呼ぶ
+  2. jwt callback が `trigger === "update"` で起動。`session` 引数は trigger 文字列以外 **完全に無視**
+  3. 順序: 期限切れ refresh → validate（1h）→ scope 確認 → フォロー照会。照会 401 は refresh 1 回 + 再照会
+  4. 成功時のみ `followCheckedAt` 更新。失敗は `followAttemptOutcome` に記録し最後の成功結果を保持
+  5. 手動は 5 秒スロットル（JWT + 共有 RPC）、TTL は 24h 未満なら照会しない
+  6. `/api/access` は `auth(handler)` ラッパーで JWT を Cookie に書き戻す（RSC の `auth()` は書き戻せない）
+- **PASSPHRASE 経路**: `/api/auth POST` が署名付き Cookie `emote-access-v1` を発行、`resolveAccess` が HMAC 検証（DB・Twitch 不要）
+- **試行制限**: `src/lib/auth/rate-limit.ts`。インスタンス内メモリのみ（上限 10,000 バケット、絶対期限付き）。複数インスタンス横断・再起動後の持続はしない
+- **DL ガード**: `/api/download-check` POST が入力検証 → 解放権限で 200 / 400 / 403 を返す
+- **アカウント削除**: 廃止（コミット A）。サーバーに削除対象データが無い。旧投稿データの削除請求は PP §10 の連絡先で手動対応
 
 ## やらないと決めたこと
 - サブスク限定の差別化（みんなのアニメーション）— 投稿が増えてから判断
@@ -138,10 +138,9 @@ DOWNLOAD_LOCK_ENABLED # DL ガード on/off（緊急時の最初の手）
 - カスタムアニメーションカードのGIFプレビュー — 「使う」ボタンで即確認可能
 
 ## 注意事項
-- Supabaseは `service_role` key使用（RLSバイパス）。フロントに露出させないこと
-- Anthropic APIの月額上限をダッシュボードで設定すること
-- 通報3件自動非公開は複数アカウントで悪用可能（許容中）
 - Twitch `user_login` はユーザーが変更可能（許容中）
 - **`getToken` は使わない**（fix7.2 で完全排除）— Auth.js v5 の `getToken` は App Router の `NextRequest` と非互換、認証済みユーザーに対しても `null` を返すバグあり。フォロー再 verify は必ず `useSession().update()` + jwt callback の `trigger === "update"` 経路を通す
-- **session.user に `access_token` を出さない**（types/auth.ts:57 の方針）— server-only。client 露出は XSS 経由の token 流出リスク
+- **session.user に `access_token` を出さない**（types/auth.ts の Session 拡張）— server-only。client 露出は XSS 経由の token 流出リスク
+- **`isPremium=true` 固定・localStorage 認証に戻さない**（R1b）— 解放状態は `useAccess().access.isUnlocked` のみ
+- **合言葉 Cookie の検証に DB / Twitch を混ぜない** — Twitch 障害時のバックアップ経路であるため
 - **REPORT.md 更新ルール**: feature / bug fix / design 変更は **同 commit で REPORT.md 更新**。entry は changelog 形式、新しいリリースは時系列の上部に追加

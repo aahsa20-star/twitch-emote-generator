@@ -1,4 +1,4 @@
-import GIF from "gif.js";
+import { canvasesToFrames, encodeGifFrames, type EncodeJobOptions } from "./encode";
 
 /**
  * Encode a series of pre-rendered frame canvases into an animated GIF.
@@ -19,7 +19,8 @@ export async function encodeAnimatedGif(
   frames: HTMLCanvasElement[],
   delays: number[],
   size: number,
-  repeat: number = 0
+  repeat: number = 0,
+  jobOpts: EncodeJobOptions = {}
 ): Promise<Blob> {
   if (frames.length === 0) {
     throw new Error("エンコード対象のフレームがありません");
@@ -28,28 +29,14 @@ export async function encodeAnimatedGif(
     throw new Error("frames と delays の数が一致しません");
   }
 
-  return new Promise((resolve, reject) => {
-    const gif = new GIF({
-      workers: 2,
-      quality: 10,
-      width: size,
-      height: size,
-      workerScript: "/gif.worker.js",
-      transparent: 0x00000000 as unknown as string,
-      repeat,
-      // Floyd-Steinberg ディザリング — fix5 / QUALITY_AUDIT category 6。
-      dither: "FloydSteinberg",
-    });
-
-    for (let i = 0; i < frames.length; i++) {
-      gif.addFrame(frames[i], { delay: delays[i], copy: true });
-    }
-
-    gif.on("finished", (blob: Blob) => resolve(blob));
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (gif as any).on("error", (err: Error) => reject(err));
-    gif.render();
-  });
+  // R2 §1: index-level transparency. 07 §1: the caller keeps `frames` alive
+  // until this resolves, so a worker crash can rebuild from them.
+  const { blob } = await encodeGifFrames(
+    canvasesToFrames(frames, delays),
+    { repeat, quality: 10, dither: "FloydSteinberg" },
+    { ...jobOpts, rebuild: () => canvasesToFrames(frames, delays) },
+  );
+  return blob;
 }
 
 /** Translate a user-facing loop count into gif.js's `repeat` value.
