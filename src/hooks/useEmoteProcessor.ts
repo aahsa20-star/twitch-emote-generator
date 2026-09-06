@@ -59,6 +59,9 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
   const [progress, setProgress] = useState(0);
   const [variants, setVariants] = useState<EmoteVariant[]>([]);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  /** 09 §2: a failed background removal stays visible until the user picks
+   *  「元画像で続ける」 or 「再試行」 (no auto-dismiss). */
+  const [bgRemovalFailed, setBgRemovalFailed] = useState(false);
   const [gifSource, setGifSourceState] = useState<DecodedGif | null>(null);
   const [gifNotice, setGifNotice] = useState<string | null>(null);
   const [videoSource, setVideoSourceState] = useState<DecodedVideo | null>(null);
@@ -136,6 +139,11 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     async function process() {
       setVariants([]);
       variantsRef.current = [];
+      setBgRemovalFailed(false);
+      // 09 §状態: a new source never shows the previous source's outputs as if
+      // they were its own — the preview goes back to "processing" until the
+      // new base canvas exists.
+      setBgRemovedCanvas(null);
 
       // Video source: VideoTrimmer owns the decode (it needs user trim/fps
       // input first), so the hook just parks here. The trimmer calls
@@ -253,8 +261,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
       } catch (err) {
         console.error("Background removal failed:", err);
         if (!cancelled && !bgRemovalCancelledRef.current) {
-          setErrorMessage("背景透過に失敗しました。別の画像をお試しください");
-          setTimeout(() => setErrorMessage(null), 5000);
+          setBgRemovalFailed(true);
           setStage("idle");
         }
       }
@@ -490,6 +497,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
   // Cancel ongoing background removal
   const cancelBgRemoval = useCallback(async () => {
     bgRemovalCancelledRef.current = true;
+    setBgRemovalFailed(false);
     if (!sourceFile) return;
 
     // Fall back to original image
@@ -505,6 +513,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
   // Retry background removal
   const retryBgRemoval = useCallback(() => {
     if (!sourceFile) return;
+    setBgRemovalFailed(false);
     setSkipBgRemoval(false);
     setBgRemovedCanvas(null);
     // Force re-trigger by setting source file again
@@ -514,6 +523,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
   // Use original image (skip bg removal after it was already done)
   const useOriginalImage = useCallback(async () => {
     if (!sourceFile) return;
+    setBgRemovalFailed(false);
     setSkipBgRemoval(true);
     try {
       const canvas = await fileToCanvas(sourceFile);
@@ -602,6 +612,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     handleBrushSkip,
     fileToCanvas,
     errorMessage,
+    bgRemovalFailed,
     isGifSource: gifSource !== null,
     gifFrameCount: gifSource?.frames.length ?? 0,
     gifOriginalFrameCount: gifSource?.originalFrameCount ?? 0,
