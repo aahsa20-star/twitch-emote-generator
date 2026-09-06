@@ -1,6 +1,12 @@
 import JSZip from "jszip";
 import { EmoteVariant } from "@/types/emote";
 
+/**
+ * ZIP export. Returns a discriminated result instead of a bare Promise<void>
+ * so callers cannot mistake a failure for success (R1c / B24).
+ */
+export type ExportResult = { ok: true; bytes: number } | { ok: false; error: string };
+
 function dataUrlToUint8Array(dataUrl: string): Uint8Array {
   const base64 = dataUrl.split(",")[1];
   const binary = atob(base64);
@@ -23,34 +29,40 @@ function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
 export async function exportAsZip(
   variants: EmoteVariant[],
   zipFilename: string = "emotes.zip"
-): Promise<void> {
-  const zip = new JSZip();
+): Promise<ExportResult> {
+  try {
+    if (variants.length === 0) return { ok: false, error: "no-variants" };
+    const zip = new JSZip();
 
-  for (const variant of variants) {
-    if (variant.animatedBlob) {
-      const buffer = await blobToArrayBuffer(variant.animatedBlob);
-      zip.file(variant.filename, buffer);
-    } else {
-      const bytes = dataUrlToUint8Array(variant.staticDataUrl);
-      zip.file(variant.filename, bytes);
+    for (const variant of variants) {
+      if (variant.animatedBlob) {
+        const buffer = await blobToArrayBuffer(variant.animatedBlob);
+        zip.file(variant.filename, buffer);
+      } else {
+        const bytes = dataUrlToUint8Array(variant.staticDataUrl);
+        zip.file(variant.filename, bytes);
+      }
     }
+
+    const zipBlob = await zip.generateAsync({
+      type: "blob",
+      compression: "DEFLATE",
+      compressionOptions: { level: 6 },
+    });
+
+    const url = URL.createObjectURL(zipBlob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = zipFilename;
+    document.body.appendChild(a);
+    a.click();
+    // Delay cleanup to ensure download starts
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 1000);
+    return { ok: true, bytes: zipBlob.size };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : String(e) };
   }
-
-  const zipBlob = await zip.generateAsync({
-    type: "blob",
-    compression: "DEFLATE",
-    compressionOptions: { level: 6 },
-  });
-
-  const url = URL.createObjectURL(zipBlob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = zipFilename;
-  document.body.appendChild(a);
-  a.click();
-  // Delay cleanup to ensure download starts
-  setTimeout(() => {
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, 1000);
 }

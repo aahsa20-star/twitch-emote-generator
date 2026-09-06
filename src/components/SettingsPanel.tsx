@@ -20,8 +20,6 @@ interface SettingsPanelProps {
   onConfigChange: (partial: PartialEmoteConfig) => void;
   disabled: boolean;
   isPremium: boolean;
-  isLoggedIn: boolean;
-  onLoginRequired?: () => void;
   /** fix7: trial 版で locked な機能をクリックされた時に親が
    *  FeatureLockHint / FollowGateModal を起動するためのコールバック */
   onTrialLockClick?: (featureLabel: string) => void;
@@ -40,8 +38,6 @@ export default function SettingsPanel({
   onConfigChange,
   disabled,
   isPremium,
-  isLoggedIn,
-  onLoginRequired,
   onTrialLockClick,
   subFile,
   onSubImageSelected,
@@ -204,8 +200,6 @@ export default function SettingsPanel({
           config={config}
           onConfigChange={onConfigChange}
           isPremium={isPremium}
-          isLoggedIn={isLoggedIn}
-          onLoginRequired={onLoginRequired}
           onTrialLockClick={onTrialLockClick}
           bgRemovedCanvas={bgRemovedCanvas}
         />

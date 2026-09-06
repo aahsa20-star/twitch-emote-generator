@@ -81,29 +81,16 @@ export const DEFAULT_BADGE_SETTINGS: BadgeSettings = {
   outlineColor: "#FFFFFF",
 };
 
+import { ANIMATION_LIST, TRIAL_ANIMATION_IDS, type AnimationId } from "@/lib/animations/catalog";
+
 /**
- * fix7: trial 版で利用可能なアニメ 2 種。
- * 設計書 §11 の確定仕様（候補 A: bounce + shake）。
- *
- * 変更したくなったらこの 1 行を書き換えるだけ。
- * - "raw"（直球の数値表示）/ "positive"（残り N 種）等の TrialBadge 文言も
- *   この配列の長さから自動的に追従する。
- * - お試し版の体感を変えたい場合の最小コスト切替ポイント。
+ * trial 版で利用可能なアニメ（catalog の `trial: true`、現在 bounce + shake）。
  */
-export const TRIAL_ANIMATIONS = ["bounce", "shake"] as const;
+export const TRIAL_ANIMATIONS = TRIAL_ANIMATION_IDS;
 
 export type AnimationSpeed = "slow" | "normal" | "fast";
 
-export type AnimationType = "none" | "sway" | "shake" | "blink" | "bounce" | "zoomin" | "spin" | "hearts"
-  | "gaming" | "glitch" | "sparkle" | "afterimage" | "fastspin"
-  | "float" | "wobble" | "neon" | "vhs" | "snow" | "fire" | "matrix" | "drunk" | "confetti" | "hypno"
-  | "tv" | "earthquake" | "party" | "flip" | "ghost" | "glitch2" | "spiral" | "heartbeat" | "spring"
-  | "jelly"
-  | "stretch" | "fall" | "inflate" | "tilt" | "bobbing"
-  | "hologram" | "pixelate" | "kaleidoscope" | "electric" | "static"
-  | "ricochet" | "figure8" | "spiralfall" | "randomwarp" | "stagger"
-  | "angry" | "cry" | "blush" | "surprise" | "sleepy"
-  | "ai-custom";
+export type AnimationType = "none" | AnimationId;
 
 export type TextPosition = "top" | "center" | "bottom";
 
@@ -147,8 +134,6 @@ export interface SubImageConfig {
 export interface AnimationConfig {
   type: AnimationType;
   speed: AnimationSpeed;
-  /** AI生成コード文字列（type === "ai-custom" 時のみ使用） */
-  aiAnimationCode?: string;
 }
 
 export interface EmoteConfig {
@@ -321,67 +306,16 @@ export interface AnimationOption {
   value: AnimationType;
   label: string;
   subscriberOnly?: boolean;
-  loginOnly?: boolean;
 }
 
+/**
+ * Picker options derived from the catalog (コミット C). `subscriberOnly` now
+ * means "not usable in the trial state" — every fixed animation is available
+ * with a follow or a passphrase.
+ */
 export const ANIMATION_OPTIONS: AnimationOption[] = [
   { value: "none", label: "なし（静止画）" },
-  { value: "sway", label: "揺れる" },
-  { value: "shake", label: "震える" },
-  { value: "blink", label: "点滅" },
-  { value: "bounce", label: "ぴょこぴょこ" },
-  { value: "zoomin", label: "ズームイン" },
-  { value: "spin", label: "回転" },
-  { value: "hearts", label: "ハートぷかぷか" },
-  { value: "gaming", label: "ゲーミング", loginOnly: true },
-  { value: "glitch", label: "グリッチ", loginOnly: true },
-  { value: "sparkle", label: "キラキラ", subscriberOnly: true },
-  { value: "afterimage", label: "残像", subscriberOnly: true },
-  { value: "fastspin", label: "高速回転", subscriberOnly: true },
-  { value: "float", label: "ふわふわ", subscriberOnly: true },
-  { value: "wobble", label: "ぐにゃぐにゃ", subscriberOnly: true },
-  { value: "neon", label: "ネオン", loginOnly: true },
-  { value: "vhs", label: "VHS", subscriberOnly: true },
-  { value: "snow", label: "雪", subscriberOnly: true },
-  { value: "fire", label: "炎", subscriberOnly: true },
-  { value: "matrix", label: "マトリックス", subscriberOnly: true },
-  { value: "drunk", label: "酔っ払い", subscriberOnly: true },
-  { value: "confetti", label: "紙吹雪", subscriberOnly: true },
-  { value: "hypno", label: "催眠", subscriberOnly: true },
-  { value: "tv", label: "ブラウン管", subscriberOnly: true },
-  { value: "earthquake", label: "地震", subscriberOnly: true },
-  { value: "party", label: "パーティ", subscriberOnly: true },
-  { value: "flip", label: "ひっくり返る", subscriberOnly: true },
-  { value: "ghost", label: "幽霊", subscriberOnly: true },
-  { value: "glitch2", label: "デジタル崩壊", subscriberOnly: true },
-  { value: "spiral", label: "スパイラル", subscriberOnly: true },
-  { value: "heartbeat", label: "鼓動", subscriberOnly: true },
-  { value: "spring", label: "バネ", subscriberOnly: true },
-  { value: "jelly", label: "ジェリー", subscriberOnly: true },
-  // New basic
-  { value: "stretch", label: "伸び縮み", subscriberOnly: true },
-  { value: "fall", label: "落下", subscriberOnly: true },
-  { value: "inflate", label: "膨らむ", subscriberOnly: true },
-  { value: "tilt", label: "傾く", subscriberOnly: true },
-  { value: "bobbing", label: "浮き沈み", subscriberOnly: true },
-  // New effects
-  { value: "hologram", label: "ホログラム", subscriberOnly: true },
-  { value: "pixelate", label: "ピクセル化", subscriberOnly: true },
-  { value: "kaleidoscope", label: "万華鏡", subscriberOnly: true },
-  { value: "electric", label: "電流", subscriberOnly: true },
-  { value: "static", label: "砂嵐", subscriberOnly: true },
-  // New motion
-  { value: "ricochet", label: "弾む", subscriberOnly: true },
-  { value: "figure8", label: "8の字", subscriberOnly: true },
-  { value: "spiralfall", label: "螺旋落下", subscriberOnly: true },
-  { value: "randomwarp", label: "ランダムワープ", subscriberOnly: true },
-  { value: "stagger", label: "酔い歩き", subscriberOnly: true },
-  // Reactions
-  { value: "angry", label: "怒る", subscriberOnly: true },
-  { value: "cry", label: "泣く", subscriberOnly: true },
-  { value: "blush", label: "照れる", subscriberOnly: true },
-  { value: "surprise", label: "驚く", subscriberOnly: true },
-  { value: "sleepy", label: "眠る", subscriberOnly: true },
+  ...ANIMATION_LIST.map((a) => ({ value: a.id as AnimationType, label: a.label, subscriberOnly: !a.trial })),
 ];
 
 export const ANIMATION_SPEED_OPTIONS: { value: AnimationSpeed; label: string }[] = [
@@ -390,23 +324,3 @@ export const ANIMATION_SPEED_OPTIONS: { value: AnimationSpeed; label: string }[]
   { value: "fast", label: "速い" },
 ];
 
-// --- Template Gallery types ---
-
-export const TEMPLATE_TAGS = [
-  "ゲーミング", "かわいい", "シンプル", "面白い", "クール", "その他",
-] as const;
-export type TemplateTag = (typeof TEMPLATE_TAGS)[number];
-
-export interface Template {
-  id: string;
-  user_id: string;
-  user_name: string;
-  user_login?: string | null;
-  user_image?: string | null;
-  title: string;
-  tags: string[];
-  config: EmoteConfig;
-  likes_count: number;
-  created_at: string;
-  liked_by_me?: boolean;
-}

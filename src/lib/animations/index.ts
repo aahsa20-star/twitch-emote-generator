@@ -1,15 +1,16 @@
 /**
  * Animation registry and GIF generation entry point.
  *
- * To add a new animation:
- * 1. Create a FrameGenerator function in the appropriate category file (basic/effects/motion)
- * 2. Export it from that file
- * 3. Import it here and add it to the `generators` registry
- * 4. Add the animation type to AnimationType in types/emote.ts
+ * To add a new animation (コミット C):
+ * 1. Add its entry to `catalog.ts` (id / label / category / tags)
+ * 2. Implement a FrameGenerator in a category file
+ * 3. Add it to `generators` below — the map is typed `Record<AnimationId, …>`,
+ *    so a catalog id without a generator (or vice versa) is a compile error.
  */
 import { AnimationType, AnimationSpeed } from "@/types/emote";
+import { ANIMATION_CATALOG, type AnimationId } from "./catalog";
 import { downscale } from "@/lib/canvasPipeline";
-import GIF from "gif.js";
+import { canvasesToFrames, encodeGifFrames, type EncodeJobOptions } from "@/lib/gif/encode";
 
 import type { FrameGenerator } from "./types";
 
@@ -81,8 +82,35 @@ import {
   createSleepyFrame,
 } from "./reactions";
 
-/** Animation name -> frame generator mapping */
-const generators: Record<string, FrameGenerator> = {
+// v2 (2026-09, 05 設計案)
+import {
+  createBowFrame, createLaughBurstFrame, createSweatFrame, createThinkingFrame,
+  createQuestionFrame, createIdeaFrame, createDefeatedFrame, createProudFrame,
+} from "./v2-reactions";
+import {
+  createPeekLeftFrame, createPeekBottomFrame, createCurtainOpenFrame, createIrisOpenFrame,
+  createDiagonalRevealFrame, createStampFrame, createPaperUnfoldFrame, createTeleportRingFrame,
+  createBrushRevealFrame,
+} from "./v2-entrance";
+import {
+  createOrbitFrame, createZigzagFrame, createStairsFrame, createRollAcrossFrame,
+  createSwingRopeFrame, createSlingshotFrame, createCrawlFrame, createOrbitPairFrame,
+} from "./v2-motion";
+import {
+  createSpeechPopFrame, createApplauseFrame, createCheerRaysFrame, createCrownFrame,
+  createCheckmarkFrame, createCrossmarkFrame, createExclamationFrame, createLoadingDotsFrame,
+} from "./v2-decor";
+import {
+  createSakuraPetalsFrame, createAutumnLeavesFrame, createUnderwaterFrame, createRainUmbrellaFrame,
+  createSunRiseFrame, createShootingStarFrame, createMoonCloudFrame, createFlowerBloomFrame,
+} from "./v2-scene";
+import {
+  createStickerPeelFrame, createContourTraceFrame, createPuzzleAssembleFrame, createTileSlideFrame,
+  createPageTurnFrame, createVenetianBlindsFrame, createRippleRingFrame,
+} from "./v2-transform";
+
+/** Animation id -> frame generator. Typed against the catalog. */
+export const generators: Record<AnimationId, FrameGenerator> = {
   // Basic
   sway: createSwayFrame,
   shake: createShakeFrame,
@@ -142,7 +170,78 @@ const generators: Record<string, FrameGenerator> = {
   blush: createBlushFrame,
   surprise: createSurpriseFrame,
   sleepy: createSleepyFrame,
+  // v2 reactions
+  bow: createBowFrame,
+  "laugh-burst": createLaughBurstFrame,
+  sweat: createSweatFrame,
+  thinking: createThinkingFrame,
+  question: createQuestionFrame,
+  idea: createIdeaFrame,
+  defeated: createDefeatedFrame,
+  proud: createProudFrame,
+  // v2 entrance
+  "peek-left": createPeekLeftFrame,
+  "peek-bottom": createPeekBottomFrame,
+  "curtain-open": createCurtainOpenFrame,
+  "iris-open": createIrisOpenFrame,
+  "diagonal-reveal": createDiagonalRevealFrame,
+  stamp: createStampFrame,
+  "paper-unfold": createPaperUnfoldFrame,
+  "teleport-ring": createTeleportRingFrame,
+  "brush-reveal": createBrushRevealFrame,
+  // v2 motion
+  orbit: createOrbitFrame,
+  zigzag: createZigzagFrame,
+  stairs: createStairsFrame,
+  "roll-across": createRollAcrossFrame,
+  "swing-rope": createSwingRopeFrame,
+  slingshot: createSlingshotFrame,
+  crawl: createCrawlFrame,
+  "orbit-pair": createOrbitPairFrame,
+  // v2 decor
+  "speech-pop": createSpeechPopFrame,
+  applause: createApplauseFrame,
+  "cheer-rays": createCheerRaysFrame,
+  crown: createCrownFrame,
+  checkmark: createCheckmarkFrame,
+  crossmark: createCrossmarkFrame,
+  exclamation: createExclamationFrame,
+  "loading-dots": createLoadingDotsFrame,
+  // v2 scene
+  "sakura-petals": createSakuraPetalsFrame,
+  "autumn-leaves": createAutumnLeavesFrame,
+  underwater: createUnderwaterFrame,
+  "rain-umbrella": createRainUmbrellaFrame,
+  "sun-rise": createSunRiseFrame,
+  "shooting-star": createShootingStarFrame,
+  "moon-cloud": createMoonCloudFrame,
+  "flower-bloom": createFlowerBloomFrame,
+  // v2 transform
+  "sticker-peel": createStickerPeelFrame,
+  "contour-trace": createContourTraceFrame,
+  "puzzle-assemble": createPuzzleAssembleFrame,
+  "tile-slide": createTileSlideFrame,
+  "page-turn": createPageTurnFrame,
+  "venetian-blinds": createVenetianBlindsFrame,
+  "ripple-ring": createRippleRingFrame,
 };
+
+/** Frame generator for an id (undefined for "none" / unknown). */
+export function getFrameGenerator(id: AnimationType): FrameGenerator | undefined {
+  return id === "none" ? undefined : generators[id as AnimationId];
+}
+
+/** Runtime consistency check used by tests and the dev page. */
+export function registryConsistency(): { ok: boolean; missing: string[]; extra: string[]; count: number } {
+  const ids = new Set(ANIMATION_CATALOG.map((a) => a.id));
+  const impl = new Set(Object.keys(generators));
+  const missing = [...ids].filter((i) => !impl.has(i));
+  const extra = [...impl].filter((i) => !ids.has(i as AnimationId));
+  return { ok: missing.length === 0 && extra.length === 0, missing, extra, count: ids.size };
+}
+
+export const FRAME_COUNT = 20;
+export { SPEED_DELAY };
 
 const SPEED_DELAY: Record<AnimationSpeed, number> = {
   slow: 80,
@@ -161,81 +260,9 @@ export async function generateGif(
   size: number,
   speed: AnimationSpeed = "normal",
   hiResCanvas?: HTMLCanvasElement,
-  aiAnimationCode?: string
+  jobOpts: EncodeJobOptions = {}
 ): Promise<Blob> {
-  // AI-custom: use iframe sandbox for frame generation
-  if (animationType === "ai-custom" && aiAnimationCode) {
-    const { generateAllFrames } = await import("@/lib/animationSandbox");
-    const sourceCanvas = hiResCanvas ?? baseCanvas;
-
-    // Extract 256×256 ImageData for sandbox
-    const extractCanvas = document.createElement("canvas");
-    extractCanvas.width = 256;
-    extractCanvas.height = 256;
-    const extractCtx = extractCanvas.getContext("2d")!;
-    extractCtx.drawImage(sourceCanvas, 0, 0, 256, 256);
-    const baseImageData = extractCtx.getImageData(0, 0, 256, 256);
-    extractCanvas.width = 0;
-    extractCanvas.height = 0;
-
-    const totalFrames = 20;
-    const frameDelay = SPEED_DELAY[speed];
-    const frames = await generateAllFrames(aiAnimationCode, baseImageData, totalFrames);
-
-    return new Promise((resolve, reject) => {
-      const gif = new GIF({
-        workers: 2,
-        quality: 10,
-        width: size,
-        height: size,
-        workerScript: "/gif.worker.js",
-        transparent: 0x00000000 as unknown as string,
-        repeat: 0,
-        // Floyd-Steinberg ディザリングでエッジ AA とグラデーション帯を改善。
-        // ファイルサイズ +10〜25% / 書き出し時間 +10〜30% のトレードオフ。
-        dither: "FloydSteinberg",
-      });
-
-      const frameCanvases: HTMLCanvasElement[] = [];
-      for (const frame of frames) {
-        const fc = document.createElement("canvas");
-        fc.width = 256;
-        fc.height = 256;
-        fc.getContext("2d")!.putImageData(frame, 0, 0);
-
-        let outputFrame: HTMLCanvasElement;
-        if (size < 256) {
-          outputFrame = downscale(fc, size);
-          fc.width = 0;
-          fc.height = 0;
-        } else {
-          outputFrame = fc;
-        }
-
-        gif.addFrame(outputFrame, { delay: frameDelay, copy: true });
-        frameCanvases.push(outputFrame);
-      }
-
-      gif.on("finished", (blob: Blob) => {
-        for (const c of frameCanvases) {
-          c.width = 0;
-          c.height = 0;
-        }
-        resolve(blob);
-      });
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      (gif as any).on("error", (err: Error) => {
-        for (const c of frameCanvases) {
-          c.width = 0;
-          c.height = 0;
-        }
-        reject(err);
-      });
-      gif.render();
-    });
-  }
-
-  const generator = generators[animationType];
+  const generator = getFrameGenerator(animationType);
   if (!generator) {
     throw new Error(`No animation generator for: ${animationType}`);
   }
@@ -244,56 +271,38 @@ export async function generateGif(
   const sourceCanvas = hiResCanvas ?? baseCanvas;
   const needsDownscale = sourceCanvas.width > size;
 
-  return new Promise((resolve, reject) => {
-    const gif = new GIF({
-      workers: 2,
-      quality: 10,
-      width: size,
-      height: size,
-      workerScript: "/gif.worker.js",
-      transparent: 0x00000000 as unknown as string,
-      repeat: 0,
-      // Floyd-Steinberg ディザリング — fix5 / QUALITY_AUDIT category 6。
-      dither: "FloydSteinberg",
-    });
+  const totalFrames = FRAME_COUNT;
+  const frameDelay = SPEED_DELAY[speed];
 
-    const totalFrames = 20;
-    const frameDelay = SPEED_DELAY[speed];
-
-    const frameCanvases: HTMLCanvasElement[] = [];
-    for (let i = 0; i < totalFrames; i++) {
-      const hiResFrame = generator(sourceCanvas, i, totalFrames);
-
-      // Downscale frame to output size if generated at hi-res
-      let outputFrame: HTMLCanvasElement;
-      if (needsDownscale) {
-        outputFrame = downscale(hiResFrame, size);
-        // Release hi-res frame immediately to save memory
-        hiResFrame.width = 0;
-        hiResFrame.height = 0;
-      } else {
-        outputFrame = hiResFrame;
-      }
-
-      gif.addFrame(outputFrame, { delay: frameDelay, copy: true });
-      frameCanvases.push(outputFrame);
+  // Render every frame first (元画像は読むだけ), then flatten alpha with a
+  // per-GIF sentinel so opaque black never becomes transparent (B12).
+  const frameCanvases: HTMLCanvasElement[] = [];
+  for (let i = 0; i < totalFrames; i++) {
+    const hiResFrame = generator(sourceCanvas, i, totalFrames);
+    let outputFrame: HTMLCanvasElement;
+    if (needsDownscale) {
+      outputFrame = downscale(hiResFrame, size);
+      hiResFrame.width = 0;
+      hiResFrame.height = 0;
+    } else {
+      outputFrame = hiResFrame;
     }
-
-    gif.on("finished", (blob: Blob) => {
-      for (const fc of frameCanvases) {
-        fc.width = 0;
-        fc.height = 0;
-      }
-      resolve(blob);
-    });
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (gif as any).on("error", (err: Error) => {
-      for (const fc of frameCanvases) {
-        fc.width = 0;
-        fc.height = 0;
-      }
-      reject(err);
-    });
-    gif.render();
-  });
+    frameCanvases.push(outputFrame);
+  }
+  const delays = frameCanvases.map(() => frameDelay);
+  try {
+    // R2 §1: index-level transparency. 07 §1: canvases stay alive until the
+    // encode settles so a worker crash can rebuild the frames from them.
+    const { blob } = await encodeGifFrames(
+      canvasesToFrames(frameCanvases, delays),
+      { repeat: 0, quality: 10, dither: "FloydSteinberg" },
+      { ...jobOpts, rebuild: () => canvasesToFrames(frameCanvases, delays) },
+    );
+    return blob;
+  } finally {
+    for (const fc of frameCanvases) {
+      fc.width = 0;
+      fc.height = 0;
+    }
+  }
 }

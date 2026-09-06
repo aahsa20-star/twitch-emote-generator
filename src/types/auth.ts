@@ -1,66 +1,165 @@
 /**
- * Authentication-related shared types for fix7 follower auth.
+ * Authentication / access-control shared types (R1b: フォロー解放 + 署名付き合言葉).
  *
- * - `AccessState` is the resolved gating state used by all UI / API code.
+ * - `AccessSnapshot` is the PUBLIC, client-safe access state. It never carries
+ *   tokens, secrets, cookie values or the passphrase digest.
+ * - `*Evidence` types are the verified server-side inputs to the pure
+ *   `evaluateAccess()` (src/lib/auth/evaluate-access.ts).
  * - `FeatureFlags` is the env-var killswitch evaluation result.
- * - The `next-auth/jwt` module augmentation persists Twitch tokens and the
- *   isFollower judgement in the JWT (HttpOnly cookie, server-only).
+ * - The `next-auth` / `next-auth/jwt` module augmentations persist Twitch
+ *   tokens and follower evidence in the JWT (HttpOnly, encrypted cookie).
  */
 
+import type { DefaultSession } from "next-auth";
 import "next-auth/jwt";
 
+/** Result of the most recent follower judgement, as shown to the UI. */
+export type FollowerStatus =
+  | "following"
+  | "not-following"
+  | "unknown"
+  | "temporary-error"
+  | "reauth-required";
+
+/** Twitch identity (本人認証) state, independent from access grants. */
+export type IdentityStatus =
+  | "anonymous"
+  | "authenticated"
+  | "unavailable"
+  | "reauth-required";
+
+/** Why the creator/download surface is unlocked. */
+export type AccessGrant = "follower" | "passphrase" | "emergency";
+
 /**
- * Resolved access state for a request.
- *
- * Computed by `evaluateAccess(session, flags)` in `src/lib/auth/premium.ts`.
- * UI components should consume this via `useSession()` + a small helper hook;
- * server code should call `evaluateAccess` directly.
+ * Coarse tier:
+ * - "unlocked": at least one grant → full creator + downloads
+ * - "locked":   SITE_LOCK_ENABLED and no grant → SiteGate only
+ * - "trial":    SITE_LOCK_ENABLED=false and no grant → legacy trial restrictions
  */
-export interface AccessState {
-  /** true if any premium gating path resolves (follower / passphrase / killswitch). */
-  isPremium: boolean;
-  /** Coarse tier label for UI branching. */
-  tier: "trial" | "premium";
-  /** Why the access state resolved to its current value. */
-  reason: "follower" | "passphrase" | "trial" | "killswitch-disabled";
-  /** True when the session lacks the new follower scope (legacy session pre-fix7). */
+export type AccessTier = "unlocked" | "locked" | "trial";
+
+/** Error markers persisted in the JWT and surfaced to the client. */
+/**
+ * - RefreshTokenError : refresh token rejected → re-login required
+ * - ReauthRequired    : Twitch reported the token invalid / wrong client / scope → re-login
+ * - TokenTemporaryError: refresh / validate could not complete (network) → retry later
+ * - FollowCheckError  : follower query temporarily failed; last success kept
+ */
+export type SessionError =
+  | "RefreshTokenError"
+  | "ReauthRequired"
+  | "TokenTemporaryError"
+  | "FollowCheckError";
+
+/**
+ * Public access snapshot returned by `GET /api/access` and passed from the
+ * Server Component (page.tsx) to the client as initial state.
+ */
+export interface AccessSnapshot {
+  isUnlocked: boolean;
+  tier: AccessTier;
+  grants: AccessGrant[];
+  identityStatus: IdentityStatus;
+  followerStatus: FollowerStatus;
+  /** Unix ms of the last SUCCESSFUL follower query (either outcome). */
+  followerCheckedAt?: number;
+  /** Unix ms until which a temporary Twitch outage keeps the follower grant. */
+  followerGraceUntil?: number;
+  /** True when the client should trigger a TTL re-verification (24h elapsed / unknown). */
+  followerRecheckDue: boolean;
+  /**
+   * True when the last confirmed result was "following" but it is older than
+   * 24h and no server-confirmed temporary-failure evidence exists yet: the
+   * grant is withheld ("確認中") until a re-verification completes. The
+   * creator UI stays mounted; protected operations wait for the recheck.
+   */
+  followerPending: boolean;
+  /** Unix ms when the passphrase cookie expires (only when the grant is present). */
+  passphraseExpiresAt?: number;
+  /** Logged-in session lacks `user:read:follows` or the token needs re-authorization. */
   needsReauth: boolean;
-  /** True when a Twitch session is active (regardless of premium status). */
-  isLoggedIn: boolean;
-  /** Twitch follower judgement against AUTH_TWITCH_BROADCASTER_ID. */
-  isFollower: boolean;
-  /** PASSPHRASE-derived premium status (legacy compat). */
-  isSubscribed: boolean;
+  siteGateEnabled: boolean;
+  followEnabled: boolean;
+  /** Public profile for display. Never contains tokens. */
+  user?: { name?: string | null; image?: string | null; login?: string | null } | null;
+  /** Server clock (Unix ms) at evaluation time; lets the client show relative times. */
+  evaluatedAt: number;
+}
+
+/** Verified passphrase-cookie evidence (output of verifyPassphraseToken). */
+export interface PassphraseEvidence {
+  valid: boolean;
+  expiresAt?: number;
+}
+
+/** Verified Twitch identity evidence (derived from the Auth.js session). */
+export interface IdentityEvidence {
+  status: IdentityStatus;
+  userId?: string;
+  scope?: string;
+  error?: SessionError;
+  user?: { name?: string | null; image?: string | null; login?: string | null } | null;
+}
+
+/** Follower evidence (derived from the JWT; all fields server-written). */
+export interface FollowerEvidence {
+  /** Outcome of the last SUCCESSFUL query. */
+  lastOutcome?: "following" | "not-following";
+  /** Unix ms of the last successful query. */
+  checkedAt?: number;
+  /** Unix ms of the last attempted query (success or failure). */
+  attemptedAt?: number;
+  /** Outcome of the last attempt (may differ from lastOutcome when it failed). */
+  lastAttemptOutcome?: "following" | "not-following" | "temporary-error" | "unauthorized";
+  /** Broadcaster id the evidence was computed against. */
+  broadcasterId?: string;
+  /** Twitch user id the evidence belongs to. */
+  userId?: string;
 }
 
 /**
  * Environment-driven killswitches. Evaluated server-side via
  * `getFeatureFlags()` in `src/lib/auth/feature-flags.ts`.
- *
- * All four are independent. The most common emergency move is to flip
- * `DOWNLOAD_LOCK_ENABLED=false` first; `TRIAL_MODE_ENABLED=false` is the
- * full retreat that releases every gated feature.
  */
 export interface FeatureFlags {
-  /**
-   * fix14: サイト全体ロック。true のとき未解放ユーザー（follower でも
-   * PASSPHRASE 済みでもない）にはツール本体の代わりに合言葉ゲート画面を
-   * 表示する。false でゲート撤去 → trial/premium の旧 2 階層挙動に戻る。
-   */
+  /** fix14: サイト全体ロック。true で未解放の新規アクセスは SiteGate。 */
   SITE_LOCK_ENABLED: boolean;
-  /** Master killswitch for trial-mode restrictions. false = everyone is premium. */
+  /** false = 明示的な全解放（緊急設定）。本人認証が必要な操作の認証は外れない。 */
   TRIAL_MODE_ENABLED: boolean;
-  /** Master killswitch for follower-judgement code paths. */
+  /** true でフォロー経路を許可。false なら合言葉経路のみ（照会・CTA も停止）。 */
   FOLLOW_AUTH_ENABLED: boolean;
-  /** Lock the legacy subscriber-only features (animations, frames, custom border). */
+  /** @deprecated 現コードで実効なし。互換のため読み取るだけ。 */
   PREMIUM_LOCK_ENABLED: boolean;
-  /** Lock 56/112px PNG and all GIF downloads behind premium. */
+  /** false = アプリの保存権限ゲートのみ解除。入力検証は維持。 */
   DOWNLOAD_LOCK_ENABLED: boolean;
 }
 
 /**
- * next-auth JWT augmentation. JWT lives only in HttpOnly + signed cookie;
- * never expose `access_token` / `refresh_token` to the client through session.
+ * next-auth Session augmentation: the client-visible user object.
+ * access_token / refresh_token are NEVER exposed here.
+ */
+declare module "next-auth" {
+  interface Session {
+    user: {
+      id: string;
+      login?: string;
+      /** Last successful follower outcome (false when unknown). */
+      isFollower: boolean;
+      followerStatus: FollowerStatus;
+      followCheckedAt?: number;
+      followAttemptedAt?: number;
+      followAttemptOutcome?: "following" | "not-following" | "temporary-error" | "unauthorized";
+      followBroadcasterId?: string;
+      scope: string;
+      error?: SessionError;
+    } & DefaultSession["user"];
+  }
+}
+
+/**
+ * next-auth JWT augmentation. JWT lives only in an HttpOnly encrypted cookie;
+ * never expose `access_token` / `refresh_token` through the session.
  */
 declare module "next-auth/jwt" {
   interface JWT {
@@ -76,15 +175,22 @@ declare module "next-auth/jwt" {
     expires_at?: number;
     /** Space-separated granted scope string from Twitch. */
     scope?: string;
+    /** Unix ms of the last successful /oauth2/validate. */
+    tokenValidatedAt?: number;
 
-    // Follower judgement
+    // Follower evidence (server-written only)
+    /** Outcome of the last successful query. */
     isFollower?: boolean;
-    /** Unix epoch ms when isFollower was last computed. */
+    /** Unix ms of the last successful query. */
     followCheckedAt?: number;
+    /** Unix ms of the last attempted query. */
+    followAttemptedAt?: number;
+    followAttemptOutcome?: "following" | "not-following" | "temporary-error" | "unauthorized";
+    followBroadcasterId?: string;
     /** ISO 8601 string from Twitch (when isFollower=true). */
     followedAt?: string;
 
     // Error states
-    error?: "RefreshTokenError" | "FollowCheckError";
+    error?: SessionError;
   }
 }

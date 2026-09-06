@@ -1,5 +1,8 @@
 "use client";
 
+import { TRIAL_ANIMATIONS } from "@/types/emote";
+import { ANIMATION_COUNT } from "@/lib/animations/catalog";
+
 /**
  * お試し版バッジ — trial ユーザーの画面上部に「お試し版で使用中」を控えめに表示。
  *
@@ -27,8 +30,8 @@ interface TrialBadgeProps {
 
 export default function TrialBadge({
   variant = "badge-only",
-  trialAnimCount = 2,
-  totalAnimCount = 52,
+  trialAnimCount = TRIAL_ANIMATIONS.length,
+  totalAnimCount = ANIMATION_COUNT,
   className = "",
 }: TrialBadgeProps) {
   const baseStyle =

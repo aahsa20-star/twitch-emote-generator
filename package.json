@@ -7,32 +7,32 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "postinstall": "cp node_modules/gif.js/dist/gif.worker.js public/gif.worker.js 2>/dev/null || true"
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.80.0",
     "@imgly/background-removal": "^1.7.0",
     "@mediapipe/tasks-vision": "^0.10.32",
-    "@supabase/supabase-js": "^2.99.2",
     "gif.js": "^0.2.0",
     "gifuct-js": "^2.1.2",
     "jszip": "^3.10.1",
     "lucide-react": "^0.577.0",
-    "next": "^16.1.6",
-    "next-auth": "^5.0.0-beta.30",
-    "react": "19.2.3",
-    "react-dom": "19.2.3"
+    "next": "^16.3.4",
+    "next-auth": "^5.0.0-beta.32",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@types/gif.js": "^0.2.5",
     "@types/node": "^20",
-    "@types/react": "^19",
-    "@types/react-dom": "^19",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
     "autoprefixer": "^10.4.27",
     "eslint": "^9",
-    "eslint-config-next": "16.1.6",
+    "eslint-config-next": "^16.3.4",
     "postcss": "^8.5.8",
     "tailwindcss": "^3.4.19",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   }
 }

@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { EmoteConfig, DEFAULT_BADGE_SETTINGS } from "@/types/emote";
 import { processEmote } from "@/lib/canvasPipeline";
 import { generateGif } from "@/lib/gifEncoder";
+import type { DownloadGate } from "@/lib/download/profiles";
 
 interface AutoPattern {
   label: string;
@@ -68,9 +69,11 @@ interface PatternPreview {
 interface RecommendedPatternsProps {
   bgRemovedCanvas: HTMLCanvasElement;
   onApply: (config: EmoteConfig) => void;
+  /** R1c: おすすめパターンの保存も共通ゲートを通す（Twitch 112px 固定）。 */
+  onBeforeDownload?: DownloadGate;
 }
 
-export default function RecommendedPatterns({ bgRemovedCanvas, onApply }: RecommendedPatternsProps) {
+export default function RecommendedPatterns({ bgRemovedCanvas, onApply, onBeforeDownload }: RecommendedPatternsProps) {
   const [previews, setPreviews] = useState<(PatternPreview | null)[]>(
     AUTO_PATTERNS.map(() => null)
   );
@@ -125,11 +128,12 @@ export default function RecommendedPatterns({ bgRemovedCanvas, onApply }: Recomm
     };
   }, []);
 
-  const handleDownload = useCallback((index: number) => {
+  const handleDownload = useCallback(async (index: number) => {
     const preview = previews[index];
     if (!preview) return;
     const pattern = AUTO_PATTERNS[index];
     const isAnimated = pattern.config.animation.type !== "none" && preview.animatedBlob;
+    if (onBeforeDownload && !(await onBeforeDownload([{ size: 112, format: isAnimated ? "gif" : "png" }], "emote", "twitch"))) return;
 
     let url: string;
     let needsRevoke = false;
@@ -150,7 +154,7 @@ export default function RecommendedPatterns({ bgRemovedCanvas, onApply }: Recomm
       document.body.removeChild(a);
       if (needsRevoke) URL.revokeObjectURL(url);
     }, 1000);
-  }, [previews]);
+  }, [previews, onBeforeDownload]);
 
   const generatedCount = previews.filter(Boolean).length;
 
