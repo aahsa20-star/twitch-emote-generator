@@ -26,6 +26,7 @@ import { canEnterStep, type StudioStep, stepAfterSelect } from "@/lib/ui/steps";
 import { adjustTarget, sourceReducer, type SourceState } from "@/lib/ui/source-state";
 import { outputCondition } from "@/lib/ui/save-state";
 import { validateGifFile } from "@/lib/gif/validate";
+import { createSelectionSequence } from "@/lib/ui/save-flow";
 import type { UploadKind } from "@/lib/upload/accept";
 import { primaryBtn, secondaryBtn, textBtn } from "@/components/ui/classes";
 
@@ -195,15 +196,17 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
   );
 
   // ---- step 1: choose (nothing replaces the confirmed work here) ----
-  const gifCheckRef = useRef(0);
+  // 13 §2: one selection number for every pick / cancel, whatever the kind. An
+  // asynchronous GIF validation adopts its file only while it is the latest.
+  const selectionSeq = useRef(createSelectionSequence());
   const acceptFile = useCallback(
     (file: File, kind: UploadKind, opts?: { background?: BackgroundChoice }) => {
+      const token = selectionSeq.current.next();
       if (kind === "gif") {
         // Validate before adopting so a broken file never clears the current work.
-        const check = ++gifCheckRef.current;
         showNotice("GIF を確認しています…", "info", 4000);
         void validateGifFile(file).then((r) => {
-          if (check !== gifCheckRef.current) return;
+          if (!selectionSeq.current.isCurrent(token)) return; // superseded by a later pick / cancel
           if (!r.ok) {
             showNotice(r.message, "error", 8000);
             return;
@@ -266,6 +269,7 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
 
   /** Candidate dropped (or re-adjust closed without changes): back to the confirmed work. */
   const handleAdjustCancel = useCallback(() => {
+    selectionSeq.current.next(); // an earlier GIF validation must not adopt after a cancel
     dispatchSource({ type: "cancel" });
     setStep(confirmed && sourceFile ? 3 : 1);
     scrollTop();
@@ -504,7 +508,7 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
           <ExportPanel
             variants={variants}
             condition={condition}
-            outputGen={outputGen}
+            requestedGen={requestedGen}
             onRetryRender={retryRender}
             exportMode={exportMode}
             onExportModeChange={setExportMode}

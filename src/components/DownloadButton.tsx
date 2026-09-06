@@ -7,6 +7,7 @@ import { BADGE_SIZES, type BadgeSettings, type BadgeSize, type EmoteVariant } fr
 import { renderBadge } from "@/lib/canvasPipeline";
 import type { ExportPlan, ExportPlanFile } from "@/lib/ui/export-plan";
 import { canSaveAll, canSaveFile, type OutputCondition } from "@/lib/ui/save-state";
+import { runGuardedSave } from "@/lib/ui/save-flow";
 import { useIsIOS } from "@/lib/ui/platform";
 import { primaryBtn, secondaryBtn } from "@/components/ui/classes";
 
@@ -39,9 +40,11 @@ interface SaveActionsProps {
 export default function SaveActions({ plan, planKey, condition, variants, badgeSettings, bgRemovedCanvas, onBeforeDownload, onStatus, onSaved }: SaveActionsProps) {
   const isIOS = useIsIOS();
   const latestKey = useRef(planKey);
+  const latestCondition = useRef(condition);
   useEffect(() => {
     latestKey.current = planKey;
-  }, [planKey]);
+    latestCondition.current = condition;
+  }, [planKey, condition]);
 
   type Armed = { key: string; action: "primary" | "all" | `file:${number}`; step: number };
   const [armed, setArmed] = useState<Armed | null>(null);
@@ -49,29 +52,19 @@ export default function SaveActions({ plan, planKey, condition, variants, badgeS
   const [busy, setBusy] = useState(false);
 
   const filesOf = (list: ExportPlanFile[]): DownloadFile[] => list.map((f) => ({ size: f.size, format: f.format }));
-  const stillCurrent = (snapshot: string) => latestKey.current === snapshot;
+  /** 13 §1: the request this save started for is still the one shown, and its outputs are current. */
+  const validFor = (snapshot: string) => () => latestKey.current === snapshot && latestCondition.current === "current";
   const abortChanged = () => onStatus("設定または出力が変わったため中止しました。もう一度押してください");
 
-  /** Permission gate + generation guard (outputs changed while the server answered → abort). */
-  const gate = useCallback(
-    async (files: DownloadFile[], assetType: AssetType, platform: Platform, snapshot: string): Promise<boolean> => {
+  /** Permission check (server). */
+  const permission = useCallback(
+    async (files: DownloadFile[], assetType: AssetType, platform: Platform): Promise<boolean> => {
       onStatus("保存の権限を確認しています…");
-      setBusy(true);
-      try {
-        if (onBeforeDownload && !(await onBeforeDownload(files, assetType, platform))) {
-          onStatus(null);
-          return false;
-        }
-        if (!stillCurrent(snapshot)) {
-          abortChanged();
-          return false;
-        }
-        return true;
-      } finally {
-        setBusy(false);
-      }
+      if (!onBeforeDownload) return true;
+      const ok = await onBeforeDownload(files, assetType, platform);
+      if (!ok) onStatus(null);
+      return ok;
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [onBeforeDownload, onStatus],
   );
 
@@ -109,12 +102,29 @@ export default function SaveActions({ plan, planKey, condition, variants, badgeS
     async (f: ExportPlanFile, action: Armed["action"]) => {
       if (!canSaveFile(f, condition)) return;
       const snapshot = planKey;
+      const files: DownloadFile[] = [{ size: f.size, format: f.format }];
       onStatus(null);
       if (isIOS) {
         if (!iosArmed || iosArmed.action !== action) {
-          if (!(await gate([{ size: f.size, format: f.format }], plan.assetType, plan.platform, snapshot))) return;
-          setArmed({ key: snapshot, action, step: 0 });
-          onStatus(`準備できました。もう一度押すと ${f.size}px を開きます`);
+          setBusy(true);
+          try {
+            const r = await runGuardedSave({
+              gate: () => permission(files, plan.assetType, plan.platform),
+              isStillValid: validFor(snapshot),
+              deliver: () => {
+                setArmed({ key: snapshot, action, step: 0 });
+                onStatus(`準備できました。もう一度押すと ${f.size}px を開きます`);
+              },
+              onAborted: abortChanged,
+            });
+            void r;
+          } finally {
+            setBusy(false);
+          }
+          return;
+        }
+        if (!validFor(snapshot)()) {
+          abortChanged();
           return;
         }
         const u = urlFor(f);
@@ -124,14 +134,26 @@ export default function SaveActions({ plan, planKey, condition, variants, badgeS
         onSaved({ kind: "opened", text: `${f.size}px を新しいタブで開きました。画像を長押し →「写真に追加」で保存できます` });
         return;
       }
-      if (!(await gate([{ size: f.size, format: f.format }], plan.assetType, plan.platform, snapshot))) return;
-      const u = urlFor(f);
-      if (!u) return;
-      onStatus("ファイルを準備しています…");
-      triggerAnchorDownload(u.url, f.filename, u.revoke);
-      onSaved({ kind: "started", text: `${f.filename} のダウンロードを開始しました` });
+      setBusy(true);
+      try {
+        await runGuardedSave({
+          gate: () => permission(files, plan.assetType, plan.platform),
+          isStillValid: validFor(snapshot),
+          deliver: () => {
+            const u = urlFor(f);
+            if (!u) return;
+            onStatus("ファイルを準備しています…");
+            triggerAnchorDownload(u.url, f.filename, u.revoke);
+            onSaved({ kind: "started", text: `${f.filename} のダウンロードを開始しました` });
+          },
+          onAborted: abortChanged,
+        });
+      } finally {
+        setBusy(false);
+      }
     },
-    [condition, gate, iosArmed, isIOS, onSaved, onStatus, openOnIos, plan.assetType, plan.platform, planKey, urlFor],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [condition, permission, iosArmed, isIOS, onSaved, onStatus, openOnIos, plan.assetType, plan.platform, planKey, urlFor],
   );
 
   const saveAll = useCallback(async () => {
@@ -141,9 +163,24 @@ export default function SaveActions({ plan, planKey, condition, variants, badgeS
     onStatus(null);
     if (isIOS) {
       if (!iosArmed || iosArmed.action !== "all") {
-        if (!(await gate(filesOf(files), plan.assetType, plan.platform, snapshot))) return;
-        setArmed({ key: snapshot, action: "all", step: 0 });
-        onStatus(`準備できました。もう一度押すと最初のサイズ（${files[0].size}px）を開きます`);
+        setBusy(true);
+        try {
+          await runGuardedSave({
+            gate: () => permission(filesOf(files), plan.assetType, plan.platform),
+            isStillValid: validFor(snapshot),
+            deliver: () => {
+              setArmed({ key: snapshot, action: "all", step: 0 });
+              onStatus(`準備できました。もう一度押すと最初のサイズ（${files[0].size}px）を開きます`);
+            },
+            onAborted: abortChanged,
+          });
+        } finally {
+          setBusy(false);
+        }
+        return;
+      }
+      if (!validFor(snapshot)()) {
+        abortChanged();
         return;
       }
       const f = files[iosArmed.step];
@@ -160,38 +197,41 @@ export default function SaveActions({ plan, planKey, condition, variants, badgeS
       }
       return;
     }
-    if (!(await gate(filesOf(files), plan.assetType, plan.platform, snapshot))) return;
-    onStatus("ZIP を作っています…");
     setBusy(true);
     try {
-      const { default: JSZip } = await import("jszip");
-      const zip = new JSZip();
-      for (const f of files) {
-        const u = urlFor(f);
-        if (!u) continue;
-        if (u.url.startsWith("data:")) zip.file(f.filename, u.url.split(",")[1], { base64: true });
-        else {
-          const v = variants.find((x) => x.size === f.size);
-          if (v?.animatedBlob) zip.file(f.filename, v.animatedBlob);
-          if (u.revoke) URL.revokeObjectURL(u.url);
-        }
-      }
-      const blob = await zip.generateAsync({ type: "blob" });
-      if (!stillCurrent(snapshot)) {
-        abortChanged();
-        return;
-      }
-      const zipName = plan.assetType === "badge" ? "badge.zip" : `${plan.platform}_emotes.zip`;
-      triggerAnchorDownload(URL.createObjectURL(blob), zipName, true);
-      onSaved({ kind: "started-all", text: `${zipName} のダウンロードを開始しました` });
-    } catch (e) {
-      console.error("zip failed:", e);
-      onStatus("まとめて保存できませんでした。ファイルごとの「保存」をお試しください");
+      const r = await runGuardedSave<Blob>({
+        gate: () => permission(filesOf(files), plan.assetType, plan.platform),
+        isStillValid: validFor(snapshot),
+        prepare: async () => {
+          onStatus("ZIP を作っています…");
+          const { default: JSZip } = await import("jszip");
+          const zip = new JSZip();
+          for (const f of files) {
+            const u = urlFor(f);
+            if (!u) continue;
+            if (u.url.startsWith("data:")) zip.file(f.filename, u.url.split(",")[1], { base64: true });
+            else {
+              const v = variants.find((x) => x.size === f.size);
+              if (v?.animatedBlob) zip.file(f.filename, v.animatedBlob);
+              if (u.revoke) URL.revokeObjectURL(u.url);
+            }
+          }
+          return zip.generateAsync({ type: "blob" });
+        },
+        deliver: (blob) => {
+          if (!blob) return;
+          const zipName = plan.assetType === "badge" ? "badge.zip" : `${plan.platform}_emotes.zip`;
+          triggerAnchorDownload(URL.createObjectURL(blob), zipName, true);
+          onSaved({ kind: "started-all", text: `${zipName} のダウンロードを開始しました` });
+        },
+        onAborted: abortChanged,
+      });
+      if (r === "failed") onStatus("まとめて保存できませんでした。ファイルごとの「保存」をお試しください");
     } finally {
       setBusy(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [condition, gate, iosArmed, isIOS, onSaved, onStatus, openOnIos, plan, planKey, urlFor, variants]);
+  }, [condition, permission, iosArmed, isIOS, onSaved, onStatus, openOnIos, plan, planKey, urlFor, variants]);
 
   const primary = plan.primary;
   const primaryAvailable = !!primary && canSaveFile(primary, condition);

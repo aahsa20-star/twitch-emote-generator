@@ -16,7 +16,8 @@ interface ExportPanelProps {
   variants: EmoteVariant[];
   /** Whether `variants` are the outputs of the current settings (12 §1). */
   condition: OutputCondition;
-  outputGen: number | null;
+  /** Generation of the settings currently requested — advances on every change (13 §1). */
+  requestedGen: number;
   onRetryRender: () => void;
   exportMode: ExportMode;
   onExportModeChange: (mode: ExportMode) => void;
@@ -88,7 +89,10 @@ export default function ExportPanel(p: ExportPanelProps) {
   // when they are set (a ref, so an abort message produced *after* a change is
   // stored under the new key and stays visible, while a stale 「準備できました」
   // from before the change is hidden) — 12 §1.
-  const planKey = savePlanKey(plan, p.outputGen, plan.files);
+  // Keyed by the *requested* generation: a text / animation / badge change with
+  // the same destination and format drops prepared state and result cards at
+  // once, before the new outputs exist.
+  const planKey = savePlanKey(plan, p.requestedGen, plan.files);
   const planKeyRef = useRef(planKey);
   useEffect(() => {
     planKeyRef.current = planKey;
