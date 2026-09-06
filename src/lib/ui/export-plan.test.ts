@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BADGE_PROFILE, EXPORT_PROFILES } from "@/lib/download/profiles";
+import { BADGE_PROFILE, EXPORT_PROFILES, PLATFORMS, validateDownloadRequest } from "@/lib/download/profiles";
 import { buildExportPlan, dataUrlBytes, defaultExportFormat, formatBytes, type PlanVariant } from "./export-plan";
 
 const twitchVariants: PlanVariant[] = [
@@ -54,6 +54,15 @@ describe("export plan", () => {
     expect(plan.files.map((f) => f.size)).toEqual([...BADGE_PROFILE.sizes].sort((a, b) => b - a));
     expect(plan.files[0].filename).toBe("badge_72.png");
     expect(plan.files.every((f) => f.bytes === null && f.available)).toBe(true);
+  });
+
+  it("badge plans from any emote destination are Twitch plans the API accepts", () => {
+    for (const platform of PLATFORMS) {
+      const plan = buildExportPlan({ platform, assetType: "badge", format: "png", variants: twitchVariants });
+      expect(plan.platform).toBe(BADGE_PROFILE.platform);
+      const v = validateDownloadRequest({ platform: plan.platform, assetType: plan.assetType, files: plan.files.map((f) => ({ size: f.size, format: f.format })) });
+      expect(v.ok).toBe(true);
+    }
   });
 
   it("dataUrlBytes decodes exact base64 length", () => {

@@ -6,19 +6,21 @@ import { triggerAnchorDownload } from "@/lib/download/client";
 import { BADGE_SIZES, type BadgeSettings, type BadgeSize, type EmoteVariant } from "@/types/emote";
 import { renderBadge } from "@/lib/canvasPipeline";
 import type { ExportPlan, ExportPlanFile } from "@/lib/ui/export-plan";
-import { primaryBtn, secondaryBtn } from "@/components/ui/classes";
-
+import { canSaveAll, canSaveFile, type OutputCondition } from "@/lib/ui/save-state";
 import { useIsIOS } from "@/lib/ui/platform";
+import { primaryBtn, secondaryBtn } from "@/components/ui/classes";
 
 export type SaveOutcome = { kind: "started" | "opened" | "opened-all" | "started-all"; text: string };
 
 interface SaveActionsProps {
   plan: ExportPlan;
+  /** Identity of plan + output generation (12 §1): every prepared / pending
+   *  state is bound to it and dropped when it changes. */
+  planKey: string;
+  condition: OutputCondition;
   variants: EmoteVariant[];
   badgeSettings?: BadgeSettings;
   bgRemovedCanvas?: HTMLCanvasElement | null;
-  /** Outputs are final for the current settings (stage === "ready"). */
-  ready: boolean;
   onBeforeDownload?: DownloadGate;
   /** Short status for the panel: 認証の確認 / ファイルの準備 / 開始. */
   onStatus: (text: string | null) => void;
@@ -30,14 +32,12 @@ interface SaveActionsProps {
  * Save actions of the save screen (09 §4, R1c gate kept): one primary button
  * for the largest size, a secondary for every size (ZIP on PC, one-by-one on
  * iOS), plus a small per-size save in the file list. Every path goes through
- * /api/download-check first. iOS keeps the existing two taps: 「準備する」
- * (permission) → 「画像を開く」 (synchronous window.open). The prepared state
- * is bound to the plan (destination / format / outputs) and dropped when any
- * of them changes.
+ * /api/download-check first, and every async step re-checks that the outputs
+ * it was started for are still the current ones (12 §1). iOS keeps the two
+ * taps: 「準備する」 (permission) → 「開く」 (synchronous window.open).
  */
-export default function SaveActions({ plan, variants, badgeSettings, bgRemovedCanvas, ready, onBeforeDownload, onStatus, onSaved }: SaveActionsProps) {
+export default function SaveActions({ plan, planKey, condition, variants, badgeSettings, bgRemovedCanvas, onBeforeDownload, onStatus, onSaved }: SaveActionsProps) {
   const isIOS = useIsIOS();
-  const planKey = `${plan.platform}:${plan.assetType}:${plan.format}:${variants.map((v) => v.size + (v.animatedBlob ? "g" : "p")).join(",")}`;
   const latestKey = useRef(planKey);
   useEffect(() => {
     latestKey.current = planKey;
@@ -45,15 +45,16 @@ export default function SaveActions({ plan, variants, badgeSettings, bgRemovedCa
 
   type Armed = { key: string; action: "primary" | "all" | `file:${number}`; step: number };
   const [armed, setArmed] = useState<Armed | null>(null);
-  const iosArmed = armed && armed.key === planKey ? armed : null; // a changed plan disarms without an effect
+  const iosArmed = armed && armed.key === planKey ? armed : null; // a changed plan / generation disarms
   const [busy, setBusy] = useState(false);
 
   const filesOf = (list: ExportPlanFile[]): DownloadFile[] => list.map((f) => ({ size: f.size, format: f.format }));
+  const stillCurrent = (snapshot: string) => latestKey.current === snapshot;
+  const abortChanged = () => onStatus("設定または出力が変わったため中止しました。もう一度押してください");
 
-  /** Permission gate + revision guard (outputs changed while the server answered → ask again). */
+  /** Permission gate + generation guard (outputs changed while the server answered → abort). */
   const gate = useCallback(
-    async (files: DownloadFile[], assetType: AssetType, platform: Platform): Promise<boolean> => {
-      const snapshot = planKey;
+    async (files: DownloadFile[], assetType: AssetType, platform: Platform, snapshot: string): Promise<boolean> => {
       onStatus("保存の権限を確認しています…");
       setBusy(true);
       try {
@@ -61,8 +62,8 @@ export default function SaveActions({ plan, variants, badgeSettings, bgRemovedCa
           onStatus(null);
           return false;
         }
-        if (latestKey.current !== snapshot) {
-          onStatus("出力が更新されました。もう一度押してください");
+        if (!stillCurrent(snapshot)) {
+          abortChanged();
           return false;
         }
         return true;
@@ -70,15 +71,15 @@ export default function SaveActions({ plan, variants, badgeSettings, bgRemovedCa
         setBusy(false);
       }
     },
-    [onBeforeDownload, onStatus, planKey],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [onBeforeDownload, onStatus],
   );
 
-  /** URL for one planned file (blob for GIF / badge, data URL for PNG). */
+  /** URL for one planned file (blob for GIF, data URL for PNG / badge). */
   const urlFor = useCallback(
     (f: ExportPlanFile): { url: string; revoke: boolean } | null => {
       if (plan.assetType === "badge") {
-        if (!bgRemovedCanvas || !badgeSettings) return null;
-        if (!(BADGE_SIZES as readonly number[]).includes(f.size)) return null;
+        if (!bgRemovedCanvas || !badgeSettings || !(BADGE_SIZES as readonly number[]).includes(f.size)) return null;
         const c = renderBadge(bgRemovedCanvas, badgeSettings, f.size as BadgeSize);
         return { url: c.toDataURL("image/png"), revoke: false };
       }
@@ -106,12 +107,13 @@ export default function SaveActions({ plan, variants, badgeSettings, bgRemovedCa
 
   const saveOne = useCallback(
     async (f: ExportPlanFile, action: Armed["action"]) => {
-      if (!f.available) return;
+      if (!canSaveFile(f, condition)) return;
+      const snapshot = planKey;
       onStatus(null);
       if (isIOS) {
         if (!iosArmed || iosArmed.action !== action) {
-          if (!(await gate([{ size: f.size, format: f.format }], plan.assetType, plan.platform))) return;
-          setArmed({ key: planKey, action, step: 0 });
+          if (!(await gate([{ size: f.size, format: f.format }], plan.assetType, plan.platform, snapshot))) return;
+          setArmed({ key: snapshot, action, step: 0 });
           onStatus(`準備できました。もう一度押すと ${f.size}px を開きます`);
           return;
         }
@@ -122,24 +124,25 @@ export default function SaveActions({ plan, variants, badgeSettings, bgRemovedCa
         onSaved({ kind: "opened", text: `${f.size}px を新しいタブで開きました。画像を長押し →「写真に追加」で保存できます` });
         return;
       }
-      if (!(await gate([{ size: f.size, format: f.format }], plan.assetType, plan.platform))) return;
+      if (!(await gate([{ size: f.size, format: f.format }], plan.assetType, plan.platform, snapshot))) return;
       const u = urlFor(f);
       if (!u) return;
       onStatus("ファイルを準備しています…");
       triggerAnchorDownload(u.url, f.filename, u.revoke);
       onSaved({ kind: "started", text: `${f.filename} のダウンロードを開始しました` });
     },
-    [gate, iosArmed, isIOS, onSaved, onStatus, openOnIos, plan.assetType, plan.platform, planKey, urlFor],
+    [condition, gate, iosArmed, isIOS, onSaved, onStatus, openOnIos, plan.assetType, plan.platform, planKey, urlFor],
   );
 
   const saveAll = useCallback(async () => {
-    const files = plan.files.filter((f) => f.available);
-    if (files.length === 0) return;
+    if (!canSaveAll(plan, condition)) return;
+    const files = plan.files;
+    const snapshot = planKey;
     onStatus(null);
     if (isIOS) {
       if (!iosArmed || iosArmed.action !== "all") {
-        if (!(await gate(filesOf(files), plan.assetType, plan.platform))) return;
-        setArmed({ key: planKey, action: "all", step: 0 });
+        if (!(await gate(filesOf(files), plan.assetType, plan.platform, snapshot))) return;
+        setArmed({ key: snapshot, action: "all", step: 0 });
         onStatus(`準備できました。もう一度押すと最初のサイズ（${files[0].size}px）を開きます`);
         return;
       }
@@ -157,7 +160,7 @@ export default function SaveActions({ plan, variants, badgeSettings, bgRemovedCa
       }
       return;
     }
-    if (!(await gate(filesOf(files), plan.assetType, plan.platform))) return;
+    if (!(await gate(filesOf(files), plan.assetType, plan.platform, snapshot))) return;
     onStatus("ZIP を作っています…");
     setBusy(true);
     try {
@@ -174,6 +177,10 @@ export default function SaveActions({ plan, variants, badgeSettings, bgRemovedCa
         }
       }
       const blob = await zip.generateAsync({ type: "blob" });
+      if (!stillCurrent(snapshot)) {
+        abortChanged();
+        return;
+      }
       const zipName = plan.assetType === "badge" ? "badge.zip" : `${plan.platform}_emotes.zip`;
       triggerAnchorDownload(URL.createObjectURL(blob), zipName, true);
       onSaved({ kind: "started-all", text: `${zipName} のダウンロードを開始しました` });
@@ -183,21 +190,25 @@ export default function SaveActions({ plan, variants, badgeSettings, bgRemovedCa
     } finally {
       setBusy(false);
     }
-  }, [gate, iosArmed, isIOS, onSaved, onStatus, openOnIos, plan, planKey, urlFor, variants]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [condition, gate, iosArmed, isIOS, onSaved, onStatus, openOnIos, plan, planKey, urlFor, variants]);
 
   const primary = plan.primary;
-  const primaryAvailable = !!primary?.available && ready;
-  const allAvailable = plan.files.some((f) => f.available) && ready;
-  const primaryLabel = !ready
-    ? "出力を更新中…"
-    : isIOS
-      ? iosArmed?.action === "primary"
-        ? `${primary?.size}px を開く`
-        : `${plan.primaryLabel} を準備する`
-      : `${plan.primaryLabel} を保存`;
+  const primaryAvailable = !!primary && canSaveFile(primary, condition);
+  const allAvailable = canSaveAll(plan, condition);
+  const primaryLabel =
+    condition === "failed"
+      ? "出力の更新に失敗しました"
+      : condition !== "current"
+        ? "出力を更新中…"
+        : isIOS
+          ? iosArmed?.action === "primary"
+            ? `${primary?.size}px を開く`
+            : `${plan.primaryLabel} を準備する`
+          : `${plan.primaryLabel} を保存`;
   const allLabel = isIOS
     ? iosArmed?.action === "all"
-      ? `${plan.files.filter((f) => f.available)[iosArmed.step]?.size ?? ""}px を開く（${iosArmed.step + 1} / ${plan.files.filter((f) => f.available).length}）`
+      ? `${plan.files[iosArmed.step]?.size ?? ""}px を開く（${iosArmed.step + 1} / ${plan.files.length}）`
       : "各サイズを順番に保存（準備する）"
     : plan.assetType === "badge"
       ? "全サイズをZIPで保存（バッジ）"
@@ -211,23 +222,29 @@ export default function SaveActions({ plan, variants, badgeSettings, bgRemovedCa
       <button type="button" onClick={saveAll} disabled={!allAvailable || busy} className={`${secondaryBtn} w-full`}>
         {allLabel}
       </button>
+      {condition === "current" && !allAvailable && plan.files.some((f) => f.available) && (
+        <p className="text-[11px] text-studio-muted">一部のサイズにこの形式の出力がないため、まとめて保存はできません。あるサイズは下から 1 つずつ保存できます。</p>
+      )}
       {isIOS && iosArmed && (
         <button type="button" onClick={() => { setArmed(null); onStatus(null); }} className="w-full min-h-[36px] text-[11px] text-studio-muted hover:text-studio-text">
           準備をやり直す
         </button>
       )}
-      {/* per-file save (kept from the old per-size cards) */}
       <ul className="divide-y divide-[#38313e] border-t border-[#38313e] mt-3" aria-label="ファイル一覧">
         {plan.files.map((f) => (
           <li key={f.size} className="flex items-center justify-between gap-3 py-2.5 text-[12px]">
             <span>
               <b>{f.size} × {f.size}px</b>
-              <small className="block text-[10px] text-studio-muted">{f.filename}{f.bytes !== null ? ` · ${formatBytes(f.bytes)}` : ""}{!f.available && ready ? " · この形式の出力はありません" : ""}</small>
+              <small className="block text-[10px] text-studio-muted">
+                {f.filename}
+                {f.bytes !== null ? ` · ${formatBytes(f.bytes)}` : ""}
+                {!f.available && condition === "current" ? " · この形式の出力はありません" : ""}
+              </small>
             </span>
             <button
               type="button"
               onClick={() => saveOne(f, `file:${f.size}`)}
-              disabled={!f.available || !ready || busy}
+              disabled={!canSaveFile(f, condition) || busy}
               className="min-h-[36px] px-3 rounded-[7px] text-[11px] border border-[#504557] text-studio-text disabled:opacity-40"
             >
               {isIOS ? (iosArmed?.action === `file:${f.size}` ? "開く" : "準備") : "保存"}
@@ -242,4 +259,3 @@ export default function SaveActions({ plan, variants, badgeSettings, bgRemovedCa
 function formatBytes(n: number): string {
   return n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(2)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`;
 }
-

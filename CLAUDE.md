@@ -98,7 +98,7 @@ DOWNLOAD_LOCK_ENABLED # false で保存の権限ゲートのみ解除（入力�
 | 3 編集する | `PreviewArea.tsx`（できあがり） / `SettingsPanel.tsx`（動き・文字・飾り・その他） / `settings/*` / `MobileDock.tsx` | 拡大見本（実寸とは呼ばない）+ 実寸列。動き: `lib/animations/picker.ts` の おすすめ 12 / すべて / お気に入り。GIF・動画は「再生」タブ。スマホは下部 dock |
 | 4 保存する | `ExportPanel.tsx` / `DownloadButton.tsx`（SaveActions） / `lib/ui/export-plan.ts` | 目的地 → 形式 → サイズ。サイズは download profiles から。全経路 `/api/download-check`。iOS は 準備する → 開く の 2 段階。共有は完了カードの任意ボタン |
 
-補助: `StepNav.tsx`（工程ナビ、`lib/ui/steps.ts` の `canEnterStep`）、`StudioHeader.tsx`（ブランド・利用状態・使い方ダイアログ）、`components/ui/classes.ts`（共通クラス）、デザイントークンは `globals.css` の `--studio-*` と Tailwind の `studio.*`。
+補助: `StepNav.tsx`（工程ナビ、`lib/ui/steps.ts` の `canEnterStep`。未確定の候補があると工程 3/4 は不可）、素材の候補/確定は `lib/ui/source-state.ts` の reducer、保存可否は `lib/ui/save-state.ts`（hook の `requestedGen` / `outputGen` / `failedGen` が一致したときだけ current）、`StudioHeader.tsx`（ブランド・利用状態・使い方ダイアログ）、`components/ui/classes.ts`（共通クラス）、デザイントークンは `globals.css` の `--studio-*` と Tailwind の `studio.*`。
 
 ## DB テーブル
 なし。2026-09（コミット A）で Supabase を撤去。旧テーブル（templates / likes / custom_animations / animation_likes / animation_reports / ai_animation_logs）のデータは旧プロジェクトに残存している可能性があるが、アプリからは接続しない。

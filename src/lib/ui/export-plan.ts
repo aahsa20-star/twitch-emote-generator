@@ -71,7 +71,10 @@ export function buildExportPlan(input: {
   format: ExportFormat;
   variants: PlanVariant[];
 }): ExportPlan {
-  const { platform, assetType } = input;
+  const { assetType } = input;
+  // Badges are Twitch-only (BADGE_PROFILE): the plan's platform must be what the
+  // API is asked for, whatever destination the emote had (12 §2).
+  const platform: Platform = assetType === "badge" ? BADGE_PROFILE.platform : input.platform;
   const profile = assetType === "badge" ? BADGE_PROFILE : EXPORT_PROFILES[platform];
   const gifOffered = profile.formats.includes("gif");
   const format: ExportFormat = gifOffered ? input.format : "png";

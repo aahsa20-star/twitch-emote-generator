@@ -72,6 +72,10 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
   const bgRemovalCancelledRef = useRef(false);
   const gifSourceRef = useRef<DecodedGif | null>(null);
   const videoSourceRef = useRef<DecodedVideo | null>(null);
+  /** Decoded video handed over together with its file (12 §3): adopted by the
+   *  source effect instead of parking, so the previous work is never cleared
+   *  before the trim is confirmed. */
+  const pendingVideoRef = useRef<{ file: File; decoded: DecodedVideo } | null>(null);
 
   // Load image as canvas (shared helper)
   const fileToCanvas = useCallback(async (file: File): Promise<HTMLCanvasElement> => {
@@ -117,7 +121,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
    *  source, sets bgRemovedCanvas to a copy of frame 0 (so the existing
    *  render effect fires), and stores the frames for the per-frame
    *  pipeline. Used by VideoTrimmer's onConfirm. */
-  const ingestVideoSource = useCallback((decoded: DecodedVideo) => {
+  const adoptVideo = useCallback((decoded: DecodedVideo) => {
     setGifSource(null);
     setGifNotice(null);
     setVideoSource(decoded);
@@ -129,6 +133,21 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     firstCopy.getContext("2d")!.drawImage(first, 0, 0);
     setBgRemovedCanvas(firstCopy);
   }, [setGifSource, setVideoSource]);
+
+  /**
+   * Hand a freshly-decoded video to the hook. With `file`, the source is
+   * switched and the frames adopted in one step (the source effect sees the
+   * pending decode and does not park); without it (re-trim of the current
+   * source) the frames replace the current ones directly.
+   */
+  const ingestVideoSource = useCallback((decoded: DecodedVideo, file?: File) => {
+    if (file && file !== sourceFile) {
+      pendingVideoRef.current = { file, decoded };
+      setSourceFile(file);
+      return;
+    }
+    adoptVideo(decoded);
+  }, [adoptVideo, sourceFile]);
 
   // Effect 1: Background removal (or skip) when source changes
   useEffect(() => {
@@ -150,6 +169,12 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
       // ingestVideoSource() once frames are ready, which sets bgRemovedCanvas
       // and unblocks the render effect.
       if (sourceFile!.type.startsWith("video/")) {
+        const pending = pendingVideoRef.current;
+        if (pending && pending.file === sourceFile) {
+          pendingVideoRef.current = null;
+          adoptVideo(pending.decoded);
+          return;
+        }
         setGifSource(null);
         setGifNotice(null);
         setVideoSource(null);
@@ -271,7 +296,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     return () => {
       cancelled = true;
     };
-  }, [sourceFile, skipBgRemoval, bgRemovalQuality, fileToCanvas, setGifSource, setVideoSource]);
+  }, [sourceFile, skipBgRemoval, bgRemovalQuality, fileToCanvas, setGifSource, setVideoSource, adoptVideo]);
 
   // Effect 2: Render previews when bgRemovedCanvas or config changes
   //
@@ -281,13 +306,32 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
   // never saw it and finished async GIF jobs wrote stale results). Every await
   // is followed by `isStale()`; stale jobs neither set variants/stage nor
   // touch loading state.
-  const renderGenRef = useRef(0);
+  // 12 §1: `requestedGen` identifies the inputs currently requested (any change
+  // of source, base canvas, settings, destination, sub image or an explicit
+  // retry); `outputGen` / `failedGen` record which generation the current
+  // `variants` came from. Outputs are saveable only when they match.
+  const genCounterRef = useRef(0);
+  const genDepsRef = useRef<readonly unknown[] | null>(null);
+  const [renderNonce, setRenderNonce] = useState(0);
+  const [outputGen, setOutputGen] = useState<number | null>(null);
+  const [failedGen, setFailedGen] = useState<number | null>(null);
+  // The generation advances exactly when one of these inputs changes identity.
+  // Computed from the previous inputs (not a memo side effect) so StrictMode's
+  // double render cannot advance it twice.
+  const genDeps = [bgRemovedCanvas, config, sourceFile, exportMode, subCanvas, gifSource, videoSource, renderNonce] as const;
+  if (!genDepsRef.current || genDeps.some((d, i) => d !== genDepsRef.current![i])) {
+    genDepsRef.current = genDeps;
+    genCounterRef.current += 1;
+  }
+  const requestedGen = genCounterRef.current;
+  const retryRender = useCallback(() => setRenderNonce((n) => n + 1), []);
+
   useEffect(() => {
     if (!bgRemovedCanvas) return;
 
-    const generation = ++renderGenRef.current;
+    const generation = requestedGen;
     let cancelled = false;
-    const isStale = () => cancelled || generation !== renderGenRef.current;
+    const isStale = () => cancelled || generation !== genCounterRef.current;
     // 07 §2: waiting encode jobs of this generation are dropped on cleanup;
     // the "editor-preview" owner keeps at most one waiting job in the queue.
     const abort = new AbortController();
@@ -375,6 +419,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
               if (stageDelayRef.current) clearTimeout(stageDelayRef.current);
               setVariants(newVariants);
               variantsRef.current = newVariants;
+              setOutputGen(generation);
               setStage("ready");
             }
             return;
@@ -430,6 +475,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
             if (stageDelayRef.current) clearTimeout(stageDelayRef.current);
             setVariants(newVariants);
             variantsRef.current = newVariants;
+            setOutputGen(generation);
             setStage("ready");
           }
         } catch (err) {
@@ -437,6 +483,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
           console.error("Rendering failed:", err);
           if (!isStale()) {
             if (stageDelayRef.current) clearTimeout(stageDelayRef.current);
+            setFailedGen(generation); // old variants stay visible but are never "current"
             setStage("ready");
             setErrorMessage(
               err instanceof GifEncodeError
@@ -463,7 +510,7 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
         stageDelayRef.current = null;
       }
     };
-  }, [bgRemovedCanvas, config, sourceFile, exportMode, subCanvas, gifSource, videoSource]);
+  }, [bgRemovedCanvas, config, sourceFile, exportMode, subCanvas, gifSource, videoSource, requestedGen]);
 
   // Convert blob to canvas helper
   const blobToCanvas = useCallback(async (blob: Blob): Promise<HTMLCanvasElement> => {
@@ -613,6 +660,10 @@ export function useEmoteProcessor(exportMode: ExportMode = "twitch", subCanvas: 
     fileToCanvas,
     errorMessage,
     bgRemovalFailed,
+    requestedGen,
+    outputGen,
+    failedGen,
+    retryRender,
     isGifSource: gifSource !== null,
     gifFrameCount: gifSource?.frames.length ?? 0,
     gifOriginalFrameCount: gifSource?.originalFrameCount ?? 0,

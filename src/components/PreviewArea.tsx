@@ -26,6 +26,11 @@ interface PreviewAreaProps {
   onGoAdjust?: (() => void) | null;
   /** 「保存へ進む」 (desktop; the phone uses the dock). */
   onGoExport: () => void;
+  /** The last render for the current settings failed (old sample still shown). */
+  renderFailed?: boolean;
+  onRetryRender?: () => void;
+  /** Old outputs are shown while a new generation is pending (12 §1). */
+  updating?: boolean;
 }
 
 const STAGE_SCALE = 2; // 拡大見本 = 2×（実寸ではない）
@@ -73,6 +78,9 @@ export default function PreviewArea({
   onContentAdjust,
   onGoAdjust,
   onGoExport,
+  renderFailed = false,
+  onRetryRender,
+  updating = false,
 }: PreviewAreaProps) {
   const [bg, setBg] = useState<PreviewBg>("checker");
   const [reducedMotion, setReducedMotion] = useState(false);
@@ -105,7 +113,12 @@ export default function PreviewArea({
   const largest = sorted[0] ?? null;
   const smallest = sorted[sorted.length - 1] ?? null;
   const animated = !!largest?.animatedBlob;
-  const status = stageStatus(stage, variants.length > 0);
+  const status = renderFailed
+    ? { text: "更新に失敗", busy: false, failed: true }
+    : (() => {
+        const st = stageStatus(stage, variants.length > 0);
+        return { ...st, busy: st.busy || (updating && variants.length > 0), text: !st.busy && updating && variants.length > 0 ? "更新中" : st.text, failed: false };
+      })();
 
   // Legibility check on the smallest output (existing visibilityChecker).
   const visibilityKey = smallest && smallest.size <= 32 ? `${smallest.staticDataUrl.length}:${smallest.size}:${hasText}:${textPosition}` : null;
@@ -197,9 +210,12 @@ export default function PreviewArea({
     <aside className="bg-studio-surface border border-studio-stroke rounded-studio p-3.5 md:p-5" aria-label="できあがり">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-[14px] md:text-[17px] font-bold">できあがり</h2>
-        <span className={`flex items-center gap-1.5 text-[10px] ${status.busy ? "text-studio-warn" : "text-studio-good"}`} role="status" aria-live="polite">
-          <span aria-hidden className={`w-1.5 h-1.5 rounded-full ${status.busy ? "bg-studio-warn animate-pulse" : "bg-studio-good"}`} />
+        <span className={`flex items-center gap-1.5 text-[10px] ${status.failed ? "text-studio-danger" : status.busy ? "text-studio-warn" : "text-studio-good"}`} role="status" aria-live="polite">
+          <span aria-hidden className={`w-1.5 h-1.5 rounded-full ${status.failed ? "bg-studio-danger" : status.busy ? "bg-studio-warn animate-pulse" : "bg-studio-good"}`} />
           {status.text}
+          {status.failed && onRetryRender && (
+            <button type="button" onClick={onRetryRender} className="ml-2 underline text-studio-text">もう一度生成</button>
+          )}
         </span>
       </div>
 

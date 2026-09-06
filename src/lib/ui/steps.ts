@@ -18,15 +18,21 @@ export const STUDIO_STEPS: ReadonlyArray<{ id: StudioStep; label: string; eyebro
 export type SourceKind = "image" | "gif" | "video";
 
 export interface StepContext {
-  /** A source (image / GIF / video) has been accepted. */
+  /** A confirmed source (image / GIF / video) exists — the editor has something to work on. */
   hasSource: boolean;
   sourceKind: SourceKind | null;
+  /** A picked file is still waiting for 「この範囲で使う」/「調整せず使う」/ trim (12 §3). */
+  pendingCandidate?: boolean;
 }
 
 export type StepAvailability = { ok: true } | { ok: false; reason: string };
 
 export function canEnterStep(step: StudioStep, ctx: StepContext): StepAvailability {
   if (step === 1) return { ok: true };
+  if (step === 2 && ctx.pendingCandidate) return { ok: true };
+  if (ctx.pendingCandidate) {
+    return { ok: false, reason: "「画像を整える」で「この範囲で使う」か「調整せず使う」を選ぶと進めます。" };
+  }
   if (!ctx.hasSource) {
     return { ok: false, reason: "先に画像を選ぶか、サンプルで試してください。" };
   }

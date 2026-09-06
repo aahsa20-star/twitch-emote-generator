@@ -32,6 +32,19 @@ describe("studio steps", () => {
     }
   });
 
+  it("a picked-but-unconfirmed file blocks editing and saving until confirmed", () => {
+    const ctx = { hasSource: false, sourceKind: "image" as const, pendingCandidate: true };
+    expect(canEnterStep(2, ctx).ok).toBe(true);
+    for (const step of [3, 4] as const) {
+      const r = canEnterStep(step, ctx);
+      expect(r.ok).toBe(false);
+      if (!r.ok) expect(r.reason).toContain("この範囲で使う");
+    }
+    // even when an older confirmed work exists (A editing → B picked)
+    expect(canEnterStep(3, { hasSource: true, sourceKind: "image", pendingCandidate: true }).ok).toBe(false);
+    expect(canEnterStep(3, { hasSource: true, sourceKind: "image", pendingCandidate: false }).ok).toBe(true);
+  });
+
   it("selecting a source opens the right step", () => {
     expect(stepAfterSelect("image")).toBe(2);
     expect(stepAfterSelect("video")).toBe(2);

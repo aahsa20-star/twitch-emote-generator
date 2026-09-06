@@ -1,18 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { AssetType } from "@/lib/download/profiles";
-import { PLATFORMS, type DownloadGate } from "@/lib/download/profiles";
+import { BADGE_PROFILE, PLATFORMS, type DownloadGate } from "@/lib/download/profiles";
 import { ANIMATION_LIST } from "@/lib/animations/catalog";
 import { buildExportPlan, dataUrlBytes, defaultExportFormat, formatBytes, PLATFORM_LABELS, type ExportFormat } from "@/lib/ui/export-plan";
-import type { BadgeSettings, EmoteVariant, ExportMode, ProcessingStage } from "@/types/emote";
+import { savePlanKey, type OutputCondition } from "@/lib/ui/save-state";
+import { renderBadge } from "@/lib/canvasPipeline";
+import type { BadgeSettings, EmoteVariant, ExportMode } from "@/types/emote";
 import SaveActions, { type SaveOutcome } from "./DownloadButton";
 import { useIsIOS } from "@/lib/ui/platform";
-import { fieldLabel, inputCls, secondaryBtn } from "@/components/ui/classes";
+import { fieldLabel, inputCls, secondaryBtn, textBtn } from "@/components/ui/classes";
 
 interface ExportPanelProps {
   variants: EmoteVariant[];
-  stage: ProcessingStage;
+  /** Whether `variants` are the outputs of the current settings (12 §1). */
+  condition: OutputCondition;
+  outputGen: number | null;
+  onRetryRender: () => void;
   exportMode: ExportMode;
   onExportModeChange: (mode: ExportMode) => void;
   selectionLabel: string;
@@ -29,9 +34,10 @@ const TWITCH_GIF_LIMIT = 1024 * 1024;
 /**
  * Step 4 「保存する」 (09 §4): destination → format → sizes → primary action.
  * Sizes and formats come from the download profiles (shared with the server
- * guard). Byte sizes are shown only when the output exists. Saving is a
- * separate state from generating: while the outputs are updating the buttons
- * wait, and old outputs are never saved as the new settings' result.
+ * guard). Byte sizes are shown only when the output exists. Old outputs may
+ * stay visible while new ones are generated, but they are labelled 更新中 and
+ * cannot be saved as the current settings' result (12 §1). Badges are always
+ * Twitch plans and their preview is the same render as the saved file (12 §2).
  */
 export default function ExportPanel(p: ExportPanelProps) {
   const isIOS = useIsIOS();
@@ -41,8 +47,9 @@ export default function ExportPanel(p: ExportPanelProps) {
   const [statusFor, setStatusFor] = useState<{ key: string; text: string } | null>(null);
   const [savedFor, setSavedFor] = useState<{ key: string; outcome: SaveOutcome } | null>(null);
 
-  const ready = p.stage === "ready" && p.variants.length > 0;
-  const format: ExportFormat = formatChoice ?? defaultExportFormat(hasAnimatedOutput);
+  // GIF can only be chosen while animated output exists; a stale GIF choice
+  // (animation switched to 動きなし) falls back to PNG instead of a dead end.
+  const format: ExportFormat = formatChoice === "gif" ? (hasAnimatedOutput ? "gif" : "png") : formatChoice ?? defaultExportFormat(hasAnimatedOutput);
   const effectiveAsset: AssetType = assetType === "badge" && p.badgeSettings.enabled ? "badge" : "emote";
 
   const plan = useMemo(
@@ -56,31 +63,45 @@ export default function ExportPanel(p: ExportPanelProps) {
     [p.exportMode, effectiveAsset, format, p.variants],
   );
 
-  // Preview of the primary output (blob URL for GIF, revoked when replaced).
   const largest = useMemo(() => (p.variants.length ? p.variants.reduce((a, b) => (a.size > b.size ? a : b)) : null), [p.variants]);
+
+  // Badge preview = the same render the save uses (largest badge size).
+  const badgePreview = useMemo(() => {
+    if (plan.assetType !== "badge" || !p.bgRemovedCanvas) return null;
+    const size = Math.max(...BADGE_PROFILE.sizes);
+    const c = renderBadge(p.bgRemovedCanvas, p.badgeSettings, size as 72);
+    return c.toDataURL("image/png");
+  }, [plan.assetType, p.bgRemovedCanvas, p.badgeSettings]);
+
   const preview = useMemo(() => {
+    if (plan.assetType === "badge") return badgePreview ? { url: badgePreview, revoke: false } : null;
     if (!largest) return null;
     if (plan.format === "gif" && largest.animatedBlob) return { url: URL.createObjectURL(largest.animatedBlob), revoke: true };
     return { url: largest.staticDataUrl, revoke: false };
-  }, [largest, plan.format]);
+  }, [plan.assetType, plan.format, badgePreview, largest]);
   useEffect(() => () => {
     if (preview?.revoke) URL.revokeObjectURL(preview.url);
   }, [preview]);
   const previewUrl = preview?.url ?? null;
 
-  // A status / result line belongs to the plan it was produced for: any change of
-  // destination / format / asset / outputs hides it (no effect needed).
-  const planKey = `${plan.platform}:${plan.assetType}:${plan.format}:${p.variants.map((v) => v.size + (v.animatedBlob ? "g" : "p")).join(",")}`;
-  const status = statusFor && statusFor.key === planKey ? statusFor.text : null;
+  // Result card and status line belong to the plan + generation that is current
+  // when they are set (a ref, so an abort message produced *after* a change is
+  // stored under the new key and stays visible, while a stale 「準備できました」
+  // from before the change is hidden) — 12 §1.
+  const planKey = savePlanKey(plan, p.outputGen, plan.files);
+  const planKeyRef = useRef(planKey);
+  useEffect(() => {
+    planKeyRef.current = planKey;
+  }, [planKey]);
   const saved = savedFor && savedFor.key === planKey ? savedFor.outcome : null;
-  const setStatus = (text: string | null) => setStatusFor(text === null ? null : { key: planKey, text });
-  const setSaved = (o: SaveOutcome | null) => setSavedFor(o === null ? null : { key: planKey, outcome: o });
+  const status = statusFor && statusFor.key === planKey ? statusFor.text : null;
+  const setSaved = (o: SaveOutcome | null) => setSavedFor(o === null ? null : { key: planKeyRef.current, outcome: o });
+  const setStatus = (text: string | null) => setStatusFor(text === null ? null : { key: planKeyRef.current, text });
 
-  /** Outputs exist for this destination / format and are final (nothing pending). */
-  const outputsCurrent = ready && plan.files.some((f) => f.available);
   const gifTooBig = plan.assetType === "emote" && plan.format === "gif" && plan.platform === "twitch" && plan.files.some((f) => f.bytes !== null && f.bytes > TWITCH_GIF_LIMIT);
   const title = plan.assetType === "badge" ? "サブスクバッジ" : p.selectionLabel;
   const animEntry = ANIMATION_LIST.find((a) => a.id === p.animationType);
+  const shareImage = plan.assetType === "badge" ? badgePreview : largest?.staticDataUrl ?? null;
 
   return (
     <section aria-labelledby="export-title">
@@ -98,21 +119,29 @@ export default function ExportPanel(p: ExportPanelProps) {
         <div className="bg-studio-surface border border-studio-stroke rounded-studio overflow-hidden self-start flex md:block items-center">
           <div className="w-[42%] md:w-auto aspect-square checkerboard grid place-items-center p-[6%] md:p-[18%] shrink-0">
             {previewUrl ? (
-              <img src={previewUrl} alt={`${title} の保存プレビュー`} className="w-full h-full object-contain" draggable={false} />
+              <img src={previewUrl} alt={`${title} の保存プレビュー`} className="w-full h-full object-contain" style={{ imageRendering: "auto" }} draggable={false} />
             ) : (
               <span className="text-[12px] text-studio-muted">出力を準備中…</span>
             )}
           </div>
           <div className="p-4 md:p-6">
-            <span className={`flex items-center gap-1.5 text-[10px] ${outputsCurrent ? "text-studio-good" : "text-studio-warn"}`} role="status" aria-live="polite">
-              <span aria-hidden className={`w-1.5 h-1.5 rounded-full ${outputsCurrent ? "bg-studio-good" : "bg-studio-warn animate-pulse"}`} />
-              {outputsCurrent ? "設定を確認" : "出力を更新中"}
+            <span
+              className={`flex items-center gap-1.5 text-[10px] ${p.condition === "current" ? "text-studio-good" : p.condition === "failed" ? "text-studio-danger" : "text-studio-warn"}`}
+              role="status"
+              aria-live="polite"
+            >
+              <span aria-hidden className={`w-1.5 h-1.5 rounded-full ${p.condition === "current" ? "bg-studio-good" : p.condition === "failed" ? "bg-studio-danger" : "bg-studio-warn animate-pulse"}`} />
+              {p.condition === "current" ? "設定を確認" : p.condition === "failed" ? "出力の更新に失敗しました" : "出力を更新中"}
             </span>
+            {p.condition === "failed" && (
+              <button type="button" onClick={p.onRetryRender} className={textBtn}>もう一度生成する</button>
+            )}
             <h2 className="text-[15px] md:text-[17px] font-bold my-2">{title}</h2>
             <p className="text-[10px] md:text-[12px] text-studio-muted">
               {plan.assetType === "badge" ? "エモートの設定はそのまま残ります。" : "編集に戻っても、設定はそのまま。"}
               {animEntry && plan.assetType === "emote" && ` 動き: ${animEntry.label}`}
             </p>
+            {plan.assetType === "badge" && <p className="text-[10px] text-studio-muted mt-1">見本は保存されるファイルと同じ描画（{Math.max(...BADGE_PROFILE.sizes)}px）です。</p>}
           </div>
         </div>
 
@@ -135,12 +164,22 @@ export default function ExportPanel(p: ExportPanelProps) {
           )}
 
           <label className={fieldLabel} htmlFor="export-destination">どこで使いますか？</label>
-          <select id="export-destination" value={p.exportMode} onChange={(e) => p.onExportModeChange(e.target.value as ExportMode)} disabled={plan.assetType === "badge"} className={`${inputCls} min-h-[48px] text-[14px]`}>
+          <select
+            id="export-destination"
+            value={plan.platform}
+            onChange={(e) => p.onExportModeChange(e.target.value as ExportMode)}
+            disabled={plan.assetType === "badge"}
+            className={`${inputCls} min-h-[48px] text-[14px]`}
+          >
             {PLATFORMS.map((m) => (
               <option key={m} value={m}>{PLATFORM_LABELS[m]}</option>
             ))}
           </select>
-          {plan.assetType === "badge" && <p className="text-[11px] text-studio-muted mt-1">バッジは Twitch 用（72 / 36 / 18px、PNG）です。</p>}
+          {plan.assetType === "badge" && (
+            <p className="text-[11px] text-studio-muted mt-1">
+              バッジは Twitch 用（{[...BADGE_PROFILE.sizes].sort((a, b) => b - a).join(" / ")}px、PNG）です。エモートの保存先（{PLATFORM_LABELS[p.exportMode]}）は「エモート」に戻すと復元されます。
+            </p>
+          )}
 
           <span className={`${fieldLabel} mt-6`} id="format-label">保存する形式</span>
           <div className="flex gap-2.5" role="group" aria-labelledby="format-label">
@@ -163,22 +202,23 @@ export default function ExportPanel(p: ExportPanelProps) {
             })}
           </div>
           {!hasAnimatedOutput && plan.assetType === "emote" && (
-            <p className="text-[11px] text-studio-muted mt-1.5">動きなしのため、GIF は選べません。「編集する」で動きを選ぶと GIF になります。</p>
+            <p className="text-[11px] text-studio-muted mt-1.5">
+              動きなしのため、GIF は選べません{formatChoice === "gif" ? "（PNG に切り替えました）" : ""}。「編集する」で動きを選ぶと GIF になります。
+            </p>
           )}
           {plan.assetType === "badge" && <p className="text-[11px] text-studio-muted mt-1.5">バッジは PNG のみです。</p>}
           {gifTooBig && (
-            <p className="text-[11px] text-studio-warn mt-1.5">
-              Twitch の上限（1MB）を超えるサイズがあります。フチを細くする・文字を短くするなどで軽くしてください。
-            </p>
+            <p className="text-[11px] text-studio-warn mt-1.5">Twitch の上限（1MB）を超えるサイズがあります。フチを細くする・文字を短くするなどで軽くしてください。</p>
           )}
 
           <div className="mt-5">
             <SaveActions
               plan={plan}
+              planKey={planKey}
+              condition={p.condition}
               variants={p.variants}
               badgeSettings={p.badgeSettings}
               bgRemovedCanvas={p.bgRemovedCanvas}
-              ready={outputsCurrent}
               onBeforeDownload={p.onBeforeDownload}
               onStatus={setStatus}
               onSaved={(o) => {
@@ -196,7 +236,7 @@ export default function ExportPanel(p: ExportPanelProps) {
             <div className="mt-3 rounded-[10px] border border-[#2f6b47] bg-[#1f3328] px-3.5 py-3" role="status" aria-live="polite">
               <p className="text-[12px] text-studio-good leading-relaxed">{saved.text}</p>
               {!isIOS && <p className="text-[10px] text-studio-muted mt-1">ブラウザのダウンロード欄で保存先を確認できます。</p>}
-              <ShareRow imageDataUrl={largest?.staticDataUrl ?? null} />
+              <ShareRow imageDataUrl={shareImage} />
             </div>
           )}
 
@@ -207,7 +247,7 @@ export default function ExportPanel(p: ExportPanelProps) {
               <li>ボタンが「開く」に変わったら、もう一度タップ。</li>
               <li>新しいタブで開いた画像を長押しして「写真に追加」。</li>
             </ol>
-            <p className="text-[11px] text-studio-muted mt-2">全サイズは 1 枚ずつ順番に開きます。保存先やメニューの表記は端末によって異なります。</p>
+            <p className="text-[11px] text-studio-muted mt-2">全サイズは 1 枚ずつ順番に開きます。設定を変えると準備はやり直しになります。保存先やメニューの表記は端末によって異なります。</p>
           </details>
           {plan.files.length > 0 && plan.files.every((f) => f.bytes !== null) && (
             <p className="text-[10px] text-studio-muted mt-3">合計 {formatBytes(plan.files.reduce((n, f) => n + (f.bytes ?? 0), 0))}</p>

@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useReducer } from "react";
 import { useEmoteProcessor } from "@/hooks/useEmoteProcessor";
 import UploadPanel from "./UploadPanel";
 import AdjustView, { type AdjustDecision, type BackgroundChoice } from "./AdjustView";
-import type { AdjustState } from "./ImageAdjustEditor";
 import BrushEditor from "./BrushEditor";
 import SettingsPanel, { type EditorTool } from "./SettingsPanel";
 import PreviewArea from "./PreviewArea";
@@ -23,7 +22,10 @@ import { requestDownloadPermission } from "@/lib/download/client";
 import FeatureLockHint, { canShowFeatureLockHint } from "./FeatureLockHint";
 import { EmoteConfig, ExportMode, BgRemovalQuality } from "@/types/emote";
 import { ANIMATION_LIST } from "@/lib/animations/catalog";
-import { canEnterStep, type SourceKind, type StudioStep, stepAfterSelect } from "@/lib/ui/steps";
+import { canEnterStep, type StudioStep, stepAfterSelect } from "@/lib/ui/steps";
+import { adjustTarget, sourceReducer, type SourceState } from "@/lib/ui/source-state";
+import { outputCondition } from "@/lib/ui/save-state";
+import { validateGifFile } from "@/lib/gif/validate";
 import type { UploadKind } from "@/lib/upload/accept";
 import { primaryBtn, secondaryBtn, textBtn } from "@/components/ui/classes";
 
@@ -42,10 +44,16 @@ const scrollTop = () => {
   if (typeof window !== "undefined") window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
 };
 
+const EMPTY: SourceState<File> = { confirmed: null, candidate: null };
+
 /**
  * Studio shell (09 §実装構造): the one persistent parent that owns source /
  * config / variants / processing / access. Steps and tabs only change what is
  * shown; nothing that holds state is unmounted when the user moves around.
+ *
+ * Sources (12 §3): a picked file is a *candidate* until 「この範囲で使う」/
+ * 「調整せず使う」/ trim confirm adopts it; the editor, its name and outputs
+ * stay on the *confirmed* source until then, and cancelling restores them.
  */
 export default function EmoteGenerator({ registerBrandHandler }: { registerBrandHandler?: (fn: () => void) => void }) {
   const { access, ensureFollowerFresh } = useAccess();
@@ -75,6 +83,10 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
     fileToCanvas,
     errorMessage,
     bgRemovalFailed,
+    requestedGen,
+    outputGen,
+    failedGen,
+    retryRender,
     isGifSource,
     gifFrameCount,
     gifNotice,
@@ -83,18 +95,13 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
     ingestVideoSource,
   } = useEmoteProcessor(exportMode, subCanvas);
 
-  // ---- studio flow state (09 §実装構造: 現在の工程 / 素材 / 調整 draft) ----
+  // ---- studio flow state ----
   const [step, setStep] = useState<StudioStep>(1);
   const [tool, setTool] = useState<EditorTool>("animation");
-  const [sourceKind, setSourceKind] = useState<SourceKind | null>(null);
-  const [sourceName, setSourceName] = useState("");
-  /** Raw uploaded image — re-adjusting always starts from this, never from the crop. */
-  const [originalFile, setOriginalFile] = useState<File | null>(null);
-  const [adjustState, setAdjustState] = useState<AdjustState | null>(null);
-  /** The original that the current source was made from (re-entry = same file). */
-  const [confirmedOriginal, setConfirmedOriginal] = useState<File | null>(null);
+  const [source, dispatchSource] = useReducer(sourceReducer<File>, EMPTY);
+  const confirmed = source.confirmed;
+  const candidate = source.candidate;
   const [background, setBackground] = useState<BackgroundChoice>("remove");
-  const [pendingVideoFile, setPendingVideoFile] = useState<File | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const noticeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -104,12 +111,15 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
     noticeTimer.current = setTimeout(() => setNotice(null), ms);
   }, []);
 
-  const hasSource = !!sourceFile || !!originalFile || !!pendingVideoFile;
-  const stepContext = { hasSource, sourceKind };
+  const hasSource = !!confirmed && !!sourceFile;
+  const sourceKind = confirmed?.kind ?? null;
+  const sourceName = confirmed?.name ?? "";
+  const pendingCandidate = !!candidate;
+  const stepContext = { hasSource, sourceKind, pendingCandidate };
 
   const goToStep = useCallback(
     (next: StudioStep) => {
-      const a = canEnterStep(next, { hasSource, sourceKind });
+      const a = canEnterStep(next, { hasSource, sourceKind, pendingCandidate });
       if (!a.ok) {
         showNotice(a.reason, "warn");
         return;
@@ -117,7 +127,7 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
       setStep(next);
       scrollTop();
     },
-    [hasSource, sourceKind, showNotice],
+    [hasSource, sourceKind, pendingCandidate, showNotice],
   );
 
   useEffect(() => {
@@ -184,41 +194,36 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
     [variants, exportMode, access.isUnlocked, access.followerPending, ensureFollowerFresh, showNotice],
   );
 
-  // ---- step 1: choose ----
+  // ---- step 1: choose (nothing replaces the confirmed work here) ----
+  const gifCheckRef = useRef(0);
   const acceptFile = useCallback(
     (file: File, kind: UploadKind, opts?: { background?: BackgroundChoice }) => {
-      setSourceName(file.name);
-      setSourceKind(kind);
       if (kind === "gif") {
-        setPendingVideoFile(null);
-        setOriginalFile(null);
-        setAdjustState(null);
-        setSourceFile(file);
-        if (config.animation.type !== "none") updateConfig({ animation: { type: "none" } });
-        setStep(stepAfterSelect("gif"));
-        scrollTop();
+        // Validate before adopting so a broken file never clears the current work.
+        const check = ++gifCheckRef.current;
+        showNotice("GIF を確認しています…", "info", 4000);
+        void validateGifFile(file).then((r) => {
+          if (check !== gifCheckRef.current) return;
+          if (!r.ok) {
+            showNotice(r.message, "error", 8000);
+            return;
+          }
+          dispatchSource({ type: "select", candidate: { kind: "gif", name: file.name, file } });
+          dispatchSource({ type: "confirm", file, adjust: null });
+          setSourceFile(file);
+          if (config.animation.type !== "none") updateConfig({ animation: { type: "none" } });
+          setStep(stepAfterSelect("gif"));
+          scrollTop();
+        });
         return;
       }
-      if (kind === "video") {
-        setOriginalFile(null);
-        setAdjustState(null);
-        setPendingVideoFile(file);
-        setSourceFile(file); // parks the hook until the trimmer hands over frames
-        if (config.animation.type !== "none") updateConfig({ animation: { type: "none" } });
-        setStep(stepAfterSelect("video"));
-        scrollTop();
-        return;
-      }
-      // Static image: keep the previous source until the adjusted file is confirmed.
-      setPendingVideoFile(null);
-      setOriginalFile(file);
-      setAdjustState(null);
-      // Photos default to removal; the bundled sample is already transparent.
+      // Static image or video: a candidate for step 2; the confirmed source is untouched.
+      dispatchSource({ type: "select", candidate: { kind, name: file.name, file } });
       setBackground(opts?.background ?? "remove");
-      setStep(stepAfterSelect("image"));
+      setStep(stepAfterSelect(kind));
       scrollTop();
     },
-    [config.animation.type, setSourceFile, updateConfig],
+    [config.animation.type, setSourceFile, showNotice, updateConfig],
   );
 
   const handleFileAccepted = useCallback((file: File, kind: UploadKind) => acceptFile(file, kind), [acceptFile]);
@@ -226,6 +231,9 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
   const handleFaceSelected = useCallback((file: File) => acceptFile(file, "image"), [acceptFile]);
 
   // ---- step 2: prepare ----
+  const target = adjustTarget(source);
+  const targetForView = target ? { file: target.file, kind: target.kind, name: target.name, adjust: target.adjust as import("./ImageAdjustEditor").AdjustState | null, isCandidate: target.isCandidate } : null;
+
   const applyBackgroundChoice = useCallback(
     (choice: BackgroundChoice, quality: BgRemovalQuality) => {
       setBackground(choice);
@@ -235,66 +243,47 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
     [setSkipBgRemoval, setBgRemovalQuality],
   );
 
-  const handleAdjustConfirm = useCallback(
-    (d: AdjustDecision) => {
-      applyBackgroundChoice(d.background, d.quality);
-      setAdjustState(d.state);
-      setConfirmedOriginal(originalFile);
-      setSourceFile(d.file);
+  const adoptImage = useCallback(
+    (file: File, adjust: AdjustDecision["state"], choice: BackgroundChoice, quality: BgRemovalQuality) => {
+      applyBackgroundChoice(choice, quality);
+      dispatchSource({ type: "confirm", file, adjust });
+      setSourceFile(file);
       setStep(3);
       scrollTop();
     },
-    [applyBackgroundChoice, setSourceFile, originalFile],
+    [applyBackgroundChoice, setSourceFile],
   );
+
+  const handleAdjustConfirm = useCallback((d: AdjustDecision) => adoptImage(d.file, d.state, d.background, d.quality), [adoptImage]);
 
   const handleUseUnadjusted = useCallback(
     (choice: BackgroundChoice, quality: BgRemovalQuality) => {
-      if (!originalFile) return;
-      applyBackgroundChoice(choice, quality);
-      setAdjustState(null);
-      setConfirmedOriginal(originalFile);
-      setSourceFile(originalFile);
-      setStep(3);
-      scrollTop();
+      if (!target) return;
+      adoptImage(target.file, null, choice, quality);
     },
-    [originalFile, applyBackgroundChoice, setSourceFile],
+    [target, adoptImage],
   );
 
+  /** Candidate dropped (or re-adjust closed without changes): back to the confirmed work. */
   const handleAdjustCancel = useCallback(() => {
-    setStep(3);
+    dispatchSource({ type: "cancel" });
+    setStep(confirmed && sourceFile ? 3 : 1);
     scrollTop();
-  }, []);
+  }, [confirmed, sourceFile]);
 
   const handleVideoConfirm = (decoded: DecodedVideo) => {
-    setPendingVideoFile(null);
-    ingestVideoSource(decoded);
+    if (!target) return;
+    dispatchSource({ type: "confirm", file: target.file, adjust: null });
+    ingestVideoSource(decoded, target.isCandidate ? target.file : undefined);
+    if (config.animation.type !== "none") updateConfig({ animation: { type: "none" } });
     setStep(3);
     scrollTop();
   };
 
-  const handleVideoCancel = () => {
-    setPendingVideoFile(null);
-    setSourceFile(null);
-    setSourceKind(null);
-    setSourceName("");
-    setStep(1);
-  };
+  const handleVideoCancel = () => handleAdjustCancel();
 
-  /** 「位置・背景を調整」 from the editor: re-open step 2 with the last crop as draft. */
-  const revisitAdjust = sourceKind === "image" && !!originalFile && originalFile === confirmedOriginal;
-
-  const selectionLabel = isGifSource
-    ? "GIF の動き"
-    : isVideoSource
-      ? "動画の動き"
-      : config.animation.type === "none"
-        ? "動きなし"
-        : ANIMATION_LIST.find((a) => a.id === config.animation.type)?.label ?? config.animation.type;
-  const largestVariant = variants.length > 0 ? variants.reduce((a, b) => (a.size > b.size ? a : b)) : null;
-
-  const scrollToPreview = useCallback(() => {
-    document.getElementById("preview-area")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
-  }, []);
+  /** 「位置を調整」 / 「切り出し直す」 from the editor: step 2 on the confirmed original. */
+  const canRevisit = !!confirmed && !!sourceFile && confirmed.kind !== "gif";
 
   const handleContentAdjust = useCallback((dx: number, dy: number, ds: number) => {
     updateConfig({
@@ -309,8 +298,23 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
   }, [updateConfig]);
 
   const hasPositionAdjustment = config.contentOffsetX !== 0 || config.contentOffsetY !== 0 || config.contentScale !== 1.0;
-
   const isRemoving = stage === "removing-background";
+
+  const selectionLabel = isGifSource
+    ? "GIF の動き"
+    : isVideoSource
+      ? "動画の動き"
+      : config.animation.type === "none"
+        ? "動きなし"
+        : ANIMATION_LIST.find((a) => a.id === config.animation.type)?.label ?? config.animation.type;
+  const largestVariant = variants.length > 0 ? variants.reduce((a, b) => (a.size > b.size ? a : b)) : null;
+
+  // 12 §1: outputs are "current" only when the generation that produced them is the requested one.
+  const condition = outputCondition({ requestedGen, outputGen, failedGen, stage, variantCount: variants.length });
+
+  const scrollToPreview = useCallback(() => {
+    document.getElementById("preview-area")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
+  }, []);
 
   return (
     <>
@@ -318,7 +322,7 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
         <ReauthBanner variant={access.grants.includes("passphrase") ? "subscriber" : "default"} />
       )}
 
-      <div className="flex-1 w-full max-w-[1456px] mx-auto px-4 md:px-10">
+      <div className="flex-1 w-full max-w-[1456px] mx-auto px-4 md:px-6 lg:px-10">
         <StepNav current={step} context={stepContext} onSelect={goToStep} onBlocked={(r) => showNotice(r, "warn")} />
 
         {notice && (
@@ -337,6 +341,12 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
         <div hidden={step !== 1}>
           <UploadPanel onFileAccepted={handleFileAccepted} onSampleSelected={handleSampleSelected} hasImage={hasSource}>
             <div className="space-y-4">
+              {pendingCandidate && (
+                <p className="text-[12px] text-studio-warn bg-[#3a3322] border border-[#6b5a2c] rounded-[10px] px-4 py-3" role="status">
+                  「{candidate?.name}」はまだ確定していません。「画像を整える」で確定するか、選び直しをやめると今の画像に戻ります。
+                  <button type="button" onClick={() => goToStep(2)} className={`${textBtn} ml-2`}>画像を整えるへ</button>
+                </p>
+              )}
               <VideoFaceExtractor onFaceSelected={handleFaceSelected} />
               {!isPremium && (
                 <div className="flex justify-center">
@@ -357,12 +367,10 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
         {/* ---------- 2. 画像を整える ---------- */}
         {step === 2 && (
           <AdjustView
-            originalFile={originalFile}
-            videoFile={pendingVideoFile}
-            adjustState={adjustState}
+            target={targetForView}
+            hasConfirmed={hasSource}
             background={background}
             quality={bgRemovalQuality}
-            revisit={revisitAdjust}
             onConfirm={handleAdjustConfirm}
             onUseUnadjusted={handleUseUnadjusted}
             onCancel={handleAdjustCancel}
@@ -427,6 +435,7 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
           {isVideoSource && (
             <div className="mb-4 text-[12px] px-4 py-3 rounded-[10px] bg-studio-surface border border-studio-stroke text-studio-muted">
               <span className="font-semibold text-studio-text">動画の動きをそのまま使います</span> — {videoFrameCount} フレームを各サイズで再エンコードします。
+              {canRevisit && <button type="button" onClick={() => goToStep(2)} className={`${textBtn} ml-2`}>切り出し直す</button>}
             </div>
           )}
 
@@ -439,8 +448,10 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
             </div>
           )}
 
-          <div className="grid grid-cols-1 md:grid-cols-[minmax(290px,.82fr)_minmax(410px,1.18fr)] gap-4 md:gap-6 items-start">
-            <div id="preview-area" className="md:sticky md:top-4 scroll-mt-4">
+          {/* 12 §4: two columns from md with a 260px minimum sample column and a
+              flexible inspector (fits 768px with the 24px outer padding). */}
+          <div className="grid grid-cols-1 md:grid-cols-[minmax(260px,.82fr)_minmax(0,1.18fr)] gap-4 lg:gap-6 items-start">
+            <div id="preview-area" className="md:sticky md:top-4 scroll-mt-4 min-w-0">
               <PreviewArea
                 variants={variants}
                 stage={stage}
@@ -451,31 +462,36 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
                 badgeSettings={config.badge}
                 bgRemovedCanvas={bgRemovedCanvas}
                 onContentAdjust={isGifSource || isVideoSource ? undefined : handleContentAdjust}
-                onGoAdjust={revisitAdjust ? () => goToStep(2) : null}
+                onGoAdjust={canRevisit && confirmed?.kind === "image" ? () => goToStep(2) : null}
                 onGoExport={() => goToStep(4)}
+                updating={condition === "updating"}
+                renderFailed={condition === "failed"}
+                onRetryRender={retryRender}
               />
             </div>
-            <SettingsPanel
-              config={config}
-              onConfigChange={updateConfig}
-              disabled={!sourceFile || isRemoving}
-              isPremium={isPremium}
-              onTrialLockClick={handleTrialLockClick}
-              subFile={subFile}
-              onSubImageSelected={handleSubImageSelected}
-              bgRemovedCanvas={bgRemovedCanvas}
-              subCanvas={subCanvas}
-              isAnimatedSource={isGifSource || isVideoSource}
-              tool={tool}
-              onToolChange={setTool}
-              onGoAdjust={revisitAdjust ? () => goToStep(2) : null}
-              onRetryBgRemoval={retryBgRemoval}
-              onUseOriginal={useOriginalImage}
-              onResetPosition={handleResetPosition}
-              hasPositionAdjustment={hasPositionAdjustment}
-              canRedoBackground={!!bgRemovedCanvas && stage === "ready" && !isGifSource && !isVideoSource}
-              onBeforeDownload={onBeforeDownload}
-            />
+            <div className="min-w-0">
+              <SettingsPanel
+                config={config}
+                onConfigChange={updateConfig}
+                disabled={!sourceFile || isRemoving}
+                isPremium={isPremium}
+                onTrialLockClick={handleTrialLockClick}
+                subFile={subFile}
+                onSubImageSelected={handleSubImageSelected}
+                bgRemovedCanvas={bgRemovedCanvas}
+                subCanvas={subCanvas}
+                isAnimatedSource={isGifSource || isVideoSource}
+                tool={tool}
+                onToolChange={setTool}
+                onGoAdjust={canRevisit && confirmed?.kind === "image" ? () => goToStep(2) : null}
+                onRetryBgRemoval={retryBgRemoval}
+                onUseOriginal={useOriginalImage}
+                onResetPosition={handleResetPosition}
+                hasPositionAdjustment={hasPositionAdjustment}
+                canRedoBackground={!!bgRemovedCanvas && stage === "ready" && !isGifSource && !isVideoSource}
+                onBeforeDownload={onBeforeDownload}
+              />
+            </div>
           </div>
           <div className="h-20 md:h-0" aria-hidden />
         </div>
@@ -487,7 +503,9 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
         <div hidden={step !== 4}>
           <ExportPanel
             variants={variants}
-            stage={stage}
+            condition={condition}
+            outputGen={outputGen}
+            onRetryRender={retryRender}
             exportMode={exportMode}
             onExportModeChange={setExportMode}
             selectionLabel={selectionLabel}
