@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { BadgeSettings, BADGE_SIZES, EmoteVariant, ExportMode, ProcessingStage, TextPosition } from "@/types/emote";
 import { applyBorder, applyTextOverlay, centerAndResize, renderBadge } from "@/lib/canvasPipeline";
 import PreviewCard from "./PreviewCard";
+import { ANIMATION_COUNT } from "@/lib/animations/catalog";
 
 type BgMode = "checker" | "dark" | "light";
 
@@ -28,7 +29,7 @@ const PROCESS_FEATURES = [
   "フチ取り",
   "テキスト",
   "3サイズ出力",
-  "52種アニメ",
+  `${ANIMATION_COUNT}種アニメ`,
 ];
 
 interface SamplePattern {
