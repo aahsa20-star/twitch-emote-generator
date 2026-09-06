@@ -86,6 +86,20 @@ DOWNLOAD_LOCK_ENABLED # false で保存の権限ゲートのみ解除（入力�
 - 2 画像合成（右下重ねる / 左下重ねる / 左右に並べる）
 - サブスクバッジ作成（Twitch サブスクバッジの作成、機能名そのまま）
 
+## 画面構成（UI/UX 刷新、feat/uiux-refresh）
+
+4 工程を `EmoteGenerator`（常設の親。source / config / variants / processing / access を保持）が切り替える。工程・タブは `hidden` で表示を切り替えるだけで、状態を持つ子をアンマウントしない。PC とスマホで別エディタを二重 mount しない。
+
+| 工程 | 主なファイル | 要点 |
+|------|-------------|------|
+| 入口 | `SiteGate.tsx` / `PassphraseForm.tsx` | フォロー（主）と合言葉（代替）。401 は欄の近くに常設、認証処理は既存のまま |
+| 1 画像を選ぶ | `UploadPanel.tsx` / `lib/upload/accept.ts` / `lib/sampleImage.ts` | 主ボタン + D&D、形式・上限は定義から表示、HEIC は変換案内、エラーは閉じるまで残す、同梱サンプル |
+| 2 画像を整える | `AdjustView.tsx` / `ImageAdjustEditor.tsx` / `VideoTrimmer.tsx` | 切り取りは draft（元画像 `originalFile` から再調整）、背景の扱い（そのまま / 自動で消す + 精度）。「この範囲で使う / 調整せず使う」「変更を適用 / 変更せず戻る」 |
+| 3 編集する | `PreviewArea.tsx`（できあがり） / `SettingsPanel.tsx`（動き・文字・飾り・その他） / `settings/*` / `MobileDock.tsx` | 拡大見本（実寸とは呼ばない）+ 実寸列。動き: `lib/animations/picker.ts` の おすすめ 12 / すべて / お気に入り。GIF・動画は「再生」タブ。スマホは下部 dock |
+| 4 保存する | `ExportPanel.tsx` / `DownloadButton.tsx`（SaveActions） / `lib/ui/export-plan.ts` | 目的地 → 形式 → サイズ。サイズは download profiles から。全経路 `/api/download-check`。iOS は 準備する → 開く の 2 段階。共有は完了カードの任意ボタン |
+
+補助: `StepNav.tsx`（工程ナビ、`lib/ui/steps.ts` の `canEnterStep`。未確定の候補があると工程 3/4 は不可）、素材の候補/確定は `lib/ui/source-state.ts` の reducer、保存可否は `lib/ui/save-state.ts`（hook の `requestedGen` / `outputGen` / `failedGen` が一致したときだけ current）、保存の非同期処理と選択番号は `lib/ui/save-flow.ts`（`runGuardedSave` は権限応答後・ZIP 後に要求世代と current を再確認、`createSelectionSequence` は GIF 検証の競合防止）、`StudioHeader.tsx`（ブランド・利用状態・使い方ダイアログ）、`components/ui/classes.ts`（共通クラス）、デザイントークンは `globals.css` の `--studio-*` と Tailwind の `studio.*`。
+
 ## DB テーブル
 なし。2026-09（コミット A）で Supabase を撤去。旧テーブル（templates / likes / custom_animations / animation_likes / animation_reports / ai_animation_logs）のデータは旧プロジェクトに残存している可能性があるが、アプリからは接続しない。
 

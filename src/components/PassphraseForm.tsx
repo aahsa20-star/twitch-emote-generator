@@ -2,11 +2,13 @@
 
 import { useId, useState } from "react";
 import { passphraseErrorMessage, useAccess } from "@/components/providers/AccessProvider";
+import { inputCls, secondaryBtn } from "@/components/ui/classes";
 
 /**
  * Shared passphrase form (SiteGate / FollowGateModal / AccessStatusPanel).
  * password input, double-submit guard, non-empty, server-side validation.
  * Always operable — never disabled by Twitch state (仕様書 §4 / §7).
+ * The error stays next to the field until the next attempt (09 §入口).
  */
 export default function PassphraseForm({
   onUnlocked,
@@ -21,8 +23,9 @@ export default function PassphraseForm({
 }) {
   const { submitPassphrase } = useAccess();
   const id = useId();
+  const errorId = `${id}-error`;
   const [value, setValue] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<{ text: string; kind: "mismatch" | "wait" | "other" } | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -36,7 +39,10 @@ export default function PassphraseForm({
         setValue("");
         onUnlocked?.();
       } else {
-        setError(passphraseErrorMessage(r));
+        setError({
+          text: passphraseErrorMessage(r),
+          kind: r.reason === "mismatch" || r.reason === "invalid" ? "mismatch" : r.reason === "rate-limited" ? "wait" : "other",
+        });
       }
     } finally {
       setSubmitting(false);
@@ -45,10 +51,10 @@ export default function PassphraseForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-2" aria-busy={submitting}>
-      <label htmlFor={id} className={`block text-gray-300 ${compact ? "text-xs" : "text-sm font-medium"}`}>
+      <label htmlFor={id} className={`block text-studio-text ${compact ? "text-[12px]" : "text-[12px] font-medium"}`}>
         {label}
       </label>
-      <div className="flex items-center gap-2">
+      <div className="flex items-stretch gap-2">
         <input
           id={id}
           type="password"
@@ -57,21 +63,24 @@ export default function PassphraseForm({
           onChange={(e) => setValue(e.target.value)}
           autoFocus={autoFocus}
           maxLength={512}
-          className="flex-1 min-w-0 px-3 py-2.5 text-sm bg-gray-800 border border-gray-700 rounded text-gray-100 focus:outline-none focus:border-purple-500"
+          aria-invalid={error ? true : undefined}
+          aria-describedby={error ? errorId : undefined}
+          className={`${inputCls} flex-1 min-w-0 ${error ? "border-[#8d4b50]" : ""}`}
           placeholder="合言葉"
           disabled={submitting}
         />
         <button
           type="submit"
           disabled={submitting || value.trim() === ""}
-          className="px-4 py-2.5 text-sm font-medium bg-gray-700 hover:bg-gray-600 text-gray-100 rounded disabled:opacity-40 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+          className={`${secondaryBtn} min-h-[44px] px-4 whitespace-nowrap`}
         >
-          {submitting ? "確認中…" : "開く"}
+          {submitting ? "確認中…" : "開く →"}
         </button>
       </div>
       {error && (
-        <p className="text-xs text-red-300" role="alert">
-          {error}
+        <p id={errorId} role="alert" className="flex items-start gap-2 text-[12px] leading-relaxed text-studio-danger">
+          <span aria-hidden className="mt-px">{error.kind === "wait" ? "⏱" : "!"}</span>
+          <span>{error.text}</span>
         </p>
       )}
     </form>

@@ -9,6 +9,25 @@ module.exports = {
       sans: ['var(--font-inter)', 'var(--font-noto-sans-jp)', '"Hiragino Kaku Gothic ProN"', 'sans-serif'],
     },
     extend: {
+      // 09 §視覚: チャコール背景・明るい文字・淡い紫の主操作
+      colors: {
+        studio: {
+          bg: "var(--studio-bg)",
+          surface: "var(--studio-surface)",
+          raised: "var(--studio-raised)",
+          stroke: "var(--studio-stroke)",
+          text: "var(--studio-text)",
+          muted: "var(--studio-muted)",
+          accent: "var(--studio-accent)",
+          "accent-ink": "var(--studio-accent-ink)",
+          good: "var(--studio-good)",
+          warn: "var(--studio-warn)",
+          danger: "var(--studio-danger)",
+        },
+      },
+      borderRadius: {
+        studio: "20px",
+      },
       animation: {
         "fade-in": "fadeIn 0.2s ease-out",
       },

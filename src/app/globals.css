@@ -2,17 +2,62 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 09 §視覚とアクセシビリティ: design tokens (dark + purple, charcoal ground) */
+:root {
+  --studio-bg: #101114;
+  --studio-surface: #191a20;
+  --studio-raised: #23242d;
+  --studio-stroke: #32333e;
+  --studio-text: #f4f1eb;
+  --studio-muted: #a6a5b3;
+  --studio-accent: #c8b5ff;
+  --studio-accent-ink: #231443;
+  --studio-good: #9cdbb4;
+  --studio-warn: #f2d38b;
+  --studio-danger: #ffb5b3;
+  color-scheme: dark;
+}
+
 body {
-  @apply bg-gray-950 text-gray-100;
+  background: var(--studio-bg);
+  color: var(--studio-text);
   font-family: var(--font-inter), var(--font-noto-sans-jp), "Hiragino Kaku Gothic ProN", sans-serif;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+/* Visible focus for every interactive element (keyboard users). */
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 3px solid var(--studio-accent);
+  outline-offset: 3px;
+}
+
+button {
+  touch-action: manipulation;
+}
+
+input[type="range"] {
+  accent-color: var(--studio-accent);
 }
 
 .checkerboard {
+  background-color: #292a33;
   background-image:
-    linear-gradient(45deg, #333 25%, transparent 25%),
-    linear-gradient(-45deg, #333 25%, transparent 25%),
-    linear-gradient(45deg, transparent 75%, #333 75%),
-    linear-gradient(-45deg, transparent 75%, #333 75%);
+    linear-gradient(45deg, #30313b 25%, transparent 25%),
+    linear-gradient(-45deg, #30313b 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #30313b 75%),
+    linear-gradient(-45deg, transparent 75%, #30313b 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0px;
+}
+
+.checkerboard-fine {
+  background-color: #292a33;
+  background-image:
+    linear-gradient(45deg, #30313b 25%, transparent 25%),
+    linear-gradient(-45deg, #30313b 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #30313b 75%),
+    linear-gradient(-45deg, transparent 75%, #30313b 75%);
   background-size: 8px 8px;
   background-position: 0 0, 0 4px, 4px -4px, -4px 0px;
 }
@@ -30,4 +75,20 @@ body {
 
 .animate-fade-in {
   animation: fade-in 0.2s ease-out;
+}
+
+/* Safe-area padding for the mobile dock (09 §3 スマホ). */
+.pb-safe {
+  padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -1,6 +1,8 @@
 "use client";
 
+import { useRef } from "react";
 import EmoteGenerator from "@/components/EmoteGenerator";
+import StudioHeader from "@/components/StudioHeader";
 import Footer from "@/components/Footer";
 import type { AccessSnapshot } from "@/types/auth";
 import AccessProvider from "@/components/providers/AccessProvider";
@@ -9,25 +11,16 @@ import AccessProvider from "@/components/providers/AccessProvider";
  * Creator shell. page.tsx (Server Component) renders this only when the
  * request is unlocked (or SITE_LOCK_ENABLED=false).
  *
- * コミット A: テンプレート共有タブを撤去。単一画面になったため、タブ切替による
- * 作成コンポーネントのアンマウント（分析 B05）は発生しなくなった。
+ * The studio (EmoteGenerator) is mounted once and stays mounted; the header's
+ * brand button only asks it to show step 1 again (09 §実装構造).
  */
 export default function HomeClient({ initialAccess }: { initialAccess: AccessSnapshot }) {
+  const brandClickRef = useRef<(() => void) | null>(null);
   return (
     <AccessProvider initialAccess={initialAccess}>
       <div className="min-h-screen flex flex-col">
-        <header className="py-4 px-6 border-b border-gray-800">
-          <div>
-            <h1 className="text-xl font-bold text-gray-100">Twitch Emote Generator</h1>
-            <p className="text-sm text-gray-400 mt-1">エモート制作の面倒を全部省く</p>
-          </div>
-          <p className="text-xs text-gray-500 mt-2">
-            視聴者の<span className="text-gray-400 italic">{'"'}スタンプが作れるツールが欲しい{'"'}</span>の一言から生まれました。
-          </p>
-        </header>
-
-        <EmoteGenerator />
-
+        <StudioHeader onBrandClick={() => brandClickRef.current?.()} />
+        <EmoteGenerator registerBrandHandler={(fn) => { brandClickRef.current = fn; }} />
         <Footer />
       </div>
     </AccessProvider>

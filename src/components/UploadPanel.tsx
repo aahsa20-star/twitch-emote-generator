@@ -1,179 +1,159 @@
-import { useCallback, useRef, useState } from "react";
+"use client";
+
+import { useCallback, useId, useRef, useState, type ReactNode } from "react";
 import { ImageIcon, Film, Video } from "lucide-react";
+import { checkUpload, UPLOAD_ACCEPT_ATTR, UPLOAD_LABELS, type UploadKind } from "@/lib/upload/accept";
+import { createSampleFile } from "@/lib/sampleImage";
+import { primaryBtn, secondaryBtn } from "@/components/ui/classes";
 
 interface UploadPanelProps {
-  onImageSelected: (file: File) => void;
+  /** A file passed validation. `kind` tells the parent which pipeline it enters. */
+  onFileAccepted: (file: File, kind: UploadKind) => void;
+  /** The bundled sample was chosen (already transparent). */
+  onSampleSelected: (file: File) => void;
+  /** True while an image is already loaded (copy switches to 「変更」). */
   hasImage: boolean;
+  /** Extra entry points rendered under the main area (video face extraction). */
+  children?: ReactNode;
 }
 
-const ACCEPTED_TYPES = [
-  "image/png", "image/jpeg", "image/webp", "image/gif", "image/heic", "image/heif",
-  "video/mp4", "video/quicktime", "video/webm",
-];
-
-const MAX_SIZE_STATIC = 10 * 1024 * 1024; // 10MB for static images
-const MAX_SIZE_GIF = 30 * 1024 * 1024; // 30MB for GIFs (animation frames add up)
-const MAX_SIZE_VIDEO = 50 * 1024 * 1024; // 50MB for videos (matches VideoFaceExtractor)
-
-export default function UploadPanel({
-  onImageSelected,
-  hasImage,
-}: UploadPanelProps) {
-  const [isDragging, setIsDragging] = useState(false);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [previewIsVideo, setPreviewIsVideo] = useState(false);
+/**
+ * Step 1 「画像を選ぶ」 (09 §1): one primary action, drag & drop, the accepted
+ * formats and limits rendered from the definition, a sample to try with, and
+ * errors that stay until the next choice or an explicit close.
+ */
+export default function UploadPanel({ onFileAccepted, onSampleSelected, hasImage, children }: UploadPanelProps) {
+  const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sampleBusy, setSampleBusy] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const errorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const showError = useCallback((msg: string) => {
-    setError(msg);
-    if (errorTimerRef.current) clearTimeout(errorTimerRef.current);
-    errorTimerRef.current = setTimeout(() => setError(null), 4000);
-  }, []);
+  const errorId = useId();
 
   const handleFile = useCallback(
-    (file: File) => {
-      // HEIC/HEIF: accept but warn that Canvas API can't render it
-      if (file.type === "image/heic" || file.type === "image/heif") {
-        showError("HEICファイルは直接使用できません。JPGまたはPNGに変換してからアップロードしてください");
+    (file: File | undefined) => {
+      if (!file) return; // picker cancelled: keep whatever is loaded
+      const r = checkUpload(file);
+      if (!r.ok) {
+        setError(r.message);
         return;
       }
-      if (!ACCEPTED_TYPES.includes(file.type)) {
-        showError("PNG, JPG, WEBP, GIF, MP4, MOV, WEBM形式のファイルを選択してください");
-        return;
-      }
-      const isVideo = file.type.startsWith("video/");
-      const maxSize = isVideo
-        ? MAX_SIZE_VIDEO
-        : file.type === "image/gif"
-          ? MAX_SIZE_GIF
-          : MAX_SIZE_STATIC;
-      if (file.size > maxSize) {
-        showError(
-          isVideo
-            ? "50MB以下の動画を選択してください"
-            : file.type === "image/gif"
-              ? "30MB以下のGIFを選択してください"
-              : "10MB以下の画像を選択してください"
-        );
-        return;
-      }
-
       setError(null);
-      if (previewUrl) URL.revokeObjectURL(previewUrl);
-      // Videos render via VideoTrimmer below — UploadPanel only shows a label.
-      const url = isVideo ? null : URL.createObjectURL(file);
-      setPreviewUrl(url);
-      setPreviewIsVideo(isVideo);
-      onImageSelected(file);
+      onFileAccepted(file, r.kind);
     },
-    [onImageSelected, previewUrl, showError]
+    [onFileAccepted],
   );
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent) => {
-      e.preventDefault();
-      setIsDragging(false);
-      const file = e.dataTransfer.files[0];
-      if (file) handleFile(file);
-    },
-    [handleFile]
-  );
+  const handleSample = async () => {
+    setSampleBusy(true);
+    try {
+      const f = await createSampleFile();
+      setError(null);
+      onSampleSelected(f);
+    } catch {
+      setError("サンプル画像を用意できませんでした。もう一度お試しください。");
+    } finally {
+      setSampleBusy(false);
+    }
+  };
 
-  const handleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (file) handleFile(file);
-    },
-    [handleFile]
-  );
+  const limits = (["image", "gif", "video"] as UploadKind[]).map((k) => UPLOAD_LABELS[k]);
 
   return (
-    <div
-      className={`relative border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-        isDragging
-          ? "border-purple-400 bg-purple-400/10"
-          : hasImage
-          ? "border-gray-600 bg-gray-800/50"
-          : "border-gray-600 hover:border-gray-400 bg-gray-800/30"
-      }`}
-      onDragOver={(e) => {
-        e.preventDefault();
-        setIsDragging(true);
-      }}
-      onDragLeave={() => setIsDragging(false)}
-      onDrop={handleDrop}
-      onClick={() => inputRef.current?.click()}
-    >
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*,video/mp4,video/quicktime,video/webm"
-        className="hidden"
-        onChange={handleChange}
-      />
+    <section aria-labelledby="upload-title" className="max-w-[980px] mx-auto text-center">
+      <p className="text-[10px] tracking-[.15em] font-semibold text-studio-accent mb-2">01 / START WITH AN IMAGE</p>
+      <h1 id="upload-title" className="text-[26px] md:text-[35px] font-bold leading-tight">
+        {hasImage ? "別の画像に変える。" : "まずは、主役を選ぼう。"}
+      </h1>
+      <p className="text-[12px] md:text-[13px] text-studio-muted mt-3 mb-6 md:mb-8">
+        {hasImage ? "新しい画像を読み込むまで、今の画像と設定はそのまま残ります。" : "写真もイラストも。背景はあとから整えられます。"}
+      </p>
 
-      {/* Error toast */}
+      <div className="grid grid-cols-1 md:grid-cols-[1.4fr_1fr] gap-4 md:gap-6 text-left">
+        {/* Drop zone = the primary action */}
+        <div
+          className={`relative flex flex-col items-center justify-center gap-3 min-h-[250px] md:min-h-[315px] p-6 md:p-10 rounded-studio border-[1.5px] border-dashed transition-colors ${
+            dragging ? "border-studio-accent bg-[#31283d]" : "border-[#7c668c] bg-[#201c29]"
+          }`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragging(true);
+          }}
+          onDragLeave={() => setDragging(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragging(false);
+            handleFile(e.dataTransfer.files[0]);
+          }}
+        >
+          <input
+            ref={inputRef}
+            type="file"
+            accept={UPLOAD_ACCEPT_ATTR}
+            className="sr-only"
+            aria-describedby={error ? errorId : undefined}
+            onChange={(e) => {
+              handleFile(e.target.files?.[0]);
+              e.target.value = ""; // allow re-selecting the same file
+            }}
+          />
+          <div className="flex items-center gap-5 text-studio-muted" aria-hidden>
+            <ImageIcon className="w-7 h-7" strokeWidth={1.5} />
+            <Film className="w-7 h-7" strokeWidth={1.5} />
+            <Video className="w-7 h-7" strokeWidth={1.5} />
+          </div>
+          <button type="button" onClick={() => inputRef.current?.click()} className={`${primaryBtn} min-w-[200px]`}>
+            {hasImage ? "画像を選び直す" : "画像を選ぶ"}
+          </button>
+          <p className="text-[12px] text-[#bcb4c9] hidden md:block">または、ここにドラッグ＆ドロップ</p>
+          <p className="text-[10px] md:text-[11px] text-studio-muted text-center leading-relaxed">
+            {limits.map((l, i) => (
+              <span key={l.formats} className="inline-block whitespace-nowrap">
+                {i > 0 && <span className="mx-1.5" aria-hidden>·</span>}
+                {l.formats} {l.limit}まで
+              </span>
+            ))}
+          </p>
+          <p className="text-[11px] text-[#bcb4c9]">GIF・動画を選ぶと、その動きをそのまま使えます。</p>
+        </div>
+
+        {/* Sample */}
+        <div className="bg-[#1e1d24] border border-[#37333e] rounded-studio p-5 md:p-6 grid grid-cols-[80px_1fr] md:grid-cols-1 gap-x-4 gap-y-1 items-center md:text-center">
+          <div className="row-span-3 md:row-span-1 w-20 h-20 md:w-[130px] md:h-[130px] md:mx-auto md:mb-2 rounded-2xl checkerboard grid place-items-center">
+            <SampleThumb />
+          </div>
+          <h2 className="text-[12px] md:text-[14px] font-bold">画像がなくても大丈夫。</h2>
+          <p className="text-[10px] md:text-[11px] text-studio-muted md:mb-4">サンプルで操作を試せます。</p>
+          <button type="button" onClick={handleSample} disabled={sampleBusy} className={`${secondaryBtn} md:mx-auto min-h-[38px] md:min-h-[46px] text-[11px] md:text-[13px]`}>
+            サンプルで試す →
+          </button>
+        </div>
+      </div>
+
       {error && (
-        <div className="absolute top-2 left-2 right-2 z-10 bg-red-900/90 text-red-200 text-xs px-3 py-2 rounded-md border border-red-700 flex items-center gap-2 animate-fade-in">
-          <svg className="w-4 h-4 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-          </svg>
-          {error}
+        <div
+          id={errorId}
+          role="alert"
+          className="mt-4 mx-auto max-w-[640px] flex items-start gap-3 text-left text-[12px] leading-relaxed text-studio-danger bg-[#3a2326] border border-[#6b3a3f] rounded-[10px] px-4 py-3"
+        >
+          <span aria-hidden className="text-[16px] leading-none mt-0.5">!</span>
+          <span className="flex-1">{error}</span>
+          <button type="button" onClick={() => setError(null)} className="min-h-[32px] px-2 text-studio-text/80 hover:text-studio-text" aria-label="エラーを閉じる">
+            ×
+          </button>
         </div>
       )}
 
-      {previewUrl || previewIsVideo ? (
-        <div className="space-y-3">
-          {previewIsVideo ? (
-            <div className="mx-auto max-h-40 flex flex-col items-center justify-center gap-2 py-4">
-              <svg className="w-12 h-12 text-purple-400" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
-              <span className="text-sm text-purple-300">動画を選択中（下でトリミング）</span>
-            </div>
-          ) : (
-            <img
-              src={previewUrl!}
-              alt="アップロード画像"
-              className="mx-auto max-h-40 object-contain rounded"
-            />
-          )}
-          <p className="text-sm text-gray-400 hidden md:block">
-            クリックまたはD&Dで{previewIsVideo ? "動画" : "画像"}を変更
-          </p>
-          <p className="text-sm text-gray-400 md:hidden">
-            タップして{previewIsVideo ? "動画" : "画像"}を変更
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3 py-4">
-          {/* Input-type strip: signals at a glance that all three input kinds
-              are accepted. Replaces the generic upload arrow icon. */}
-          <div className="flex items-center justify-center gap-6 text-gray-500">
-            <div className="flex flex-col items-center gap-1">
-              <ImageIcon className="w-7 h-7" strokeWidth={1.5} />
-              <span className="text-[10px] uppercase tracking-wide">画像</span>
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <Film className="w-7 h-7" strokeWidth={1.5} />
-              <span className="text-[10px] uppercase tracking-wide">GIF</span>
-            </div>
-            <div className="flex flex-col items-center gap-1">
-              <Video className="w-7 h-7" strokeWidth={1.5} />
-              <span className="text-[10px] uppercase tracking-wide">動画</span>
-            </div>
-          </div>
-          <div>
-            <p className="text-gray-300 hidden md:block">画像・GIF・動画をドラッグ&ドロップ</p>
-            <p className="text-gray-300 md:hidden">タップして画像・GIF・動画を選択</p>
-            <p className="text-sm text-gray-500 mt-1">
-              画像（PNG / JPG / WEBP）/ GIF / 動画（MP4 / MOV / WEBM）
-            </p>
-          </div>
-        </div>
-      )}
-    </div>
+      {children && <div className="mt-6 max-w-[640px] mx-auto text-left">{children}</div>}
+    </section>
+  );
+}
+
+function SampleThumb() {
+  // Static SVG of the same subject as the sample file (no canvas needed here).
+  return (
+    <svg viewBox="0 0 100 100" className="w-[72%] h-[72%]" aria-hidden>
+      <circle cx="50" cy="50" r="38" fill="#9147ff" />
+      <polygon points="50,31 55.6,44.5 70,45.5 59,54.8 62.3,69 50,61.5 37.7,69 41,54.8 30,45.5 44.4,44.5" fill="#fff" />
+    </svg>
   );
 }
