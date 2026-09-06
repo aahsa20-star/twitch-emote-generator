@@ -8,9 +8,8 @@ import type { AdjustState } from "./ImageAdjustEditor";
 import BrushEditor from "./BrushEditor";
 import SettingsPanel, { type EditorTool } from "./SettingsPanel";
 import PreviewArea from "./PreviewArea";
-import DownloadButton from "./DownloadButton";
+import ExportPanel from "./ExportPanel";
 import MobileDock from "./MobileDock";
-import ShareButton from "./ShareButton";
 import StepNav from "./StepNav";
 import VideoFaceExtractor from "./VideoFaceExtractor";
 import type { DecodedVideo } from "@/lib/video/decoder";
@@ -24,11 +23,9 @@ import { requestDownloadPermission } from "@/lib/download/client";
 import FeatureLockHint, { canShowFeatureLockHint } from "./FeatureLockHint";
 import { EmoteConfig, ExportMode, BgRemovalQuality } from "@/types/emote";
 import { ANIMATION_LIST } from "@/lib/animations/catalog";
-import { PLATFORM_LABELS } from "@/lib/ui/export-plan";
 import { canEnterStep, type SourceKind, type StudioStep, stepAfterSelect } from "@/lib/ui/steps";
 import type { UploadKind } from "@/lib/upload/accept";
 import { primaryBtn, secondaryBtn, textBtn } from "@/components/ui/classes";
-import { PLATFORMS } from "@/lib/download/profiles";
 
 function SpinnerIcon() {
   return (
@@ -65,7 +62,6 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
     stage,
     progress,
     variants,
-    handleExport,
     setSkipBgRemoval,
     bgRemovalQuality,
     setBgRemovalQuality,
@@ -487,30 +483,21 @@ export default function EmoteGenerator({ registerBrandHandler }: { registerBrand
           <MobileDock previewSrc={largestVariant?.staticDataUrl ?? null} onPreview={scrollToPreview} onExport={() => goToStep(4)} />
         )}
 
-        {/* ---------- 4. 保存する (U2 placeholder: existing save controls; replaced in U3) ---------- */}
+        {/* ---------- 4. 保存する ---------- */}
         <div hidden={step !== 4}>
-          <div className="flex items-start justify-between gap-3 mb-4">
-            <div>
-              <p className="text-[10px] tracking-[.15em] font-semibold text-studio-accent mb-1">04 / READY TO REACT</p>
-              <h1 className="text-[23px] md:text-[27px] font-bold leading-tight">あとは、保存するだけ。</h1>
-            </div>
-            <button type="button" onClick={() => goToStep(3)} className={`${secondaryBtn} min-h-[40px] text-[12px]`}>← 編集に戻る</button>
-          </div>
-          <div className="max-w-[640px] mx-auto bg-studio-surface border border-studio-stroke rounded-studio p-4 md:p-6 space-y-4">
-            <div className="flex w-full bg-studio-raised rounded-lg p-0.5" role="group" aria-label="どこで使いますか">
-              {PLATFORMS.map((mode) => (
-                <button key={mode} type="button" onClick={() => setExportMode(mode)} aria-pressed={exportMode === mode} className={`flex-1 py-2 px-1 rounded-md text-xs font-medium transition-colors ${exportMode === mode ? "bg-studio-accent text-studio-accent-ink" : "text-studio-muted hover:text-studio-text"}`}>
-                  {PLATFORM_LABELS[mode]}
-                </button>
-              ))}
-            </div>
-            {sourceFile && (
-              <>
-                <DownloadButton stage={stage} onExport={handleExport} variants={variants} exportMode={exportMode} badgeSettings={config.badge} bgRemovedCanvas={bgRemovedCanvas} onBeforeDownload={onBeforeDownload} />
-                <ShareButton imageDataUrl={largestVariant?.staticDataUrl ?? null} />
-              </>
-            )}
-          </div>
+          <ExportPanel
+            variants={variants}
+            stage={stage}
+            exportMode={exportMode}
+            onExportModeChange={setExportMode}
+            selectionLabel={selectionLabel}
+            animationType={config.animation.type}
+            isAnimatedSource={isGifSource || isVideoSource}
+            badgeSettings={config.badge}
+            bgRemovedCanvas={bgRemovedCanvas}
+            onBeforeDownload={onBeforeDownload}
+            onBack={() => goToStep(3)}
+          />
         </div>
       </div>
 
